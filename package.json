@@ -1,0 +1,38 @@
+{
+  "name": "plataforma-candidato",
+  "version": "1.0.0",
+  "private": true,
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "scripts": {
+    "setup": "node scripts/setup-env.js",
+    "dev": "pnpm run build:packages && pnpm --parallel --filter @platform/api --filter @platform/web dev",
+    "build:packages": "pnpm run --filter @platform/types build && pnpm run --filter @platform/utils build && pnpm run --filter @platform/ui build",
+    "build": "pnpm run --filter @platform/types build && pnpm run --filter @platform/utils build && pnpm run --filter @platform/ui build && pnpm run --filter @platform/api build && pnpm run --filter @platform/web build",
+    "lint": "pnpm run --parallel lint",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "db:setup": "pnpm db:generate && pnpm db:migrate:deploy && pnpm db:seed",
+    "db:up": "docker compose up -d postgres"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.14.0",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
