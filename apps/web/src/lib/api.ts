@@ -1,9 +1,22 @@
 import type {
   AdminDashboard,
   AuthResponse,
+  CreateEventRequest,
+  CreateLiveRequest,
+  CreatePostRequest,
+  EventPublic,
   LeaderDashboard,
+  LeaderSupportersQuery,
+  LivePublic,
   LoginRequest,
+  NotificationPublic,
+  PaginatedResponse,
+  PostCategory,
+  PostPublic,
   RegisterRequest,
+  UpdateEventRequest,
+  UpdateLiveRequest,
+  UpdatePostRequest,
   UserPublic,
 } from '@platform/types';
 
@@ -15,10 +28,7 @@ class ApiClient {
     return localStorage.getItem('token');
   }
 
-  private async request<T>(
-    path: string,
-    options: RequestInit = {},
-  ): Promise<T> {
+  private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const token = this.getToken();
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -33,6 +43,10 @@ class ApiClient {
       ...options,
       headers,
     });
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
 
     const data = await response.json().catch(() => ({}));
 
@@ -49,39 +63,143 @@ class ApiClient {
     return data as T;
   }
 
+  private qs(params: Record<string, string | number | undefined>): string {
+    const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== '');
+    if (entries.length === 0) return '';
+    return `?${new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString()}`;
+  }
+
+  // Auth
   login(body: LoginRequest) {
-    return this.request<AuthResponse>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+    return this.request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify(body) });
   }
 
   register(body: RegisterRequest) {
-    return this.request<AuthResponse>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+    return this.request<AuthResponse>('/auth/register', { method: 'POST', body: JSON.stringify(body) });
   }
 
   me() {
     return this.request<UserPublic>('/auth/me');
   }
 
+  // Admin
   getAdminDashboard() {
     return this.request<AdminDashboard>('/admin/dashboard');
   }
 
+  getAdminPosts() {
+    return this.request<PostPublic[]>('/admin/posts');
+  }
+
+  getAdminEvents() {
+    return this.request<EventPublic[]>('/admin/events');
+  }
+
+  getAdminLives() {
+    return this.request<LivePublic[]>('/admin/lives');
+  }
+
+  // Leader
   getLeaderDashboard() {
     return this.request<LeaderDashboard>('/leader/dashboard');
   }
 
+  getLeaderSupporters(query: LeaderSupportersQuery = {}) {
+    return this.request<PaginatedResponse<UserPublic>>(
+      `/leader/supporters${this.qs({
+        page: query.page,
+        limit: query.limit,
+        search: query.search,
+        city: query.city,
+        state: query.state,
+      })}`,
+    );
+  }
+
   getLeaderBySlug(slug: string) {
-    return this.request<{
-      id: string;
-      firstName: string;
-      lastName: string;
-      leaderSlug: string;
-    }>(`/leader/${slug}`);
+    return this.request<{ id: string; firstName: string; lastName: string; leaderSlug: string }>(
+      `/leader/${slug}`,
+    );
+  }
+
+  // Posts
+  getPosts(params: { page?: number; limit?: number; category?: PostCategory } = {}) {
+    return this.request<PaginatedResponse<PostPublic>>(
+      `/posts${this.qs({ page: params.page, limit: params.limit, category: params.category })}`,
+    );
+  }
+
+  getPost(id: string) {
+    return this.request<PostPublic>(`/posts/${id}`);
+  }
+
+  createPost(body: CreatePostRequest) {
+    return this.request<PostPublic>('/posts', { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  updatePost(id: string, body: UpdatePostRequest) {
+    return this.request<PostPublic>(`/posts/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+  }
+
+  deletePost(id: string) {
+    return this.request<void>(`/posts/${id}`, { method: 'DELETE' });
+  }
+
+  // Events
+  getEvents(params: { page?: number; limit?: number } = {}) {
+    return this.request<PaginatedResponse<EventPublic>>(
+      `/events${this.qs({ page: params.page, limit: params.limit })}`,
+    );
+  }
+
+  createEvent(body: CreateEventRequest) {
+    return this.request<EventPublic>('/events', { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  updateEvent(id: string, body: UpdateEventRequest) {
+    return this.request<EventPublic>(`/events/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+  }
+
+  deleteEvent(id: string) {
+    return this.request<void>(`/events/${id}`, { method: 'DELETE' });
+  }
+
+  // Lives
+  getLives(params: { page?: number; limit?: number } = {}) {
+    return this.request<PaginatedResponse<LivePublic>>(
+      `/lives${this.qs({ page: params.page, limit: params.limit })}`,
+    );
+  }
+
+  createLive(body: CreateLiveRequest) {
+    return this.request<LivePublic>('/lives', { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  updateLive(id: string, body: UpdateLiveRequest) {
+    return this.request<LivePublic>(`/lives/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+  }
+
+  deleteLive(id: string) {
+    return this.request<void>(`/lives/${id}`, { method: 'DELETE' });
+  }
+
+  // Notifications
+  getNotifications(params: { page?: number; limit?: number; unreadOnly?: boolean } = {}) {
+    return this.request<PaginatedResponse<NotificationPublic> & { unreadCount: number }>(
+      `/notifications${this.qs({
+        page: params.page,
+        limit: params.limit,
+        unreadOnly: params.unreadOnly ? 'true' : undefined,
+      })}`,
+    );
+  }
+
+  markNotificationRead(id: string) {
+    return this.request<NotificationPublic>(`/notifications/${id}/read`, { method: 'PATCH' });
+  }
+
+  markAllNotificationsRead() {
+    return this.request<{ success: boolean }>('/notifications/read-all', { method: 'PATCH' });
   }
 }
 

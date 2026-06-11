@@ -4,9 +4,14 @@ import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import { registerAuth } from './plugins/auth';
 import { registerErrorHandler } from './plugins/error-handler';
+import { registerRateLimit } from './plugins/rate-limit';
 import { authRoutes } from './routes/auth';
 import { adminRoutes } from './routes/admin';
 import { leaderRoutes } from './routes/leader';
+import { postRoutes } from './routes/posts';
+import { eventRoutes } from './routes/events';
+import { liveRoutes } from './routes/lives';
+import { notificationRoutes } from './routes/notifications';
 import { prisma } from './lib/prisma';
 
 const PORT = Number(process.env.API_PORT) || 3333;
@@ -23,6 +28,8 @@ async function bootstrap() {
   const fastify = Fastify({
     logger: true,
   });
+
+  await registerRateLimit(fastify);
 
   await fastify.register(cors, {
     origin: [FRONTEND_URL, 'http://localhost:3000'],
@@ -56,6 +63,10 @@ async function bootstrap() {
   await fastify.register(authRoutes, { prefix: '/auth' });
   await fastify.register(adminRoutes, { prefix: '/admin' });
   await fastify.register(leaderRoutes, { prefix: '/leader' });
+  await fastify.register(postRoutes, { prefix: '/posts' });
+  await fastify.register(eventRoutes, { prefix: '/events' });
+  await fastify.register(liveRoutes, { prefix: '/lives' });
+  await fastify.register(notificationRoutes, { prefix: '/notifications' });
 
   try {
     await fastify.listen({ port: PORT, host: HOST });

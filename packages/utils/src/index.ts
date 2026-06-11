@@ -4,3 +4,4 @@ export * from './email';
 export * from './slug';
 export * from './sanitize';
 export * from './validation';
+export * from './content';

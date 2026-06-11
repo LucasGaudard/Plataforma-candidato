@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Header } from '@/components/layout/header';
+import { PostsFeed } from '@/components/content/posts-feed';
 import { Button } from '@platform/ui';
 
 export default function HomePage() {
@@ -32,6 +33,12 @@ export default function HomePage() {
               </Button>
             </Link>
           </div>
+        </div>
+      </section>
+
+      <section className="px-4 py-20 sm:px-6 lg:px-8 bg-white">
+        <div className="mx-auto max-w-6xl">
+          <PostsFeed limit={6} title="Últimas novidades da campanha" />
         </div>
       </section>
 

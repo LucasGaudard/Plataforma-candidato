@@ -11,8 +11,14 @@ import {
 import { prisma } from '../lib/prisma';
 import { toUserPublic } from '../lib/user-mapper';
 
+const authRateLimit = {
+  config: {
+    rateLimit: { max: 10, timeWindow: '1 minute' },
+  },
+};
+
 export async function authRoutes(fastify: FastifyInstance) {
-  fastify.post<{ Body: LoginRequest }>('/login', async (request, reply) => {
+  fastify.post<{ Body: LoginRequest }>('/login', authRateLimit, async (request, reply) => {
     const { email, password } = request.body || {};
 
     if (!email?.trim() || !password) {
@@ -46,7 +52,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     return reply.send(response);
   });
 
-  fastify.post<{ Body: RegisterRequest }>('/register', async (request, reply) => {
+  fastify.post<{ Body: RegisterRequest }>('/register', authRateLimit, async (request, reply) => {
     const body = request.body || ({} as RegisterRequest);
     const sanitized: RegisterRequest = {
       ...body,
