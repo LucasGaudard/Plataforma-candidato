@@ -1,7 +1,11 @@
 import type {
   AdminDashboard,
   AuthResponse,
+  CoordinatorDashboard,
+  CoordinatorLeaderItem,
+  CoordinatorLeadersQuery,
   CreateEventRequest,
+  CreateLeaderRequest,
   CreateLiveRequest,
   CreatePostRequest,
   EventPublic,
@@ -15,6 +19,7 @@ import type {
   PostPublic,
   RegisterRequest,
   UpdateEventRequest,
+  UpdateLeaderRequest,
   UpdateLiveRequest,
   UpdatePostRequest,
   UserPublic,
@@ -200,6 +205,41 @@ class ApiClient {
 
   markAllNotificationsRead() {
     return this.request<{ success: boolean }>('/notifications/read-all', { method: 'PATCH' });
+  }
+
+  // Coordinator
+  getCoordinatorDashboard() {
+    return this.request<CoordinatorDashboard>('/coordinator/dashboard');
+  }
+
+  getCoordinatorLeaders(query: CoordinatorLeadersQuery = {}) {
+    return this.request<PaginatedResponse<CoordinatorLeaderItem>>(
+      `/coordinator/leaders${this.qs({
+        page: query.page,
+        limit: query.limit,
+        search: query.search,
+      })}`,
+    );
+  }
+
+  createCoordinatorLeader(body: CreateLeaderRequest) {
+    return this.request<CoordinatorLeaderItem>('/coordinator/leaders', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  updateCoordinatorLeader(id: string, body: UpdateLeaderRequest) {
+    return this.request<CoordinatorLeaderItem>(`/coordinator/leaders/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  }
+
+  deactivateCoordinatorLeader(id: string) {
+    return this.request<{ success: boolean }>(`/coordinator/leaders/${id}/deactivate`, {
+      method: 'PATCH',
+    });
   }
 }
 

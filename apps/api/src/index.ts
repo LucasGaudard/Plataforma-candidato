@@ -8,6 +8,7 @@ import { registerRateLimit } from './plugins/rate-limit';
 import { authRoutes } from './routes/auth';
 import { adminRoutes } from './routes/admin';
 import { leaderRoutes } from './routes/leader';
+import { coordinatorRoutes } from './routes/coordinator';
 import { postRoutes } from './routes/posts';
 import { eventRoutes } from './routes/events';
 import { liveRoutes } from './routes/lives';
@@ -63,6 +64,7 @@ async function bootstrap() {
   await fastify.register(authRoutes, { prefix: '/auth' });
   await fastify.register(adminRoutes, { prefix: '/admin' });
   await fastify.register(leaderRoutes, { prefix: '/leader' });
+  await fastify.register(coordinatorRoutes, { prefix: '/coordinator' });
   await fastify.register(postRoutes, { prefix: '/posts' });
   await fastify.register(eventRoutes, { prefix: '/events' });
   await fastify.register(liveRoutes, { prefix: '/lives' });

@@ -214,3 +214,49 @@ export interface ApiError {
   message: string;
   errors?: Record<string, string>;
 }
+
+export interface CoordinatorLeaderItem {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  city: string;
+  state: string;
+  leaderSlug: string | null;
+  supporterCount: number;
+  createdAt: string;
+}
+
+export interface CoordinatorDashboard {
+  totalLeaders: number;
+  totalSupporters: number;
+  averageSupportersPerLeader: number;
+}
+
+export interface CreateLeaderRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  cpf: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+}
+
+export interface UpdateLeaderRequest {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+}
+
+export interface CoordinatorLeadersQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
