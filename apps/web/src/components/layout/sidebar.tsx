@@ -6,7 +6,14 @@ import { Role } from '@platform/types';
 import { useAuth } from '@/contexts/auth-context';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 
-const navItems = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: string;
+  roles: Role[];
+}
+
+const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: '📊', roles: [Role.ADMIN, Role.LEADER, Role.USER] },
   { href: '/dashboard/eventos', label: 'Eventos', icon: '📅', roles: [Role.ADMIN, Role.LEADER, Role.USER] },
   { href: '/dashboard/lives', label: 'Lives', icon: '📺', roles: [Role.ADMIN, Role.LEADER, Role.USER] },

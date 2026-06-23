@@ -1,3 +1,4 @@
+import { Role as PrismaRole } from '@prisma/client';
 import type { NotificationType } from '@platform/types';
 import { Role } from '@platform/types';
 import { prisma } from './prisma';
@@ -15,10 +16,14 @@ export async function notifyAllUsers({
   message,
   type,
   link,
-  roles = [Role.ADMIN, Role.LEADER, Role.USER],
+  roles = [Role.ADMIN, Role.COORDINATOR, Role.LEADER, Role.USER],
 }: NotifyAllParams) {
+  const dbRoles = roles.filter((role): role is PrismaRole =>
+    Object.values(PrismaRole).includes(role as any)
+  );
+
   const users = await prisma.user.findMany({
-    where: { role: { in: roles } },
+    where: { role: { in: dbRoles } },
     select: { id: true },
   });
 
