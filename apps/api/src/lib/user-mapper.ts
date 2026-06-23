@@ -15,6 +15,7 @@ export function toUserPublic(user: User): UserPublic {
     role: user.role as Role,
     leaderSlug: user.leaderSlug,
     leaderId: user.leaderId,
+    coordinatorId: user.coordinatorId,
     createdAt: user.createdAt.toISOString(),
   };
 }

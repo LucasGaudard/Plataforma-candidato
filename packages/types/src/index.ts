@@ -53,6 +53,7 @@ export interface UserPublic {
   role: Role;
   leaderSlug: string | null;
   leaderId: string | null;
+  coordinatorId: string | null;
   createdAt: string;
 }
 

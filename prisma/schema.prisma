@@ -9,6 +9,7 @@ datasource db {
 
 enum Role {
   ADMIN
+  COORDINATOR
   LEADER
   USER
 }
@@ -46,6 +47,9 @@ model User {
   leaderId      String?
   leader        User?          @relation("LeaderSupporters", fields: [leaderId], references: [id], onDelete: SetNull)
   supporters    User[]         @relation("LeaderSupporters")
+  coordinatorId String?
+  coordinator   User?          @relation("CoordinatorLeaders", fields: [coordinatorId], references: [id], onDelete: SetNull)
+  leaders       User[]         @relation("CoordinatorLeaders")
   posts         Post[]
   events        Event[]
   lives         Live[]
@@ -54,6 +58,7 @@ model User {
   updatedAt     DateTime       @updatedAt
 
   @@index([leaderId])
+  @@index([coordinatorId])
   @@index([role])
   @@index([leaderSlug])
   @@index([createdAt])
