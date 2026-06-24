@@ -1,6 +1,7 @@
 import type {
   AdminDashboard,
   AuthResponse,
+  CommunicationFilters,
   CoordinatorDashboard,
   CoordinatorLeaderItem,
   CoordinatorLeadersQuery,
@@ -19,6 +20,7 @@ import type {
   PostCategory,
   PostPublic,
   RegisterRequest,
+  RecipientCountResponse,
   SupporterListItem,
   SupporterStatus,
   SupportersQuery,
@@ -121,6 +123,12 @@ class ApiClient {
     });
   }
 
+  getAdminRecipientCount(filters: CommunicationFilters) {
+    return this.request<RecipientCountResponse>(
+      `/admin/communication/recipients/count${this.qs(filters as Record<string, string | number | undefined>)}`
+    );
+  }
+
   // Leader
   getLeaderDashboard() {
     return this.request<LeaderDashboard>('/leader/dashboard');
@@ -137,6 +145,12 @@ class ApiClient {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
+  }
+
+  getLeaderRecipientCount(filters: CommunicationFilters) {
+    return this.request<RecipientCountResponse>(
+      `/leader/communication/recipients/count${this.qs(filters as Record<string, string | number | undefined>)}`
+    );
   }
 
   getLeaderBySlug(slug: string) {
@@ -278,6 +292,12 @@ class ApiClient {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
+  }
+
+  getCoordinatorRecipientCount(filters: CommunicationFilters) {
+    return this.request<RecipientCountResponse>(
+      `/coordinator/communication/recipients/count${this.qs(filters as Record<string, string | number | undefined>)}`
+    );
   }
 }
 

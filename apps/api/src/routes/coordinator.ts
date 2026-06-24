@@ -401,4 +401,34 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
       return reply.send({ success: true, status });
     },
   );
+
+  fastify.get<{
+    Querystring: {
+      verifiedOnly?: string;
+      leaderId?: string;
+      city?: string;
+      state?: string;
+    };
+  }>(
+    '/communication/recipients/count',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.COORDINATOR)] },
+    async (request, reply) => {
+      const coordinatorId = request.user.sub;
+      const { verifiedOnly, leaderId, city, state } = request.query;
+
+      const count = await prisma.user.count({
+        where: {
+          role: Role.USER,
+          ...(verifiedOnly === 'true' ? { status: SupporterStatus.VERIFIED } : {}),
+          ...(leaderId
+            ? { leaderId, leader: { coordinatorId } } // Ensure leader belongs to coordinator
+            : { leader: { coordinatorId } }),
+          ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
+          ...(state ? { state: state.toUpperCase() } : {}),
+        },
+      });
+
+      return reply.send({ count });
+    },
+  );
 }

@@ -238,4 +238,31 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       return reply.send({ success: true, status });
     },
   );
+
+  fastify.get<{
+    Querystring: {
+      verifiedOnly?: string;
+      city?: string;
+      state?: string;
+    };
+  }>(
+    '/communication/recipients/count',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.LEADER)] },
+    async (request, reply) => {
+      const leaderId = request.user.sub;
+      const { verifiedOnly, city, state } = request.query;
+
+      const count = await prisma.user.count({
+        where: {
+          role: Role.USER,
+          leaderId,
+          ...(verifiedOnly === 'true' ? { status: SupporterStatus.VERIFIED } : {}),
+          ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
+          ...(state ? { state: state.toUpperCase() } : {}),
+        },
+      });
+
+      return reply.send({ count });
+    },
+  );
 }

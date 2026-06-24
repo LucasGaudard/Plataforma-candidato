@@ -296,6 +296,18 @@ export interface SupportersQuery {
   coordinatorId?: string;
 }
 
+export interface CommunicationFilters {
+  verifiedOnly?: boolean;
+  coordinatorId?: string;
+  leaderId?: string;
+  city?: string;
+  state?: string;
+}
+
+export interface RecipientCountResponse {
+  count: number;
+}
+
 export interface SupporterListItem {
   id: string;
   firstName: string;
