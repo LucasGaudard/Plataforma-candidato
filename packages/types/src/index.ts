@@ -268,3 +268,25 @@ export interface CreateSupporterRequest {
   city: string;
   state: string;
 }
+
+export interface SupportersQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  city?: string;
+  state?: string;
+  leaderId?: string;
+  coordinatorId?: string;
+}
+
+export interface SupporterListItem {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  city: string;
+  state: string;
+  createdAt: string;
+  leaderName?: string;
+  coordinatorName?: string;
+}

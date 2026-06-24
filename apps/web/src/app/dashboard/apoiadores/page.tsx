@@ -1,0 +1,247 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
+import { Role } from '@platform/types';
+import type { SupporterListItem, SupportersQuery } from '@platform/types';
+import { BRAZILIAN_STATES } from '@platform/utils';
+import { formatPhone } from '@platform/utils';
+import {
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  Pagination,
+  Select,
+  TableRowSkeleton,
+} from '@platform/ui';
+import { api } from '@/lib/api';
+import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { ProtectedRoute } from '@/components/auth/protected-route';
+import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/contexts/toast-context';
+
+const ALLOWED_ROLES: Role[] = [Role.ADMIN, Role.COORDINATOR, Role.LEADER];
+
+const LIMIT = 20;
+
+function SupportersContent() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [supporters, setSupporters] = useState<SupporterListItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  // Filtros
+  const [search, setSearch] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+
+  // Filtros pendentes (aplicados apenas ao submeter)
+  const [pendingSearch, setPendingSearch] = useState('');
+  const [pendingCity, setPendingCity] = useState('');
+  const [pendingState, setPendingState] = useState('');
+
+  const isAdmin = user?.role === Role.ADMIN;
+  const isCoordinator = user?.role === Role.COORDINATOR;
+
+  const loadSupporters = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const query: SupportersQuery = {
+        page,
+        limit: LIMIT,
+        search: search || undefined,
+        city: city || undefined,
+        state: state || undefined,
+      };
+
+      let result;
+      if (isAdmin) {
+        result = await api.getAdminSupporters(query);
+      } else if (isCoordinator) {
+        result = await api.getCoordinatorSupporters(query);
+      } else {
+        result = await api.getLeaderSupporters(query);
+      }
+
+      setSupporters(result.data);
+      setTotal(result.meta.total);
+      setTotalPages(result.meta.totalPages);
+    } catch (err) {
+      toast((err as Error).message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [user, page, search, city, state, isAdmin, isCoordinator, toast]);
+
+  useEffect(() => {
+    loadSupporters();
+  }, [loadSupporters]);
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    setSearch(pendingSearch);
+    setCity(pendingCity);
+    setState(pendingState);
+    setPage(1);
+  }
+
+  function handleClear() {
+    setPendingSearch('');
+    setPendingCity('');
+    setPendingState('');
+    setSearch('');
+    setCity('');
+    setState('');
+    setPage(1);
+  }
+
+  const subtitle =
+    isAdmin
+      ? 'Todos os apoiadores da campanha'
+      : isCoordinator
+        ? 'Apoiadores vinculados aos seus líderes'
+        : 'Seus apoiadores cadastrados';
+
+  // Colunas dinâmicas conforme role
+  const showLeaderCol = isAdmin || isCoordinator;
+  const showCoordinatorCol = isAdmin;
+  const colCount = 4 + (showLeaderCol ? 1 : 0) + (showCoordinatorCol ? 1 : 0);
+
+  return (
+    <DashboardLayout title="Apoiadores" subtitle={subtitle}>
+      <Card>
+        {/* Filtros */}
+        <form onSubmit={handleSearch} className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Input
+            id="apoiadores-search"
+            placeholder="Buscar nome ou WhatsApp"
+            value={pendingSearch}
+            onChange={(e) => setPendingSearch(e.target.value)}
+          />
+          <Input
+            id="apoiadores-city"
+            placeholder="Cidade"
+            value={pendingCity}
+            onChange={(e) => setPendingCity(e.target.value)}
+          />
+          <Select
+            id="apoiadores-state"
+            options={BRAZILIAN_STATES.map((s) => ({ value: s, label: s }))}
+            value={pendingState}
+            onChange={(e) => setPendingState(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <Button type="submit" className="flex-1">
+              Filtrar
+            </Button>
+            <Button type="button" variant="outline" onClick={handleClear}>
+              Limpar
+            </Button>
+          </div>
+        </form>
+
+        {/* Contagem */}
+        {!loading && (
+          <p className="mb-3 text-sm text-slate-500">
+            {total === 0
+              ? 'Nenhum apoiador encontrado'
+              : `${total} apoiador${total !== 1 ? 'es' : ''} encontrado${total !== 1 ? 's' : ''}`}
+          </p>
+        )}
+
+        {/* Tabela */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th className="pb-3 font-semibold text-slate-600">Nome</th>
+                <th className="hidden pb-3 font-semibold text-slate-600 sm:table-cell">WhatsApp</th>
+                <th className="hidden pb-3 font-semibold text-slate-600 md:table-cell">Cidade / UF</th>
+                {showLeaderCol && (
+                  <th className="hidden pb-3 font-semibold text-slate-600 lg:table-cell">Líder</th>
+                )}
+                {showCoordinatorCol && (
+                  <th className="hidden pb-3 font-semibold text-slate-600 xl:table-cell">Coordenador</th>
+                )}
+                <th className="pb-3 font-semibold text-slate-600">Cadastro</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading &&
+                Array.from({ length: 8 }).map((_, i) => (
+                  <TableRowSkeleton key={i} cols={colCount} />
+                ))}
+
+              {!loading && supporters.length === 0 && (
+                <tr>
+                  <td colSpan={colCount}>
+                    <EmptyState
+                      icon="🔍"
+                      title="Nenhum apoiador encontrado"
+                      description="Tente ajustar os filtros de busca."
+                    />
+                  </td>
+                </tr>
+              )}
+
+              {!loading &&
+                supporters.map((s) => (
+                  <tr
+                    key={s.id}
+                    className="border-b border-slate-100 transition-colors hover:bg-slate-50"
+                  >
+                    <td className="py-3 font-medium text-slate-900">
+                      {s.firstName} {s.lastName}
+                    </td>
+                    <td className="hidden py-3 text-slate-600 sm:table-cell">
+                      {formatPhone(s.phone)}
+                    </td>
+                    <td className="hidden py-3 text-slate-500 md:table-cell">
+                      {s.city}
+                      {s.state ? ` / ${s.state}` : ''}
+                    </td>
+                    {showLeaderCol && (
+                      <td className="hidden py-3 text-slate-500 lg:table-cell">
+                        {s.leaderName ?? '—'}
+                      </td>
+                    )}
+                    {showCoordinatorCol && (
+                      <td className="hidden py-3 text-slate-500 xl:table-cell">
+                        {s.coordinatorName ?? '—'}
+                      </td>
+                    )}
+                    <td className="py-3 text-slate-400 text-xs">
+                      {new Date(s.createdAt).toLocaleDateString('pt-BR')}
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Paginação */}
+        {totalPages > 1 && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            className="mt-4"
+          />
+        )}
+      </Card>
+    </DashboardLayout>
+  );
+}
+
+export default function ApoiadoresPage() {
+  return (
+    <ProtectedRoute allowedRoles={ALLOWED_ROLES}>
+      <SupportersContent />
+    </ProtectedRoute>
+  );
+}

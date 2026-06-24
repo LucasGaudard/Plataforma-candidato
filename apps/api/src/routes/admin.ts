@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-import type { AdminDashboard } from '@platform/types';
+import type { AdminDashboard, SupporterListItem } from '@platform/types';
 import { Role } from '@platform/types';
+import { parsePagination } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toEventPublic, toLivePublic, toPostPublic } from '../lib/mappers';
 
@@ -143,6 +144,77 @@ export async function adminRoutes(fastify: FastifyInstance) {
         orderBy: { scheduledAt: 'desc' },
       });
       return reply.send(lives.map(toLivePublic));
+    },
+  );
+
+  fastify.get<{
+    Querystring: {
+      page?: string;
+      limit?: string;
+      search?: string;
+      city?: string;
+      state?: string;
+      leaderId?: string;
+      coordinatorId?: string;
+    };
+  }>(
+    '/supporters',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => {
+      const { page, limit, skip } = parsePagination(request.query);
+      const search = request.query.search?.trim();
+      const city = request.query.city?.trim();
+      const state = request.query.state?.trim().toUpperCase();
+      const leaderId = request.query.leaderId;
+      const coordinatorId = request.query.coordinatorId;
+
+      const where = {
+        role: Role.USER,
+        ...(leaderId ? { leaderId } : {}),
+        ...(coordinatorId ? { coordinatorId } : {}),
+        ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
+        ...(state ? { state } : {}),
+        ...(search
+          ? {
+              OR: [
+                { firstName: { contains: search, mode: 'insensitive' as const } },
+                { lastName: { contains: search, mode: 'insensitive' as const } },
+                { phone: { contains: search.replace(/\D/g, '') } },
+              ],
+            }
+          : {}),
+      };
+
+      const [users, total] = await Promise.all([
+        prisma.user.findMany({
+          where,
+          include: {
+            leader: { select: { firstName: true, lastName: true } },
+            coordinator: { select: { firstName: true, lastName: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.user.count({ where }),
+      ]);
+
+      const data: SupporterListItem[] = users.map((u) => ({
+        id: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        phone: u.phone,
+        city: u.city,
+        state: u.state,
+        createdAt: u.createdAt.toISOString(),
+        leaderName: u.leader ? `${u.leader.firstName} ${u.leader.lastName}` : undefined,
+        coordinatorName: u.coordinator ? `${u.coordinator.firstName} ${u.coordinator.lastName}` : undefined,
+      }));
+
+      return reply.send({
+        data,
+        meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
     },
   );
 }

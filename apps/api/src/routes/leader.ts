@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { CreateSupporterRequest, LeaderDashboard } from '@platform/types';
+import type { CreateSupporterRequest, LeaderDashboard, SupporterListItem } from '@platform/types';
 import { Role } from '@platform/types';
 import { normalizeSupporterInput, parsePagination, validateSupporterInput } from '@platform/utils';
 import { prisma } from '../lib/prisma';
@@ -97,8 +97,18 @@ export async function leaderRoutes(fastify: FastifyInstance) {
         prisma.user.count({ where }),
       ]);
 
+      const data: SupporterListItem[] = supporters.map((s) => ({
+        id: s.id,
+        firstName: s.firstName,
+        lastName: s.lastName,
+        phone: s.phone,
+        city: s.city,
+        state: s.state,
+        createdAt: s.createdAt.toISOString(),
+      }));
+
       return reply.send({
-        data: supporters.map(toUserPublic),
+        data,
         meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
       });
     },

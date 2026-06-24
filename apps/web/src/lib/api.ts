@@ -19,6 +19,8 @@ import type {
   PostCategory,
   PostPublic,
   RegisterRequest,
+  SupporterListItem,
+  SupportersQuery,
   UpdateEventRequest,
   UpdateLeaderRequest,
   UpdateLiveRequest,
@@ -105,20 +107,20 @@ class ApiClient {
     return this.request<LivePublic[]>('/admin/lives');
   }
 
+  getAdminSupporters(query: SupportersQuery = {}) {
+    return this.request<PaginatedResponse<SupporterListItem>>(
+      `/admin/supporters${this.qs(query as Record<string, string | number | undefined>)}`,
+    );
+  }
+
   // Leader
   getLeaderDashboard() {
     return this.request<LeaderDashboard>('/leader/dashboard');
   }
 
-  getLeaderSupporters(query: LeaderSupportersQuery = {}) {
-    return this.request<PaginatedResponse<UserPublic>>(
-      `/leader/supporters${this.qs({
-        page: query.page,
-        limit: query.limit,
-        search: query.search,
-        city: query.city,
-        state: query.state,
-      })}`,
+  getLeaderSupporters(query: SupportersQuery = {}) {
+    return this.request<PaginatedResponse<SupporterListItem>>(
+      `/leader/supporters${this.qs(query as Record<string, string | number | undefined>)}`,
     );
   }
 
@@ -248,6 +250,12 @@ class ApiClient {
     return this.request<{ success: boolean }>(`/coordinator/leaders/${id}/deactivate`, {
       method: 'PATCH',
     });
+  }
+
+  getCoordinatorSupporters(query: SupportersQuery = {}) {
+    return this.request<PaginatedResponse<SupporterListItem>>(
+      `/coordinator/supporters${this.qs(query as Record<string, string | number | undefined>)}`,
+    );
   }
 }
 
