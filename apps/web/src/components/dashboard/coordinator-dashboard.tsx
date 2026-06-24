@@ -183,10 +183,13 @@ export function CoordinatorDashboardView() {
   return (
     <DashboardLayout title="Dashboard Coordenador" subtitle="Gerencie seus líderes">
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard title="Líderes vinculados" value={stats?.totalLeaders ?? 0} icon={<span>👥</span>} />
         <StatCard title="Apoiadores captados" value={stats?.totalSupporters ?? 0} icon={<span>🤝</span>} />
         <StatCard title="Média por líder" value={stats?.averageSupportersPerLeader ?? 0} icon={<span>📊</span>} />
+        <StatCard title="Pendentes" value={stats?.totalPending ?? 0} icon={<span>⏳</span>} />
+        <StatCard title="Verificados" value={stats?.totalVerified ?? 0} icon={<span>✅</span>} />
+        <StatCard title="Inválidos" value={stats?.totalInvalid ?? 0} icon={<span>❌</span>} />
       </div>
 
       {/* Formulário de criação/edição */}

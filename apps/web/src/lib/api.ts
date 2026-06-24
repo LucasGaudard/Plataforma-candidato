@@ -20,6 +20,7 @@ import type {
   PostPublic,
   RegisterRequest,
   SupporterListItem,
+  SupporterStatus,
   SupportersQuery,
   UpdateEventRequest,
   UpdateLeaderRequest,
@@ -113,6 +114,13 @@ class ApiClient {
     );
   }
 
+  updateAdminSupporterStatus(id: string, status: SupporterStatus) {
+    return this.request<{ success: boolean; status: SupporterStatus }>(`/admin/supporters/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
   // Leader
   getLeaderDashboard() {
     return this.request<LeaderDashboard>('/leader/dashboard');
@@ -122,6 +130,13 @@ class ApiClient {
     return this.request<PaginatedResponse<SupporterListItem>>(
       `/leader/supporters${this.qs(query as Record<string, string | number | undefined>)}`,
     );
+  }
+
+  updateLeaderSupporterStatus(id: string, status: SupporterStatus) {
+    return this.request<{ success: boolean; status: SupporterStatus }>(`/leader/supporters/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
   }
 
   getLeaderBySlug(slug: string) {
@@ -256,6 +271,13 @@ class ApiClient {
     return this.request<PaginatedResponse<SupporterListItem>>(
       `/coordinator/supporters${this.qs(query as Record<string, string | number | undefined>)}`,
     );
+  }
+
+  updateCoordinatorSupporterStatus(id: string, status: SupporterStatus) {
+    return this.request<{ success: boolean; status: SupporterStatus }>(`/coordinator/supporters/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
   }
 }
 

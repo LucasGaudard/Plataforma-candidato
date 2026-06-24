@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { CreateSupporterRequest, LeaderDashboard, SupporterListItem } from '@platform/types';
-import { Role } from '@platform/types';
+import { Role, SupporterStatus } from '@platform/types';
 import { normalizeSupporterInput, parsePagination, validateSupporterInput } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toUserPublic } from '../lib/user-mapper';
@@ -23,7 +23,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ message: 'Líder não encontrado' });
       }
 
-      const [totalSupporters, recentSupporters, supporters, total] = await Promise.all([
+      const [totalSupporters, recentSupporters, supporters, total, statusCounts] = await Promise.all([
         prisma.user.count({ where: { role: Role.USER, leaderId: leader.id } }),
         prisma.user.count({
           where: { role: Role.USER, leaderId: leader.id, createdAt: { gte: sevenDaysAgo } },
@@ -34,10 +34,18 @@ export async function leaderRoutes(fastify: FastifyInstance) {
           take: 10,
         }),
         prisma.user.count({ where: { role: Role.USER, leaderId: leader.id } }),
+        prisma.user.groupBy({
+          by: ['status'],
+          where: { role: Role.USER, leaderId: leader.id },
+          _count: { status: true },
+        }),
       ]);
 
       const dashboard: LeaderDashboard = {
         totalSupporters,
+        totalPending: statusCounts.find((s) => s.status === SupporterStatus.PENDING)?._count.status || 0,
+        totalVerified: statusCounts.find((s) => s.status === SupporterStatus.VERIFIED)?._count.status || 0,
+        totalInvalid: statusCounts.find((s) => s.status === SupporterStatus.INVALID)?._count.status || 0,
         recentSupporters,
         leaderSlug: leader.leaderSlug,
         referralLink: `${frontendUrl}/lider/${leader.leaderSlug}`,
@@ -105,6 +113,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
         phone: s.phone,
         city: s.city,
         state: s.state,
+        status: s.status as SupporterStatus,
         createdAt: s.createdAt.toISOString(),
       }));
 
@@ -198,6 +207,35 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       });
 
       return reply.status(201).send({ success: true, id: supporter.id });
+    },
+  );
+
+  fastify.patch<{ Params: { id: string }; Body: { status: SupporterStatus } }>(
+    '/supporters/:id/status',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.LEADER)] },
+    async (request, reply) => {
+      const leaderId = request.user.sub;
+      const { id } = request.params;
+      const { status } = request.body;
+
+      if (!Object.values(SupporterStatus).includes(status)) {
+        return reply.status(400).send({ message: 'Status inválido' });
+      }
+
+      const existing = await prisma.user.findFirst({
+        where: { id, role: Role.USER, leaderId },
+      });
+
+      if (!existing) {
+        return reply.status(404).send({ message: 'Apoiador não encontrado ou não pertence a você' });
+      }
+
+      await prisma.user.update({
+        where: { id },
+        data: { status },
+      });
+
+      return reply.send({ success: true, status });
     },
   );
 }

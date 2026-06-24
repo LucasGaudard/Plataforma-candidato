@@ -1,11 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Role } from '@platform/types';
+import { Role, SupporterStatus } from '@platform/types';
 import type { SupporterListItem, SupportersQuery } from '@platform/types';
-import { BRAZILIAN_STATES } from '@platform/utils';
-import { formatPhone } from '@platform/utils';
+import { BRAZILIAN_STATES, formatPhone } from '@platform/utils';
 import {
+  Badge,
   Button,
   Card,
   EmptyState,
@@ -100,6 +100,25 @@ function SupportersContent() {
     setPage(1);
   }
 
+  async function handleStatusChange(id: string, newStatus: SupporterStatus) {
+    try {
+      if (isAdmin) {
+        await api.updateAdminSupporterStatus(id, newStatus);
+      } else if (isCoordinator) {
+        await api.updateCoordinatorSupporterStatus(id, newStatus);
+      } else {
+        await api.updateLeaderSupporterStatus(id, newStatus);
+      }
+      
+      setSupporters((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, status: newStatus } : s)),
+      );
+      toast('Status atualizado com sucesso!', 'success');
+    } catch (err) {
+      toast((err as Error).message, 'error');
+    }
+  }
+
   const subtitle =
     isAdmin
       ? 'Todos os apoiadores da campanha'
@@ -110,7 +129,7 @@ function SupportersContent() {
   // Colunas dinâmicas conforme role
   const showLeaderCol = isAdmin || isCoordinator;
   const showCoordinatorCol = isAdmin;
-  const colCount = 4 + (showLeaderCol ? 1 : 0) + (showCoordinatorCol ? 1 : 0);
+  const colCount = 5 + (showLeaderCol ? 1 : 0) + (showCoordinatorCol ? 1 : 0);
 
   return (
     <DashboardLayout title="Apoiadores" subtitle={subtitle}>
@@ -168,6 +187,7 @@ function SupportersContent() {
                 {showCoordinatorCol && (
                   <th className="hidden pb-3 font-semibold text-slate-600 xl:table-cell">Coordenador</th>
                 )}
+                <th className="pb-3 font-semibold text-slate-600">Status</th>
                 <th className="pb-3 font-semibold text-slate-600">Cadastro</th>
               </tr>
             </thead>
@@ -215,6 +235,27 @@ function SupportersContent() {
                         {s.coordinatorName ?? '—'}
                       </td>
                     )}
+                    <td className="py-3">
+                      <div className="flex flex-col gap-1 items-start">
+                        <Badge 
+                          variant={
+                            s.status === SupporterStatus.VERIFIED ? 'success' :
+                            s.status === SupporterStatus.INVALID ? 'danger' : 'warning'
+                          }
+                        >
+                          {s.status}
+                        </Badge>
+                        <select
+                          className="mt-1 block w-28 rounded-md border-slate-300 py-1 pl-2 pr-8 text-xs focus:border-brand-500 focus:outline-none focus:ring-brand-500"
+                          value={s.status}
+                          onChange={(e) => handleStatusChange(s.id, e.target.value as SupporterStatus)}
+                        >
+                          <option value={SupporterStatus.PENDING}>PENDING</option>
+                          <option value={SupporterStatus.VERIFIED}>VERIFIED</option>
+                          <option value={SupporterStatus.INVALID}>INVALID</option>
+                        </select>
+                      </div>
+                    </td>
                     <td className="py-3 text-slate-400 text-xs">
                       {new Date(s.createdAt).toLocaleDateString('pt-BR')}
                     </td>

@@ -57,9 +57,15 @@ export function LeaderDashboardView() {
 
   return (
     <DashboardLayout title="Dashboard Líder" subtitle="Acompanhe seus apoiadores">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard title="Total de apoiadores" value={data?.totalSupporters ?? 0} icon={<span>🤝</span>} />
         <StatCard title="Novos (7 dias)" value={data?.recentSupporters ?? 0} icon={<span>📈</span>} />
+        <StatCard title="Pendentes" value={data?.totalPending ?? 0} icon={<span>⏳</span>} />
+        <StatCard title="Verificados" value={data?.totalVerified ?? 0} icon={<span>✅</span>} />
+        <StatCard title="Inválidos" value={data?.totalInvalid ?? 0} icon={<span>❌</span>} />
+      </div>
+
+      <div className="mt-8 grid gap-4">
         <Card>
           <h3 className="text-sm font-medium text-slate-500">Link personalizado</h3>
           <p className="mt-2 break-all text-xs font-mono text-brand-700">{data?.referralLink}</p>

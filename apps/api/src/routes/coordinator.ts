@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import type { CreateLeaderRequest, SupporterListItem, UpdateLeaderRequest } from '@platform/types';
-import { Role } from '@platform/types';
+import { Role, SupporterStatus } from '@platform/types';
 import {
   generateSlug,
   normalizeRegisterInput,
@@ -76,7 +76,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const coordinatorId = request.user.sub;
 
-      const [totalLeaders, totalSupporters] = await Promise.all([
+      const [totalLeaders, totalSupporters, statusCounts] = await Promise.all([
         prisma.user.count({
           where: { role: Role.LEADER, coordinatorId },
         }),
@@ -86,12 +86,27 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
             leader: { coordinatorId },
           },
         }),
+        prisma.user.groupBy({
+          by: ['status'],
+          where: {
+            role: Role.USER,
+            leader: { coordinatorId },
+          },
+          _count: { status: true },
+        }),
       ]);
 
       const averageSupportersPerLeader =
         totalLeaders > 0 ? Math.round(totalSupporters / totalLeaders) : 0;
 
-      return reply.send({ totalLeaders, totalSupporters, averageSupportersPerLeader });
+      return reply.send({
+        totalLeaders,
+        totalSupporters,
+        totalPending: statusCounts.find((s) => s.status === SupporterStatus.PENDING)?._count.status || 0,
+        totalVerified: statusCounts.find((s) => s.status === SupporterStatus.VERIFIED)?._count.status || 0,
+        totalInvalid: statusCounts.find((s) => s.status === SupporterStatus.INVALID)?._count.status || 0,
+        averageSupportersPerLeader,
+      });
     },
   );
 
@@ -342,6 +357,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
         phone: u.phone,
         city: u.city,
         state: u.state,
+        status: u.status as SupporterStatus,
         createdAt: u.createdAt.toISOString(),
         leaderName: u.leader ? `${u.leader.firstName} ${u.leader.lastName}` : undefined,
       }));
@@ -350,6 +366,39 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
         data,
         meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
       });
+    },
+  );
+
+  fastify.patch<{ Params: { id: string }; Body: { status: SupporterStatus } }>(
+    '/supporters/:id/status',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.COORDINATOR)] },
+    async (request, reply) => {
+      const coordinatorId = request.user.sub;
+      const { id } = request.params;
+      const { status } = request.body;
+
+      if (!Object.values(SupporterStatus).includes(status)) {
+        return reply.status(400).send({ message: 'Status inválido' });
+      }
+
+      const existing = await prisma.user.findFirst({
+        where: {
+          id,
+          role: Role.USER,
+          leader: { coordinatorId },
+        },
+      });
+
+      if (!existing) {
+        return reply.status(404).send({ message: 'Apoiador não encontrado ou não pertence aos seus líderes' });
+      }
+
+      await prisma.user.update({
+        where: { id },
+        data: { status },
+      });
+
+      return reply.send({ success: true, status });
     },
   );
 }

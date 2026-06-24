@@ -54,6 +54,12 @@ export function AdminDashboardView() {
         <StatCard title="Líderes" value={data?.totalLeaders ?? 0} icon={<span>👥</span>} />
         <StatCard title="Apoiadores" value={data?.totalSupporters ?? 0} icon={<span>🤝</span>} />
         <StatCard title="Novos (7 dias)" value={data?.recentRegistrations ?? 0} icon={<span>📈</span>} />
+        <StatCard title="Pendentes" value={data?.totalPending ?? 0} icon={<span>⏳</span>} />
+        <StatCard title="Verificados" value={data?.totalVerified ?? 0} icon={<span>✅</span>} />
+        <StatCard title="Inválidos" value={data?.totalInvalid ?? 0} icon={<span>❌</span>} />
+      </div>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-3">
         <StatCard title="Posts" value={data?.totalPosts ?? 0} icon={<span>📢</span>} />
         <StatCard title="Eventos" value={data?.totalEvents ?? 0} icon={<span>📅</span>} />
         <StatCard title="Lives" value={data?.totalLives ?? 0} icon={<span>📺</span>} />

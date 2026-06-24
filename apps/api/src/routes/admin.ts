@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { AdminDashboard, SupporterListItem } from '@platform/types';
-import { Role } from '@platform/types';
+import { Role, SupporterStatus } from '@platform/types';
 import { parsePagination } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toEventPublic, toLivePublic, toPostPublic } from '../lib/mappers';
@@ -27,6 +27,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         recentRegistrations,
         leaders,
         growthRaw,
+        statusCounts,
       ] = await Promise.all([
         prisma.user.count({ where: { role: Role.LEADER } }),
         prisma.user.count({ where: { role: Role.USER } }),
@@ -55,6 +56,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
           where: { role: Role.USER, createdAt: { gte: thirtyDaysAgo } },
           select: { createdAt: true },
           orderBy: { createdAt: 'asc' },
+        }),
+        prisma.user.groupBy({
+          by: ['status'],
+          where: { role: Role.USER },
+          _count: { status: true },
         }),
       ]);
 
@@ -98,6 +104,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const dashboard: AdminDashboard = {
         totalLeaders,
         totalSupporters,
+        totalPending: statusCounts.find((s) => s.status === SupporterStatus.PENDING)?._count.status || 0,
+        totalVerified: statusCounts.find((s) => s.status === SupporterStatus.VERIFIED)?._count.status || 0,
+        totalInvalid: statusCounts.find((s) => s.status === SupporterStatus.INVALID)?._count.status || 0,
         totalPosts,
         totalEvents,
         totalLives,
@@ -206,6 +215,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         phone: u.phone,
         city: u.city,
         state: u.state,
+        status: u.status as SupporterStatus,
         createdAt: u.createdAt.toISOString(),
         leaderName: u.leader ? `${u.leader.firstName} ${u.leader.lastName}` : undefined,
         coordinatorName: u.coordinator ? `${u.coordinator.firstName} ${u.coordinator.lastName}` : undefined,
@@ -215,6 +225,34 @@ export async function adminRoutes(fastify: FastifyInstance) {
         data,
         meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
       });
+    },
+  );
+
+  fastify.patch<{ Params: { id: string }; Body: { status: SupporterStatus } }>(
+    '/supporters/:id/status',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { status } = request.body;
+
+      if (!Object.values(SupporterStatus).includes(status)) {
+        return reply.status(400).send({ message: 'Status inválido' });
+      }
+
+      const existing = await prisma.user.findFirst({
+        where: { id, role: Role.USER },
+      });
+
+      if (!existing) {
+        return reply.status(404).send({ message: 'Apoiador não encontrado' });
+      }
+
+      await prisma.user.update({
+        where: { id },
+        data: { status },
+      });
+
+      return reply.send({ success: true, status });
     },
   );
 }

@@ -7,6 +7,14 @@ export const Role = {
 
 export type Role = (typeof Role)[keyof typeof Role];
 
+export const SupporterStatus = {
+  PENDING: 'PENDING',
+  VERIFIED: 'VERIFIED',
+  INVALID: 'INVALID',
+} as const;
+
+export type SupporterStatus = (typeof SupporterStatus)[keyof typeof SupporterStatus];
+
 export const PostCategory = {
   VIDEO: 'VIDEO',
   LIVE: 'LIVE',
@@ -179,6 +187,9 @@ export interface RegistrationGrowthItem {
 export interface AdminDashboard {
   totalLeaders: number;
   totalSupporters: number;
+  totalPending: number;
+  totalVerified: number;
+  totalInvalid: number;
   totalPosts: number;
   totalEvents: number;
   totalLives: number;
@@ -195,6 +206,9 @@ export interface AdminDashboard {
 
 export interface LeaderDashboard {
   totalSupporters: number;
+  totalPending: number;
+  totalVerified: number;
+  totalInvalid: number;
   leaderSlug: string;
   referralLink: string;
   recentSupporters: number;
@@ -231,6 +245,9 @@ export interface CoordinatorLeaderItem {
 export interface CoordinatorDashboard {
   totalLeaders: number;
   totalSupporters: number;
+  totalPending: number;
+  totalVerified: number;
+  totalInvalid: number;
   averageSupportersPerLeader: number;
 }
 
@@ -286,6 +303,7 @@ export interface SupporterListItem {
   phone: string;
   city: string;
   state: string;
+  status: SupporterStatus;
   createdAt: string;
   leaderName?: string;
   coordinatorName?: string;
