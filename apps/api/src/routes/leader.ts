@@ -24,16 +24,16 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       }
 
       const [totalSupporters, recentSupporters, supporters, total] = await Promise.all([
-        prisma.user.count({ where: { leaderId: leader.id } }),
+        prisma.user.count({ where: { role: Role.USER, leaderId: leader.id } }),
         prisma.user.count({
-          where: { leaderId: leader.id, createdAt: { gte: sevenDaysAgo } },
+          where: { role: Role.USER, leaderId: leader.id, createdAt: { gte: sevenDaysAgo } },
         }),
         prisma.user.findMany({
-          where: { leaderId: leader.id },
+          where: { role: Role.USER, leaderId: leader.id },
           orderBy: { createdAt: 'desc' },
           take: 10,
         }),
-        prisma.user.count({ where: { leaderId: leader.id } }),
+        prisma.user.count({ where: { role: Role.USER, leaderId: leader.id } }),
       ]);
 
       const dashboard: LeaderDashboard = {
@@ -72,6 +72,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       const state = request.query.state?.trim().toUpperCase();
 
       const where = {
+        role: Role.USER,
         leaderId: request.user.sub,
         ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
         ...(state ? { state } : {}),
@@ -165,13 +166,13 @@ export async function leaderRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ message: 'Dados inválidos', errors: validation.errors });
       }
 
-      // Prevenir duplicidade do mesmo número para o mesmo líder
+      // Prevenir duplicidade do mesmo número na campanha inteira (role: USER)
       const existing = await prisma.user.findFirst({
-        where: { phone: normalized.phone, leaderId: leader.id },
+        where: { phone: normalized.phone, role: Role.USER },
       });
 
       if (existing) {
-        return reply.status(409).send({ message: 'Você já está cadastrado com este WhatsApp para este líder.' });
+        return reply.status(409).send({ message: 'Este WhatsApp já está cadastrado como apoiador.' });
       }
 
       // Gerar dados únicos falsos para campos obrigatórios do schema
