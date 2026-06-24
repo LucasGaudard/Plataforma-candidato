@@ -320,3 +320,59 @@ export interface SupporterListItem {
   leaderName?: string;
   coordinatorName?: string;
 }
+
+export interface AdminCoordinatorItem {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  city: string;
+  state: string;
+  active: boolean;
+  leadersCount: number;
+  supportersCount: number;
+  createdAt: string;
+}
+
+export interface CreateCoordinatorRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password?: string;
+  cpf: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+}
+
+export interface UpdateCoordinatorRequest {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+}
+
+export interface AdminLeaderItem {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  city: string;
+  state: string;
+  active: boolean;
+  supportersCount: number;
+  coordinatorId: string;
+  coordinatorName: string;
+  leaderSlug?: string;
+  createdAt: string;
+}
+
+export interface AdminCreateLeaderRequest extends CreateLeaderRequest {
+  coordinatorId: string;
+}

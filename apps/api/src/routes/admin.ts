@@ -1,11 +1,40 @@
+import bcrypt from 'bcryptjs';
 import type { FastifyInstance } from 'fastify';
-import type { AdminDashboard, SupporterListItem } from '@platform/types';
+import type { 
+  AdminDashboard, 
+  SupporterListItem,
+  AdminCoordinatorItem,
+  AdminLeaderItem,
+  CreateCoordinatorRequest,
+  UpdateCoordinatorRequest,
+  AdminCreateLeaderRequest,
+  UpdateLeaderRequest,
+} from '@platform/types';
 import { Role, SupporterStatus } from '@platform/types';
-import { parsePagination } from '@platform/utils';
+import { 
+  parsePagination,
+  generateSlug,
+  normalizeRegisterInput,
+  sanitizeString,
+  validateRegisterInput,
+} from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toEventPublic, toLivePublic, toPostPublic } from '../lib/mappers';
 
 const authorSelect = { firstName: true, lastName: true };
+
+// Gera slug único para o líder
+async function generateUniqueLeaderSlug(firstName: string, lastName: string): Promise<string> {
+  const base = generateSlug(firstName, lastName);
+  let slug = base;
+  let attempt = 1;
+  while (true) {
+    const existing = await prisma.user.findUnique({ where: { leaderSlug: slug } });
+    if (!existing) return slug;
+    slug = `${base}-${attempt}`;
+    attempt++;
+  }
+}
 
 export async function adminRoutes(fastify: FastifyInstance) {
   fastify.get(
@@ -285,6 +314,386 @@ export async function adminRoutes(fastify: FastifyInstance) {
       });
 
       return reply.send({ count });
+    },
+  );
+
+  // ─────────────────────────────────────────────────────────
+  // COORDINATORS CRUD
+  // ─────────────────────────────────────────────────────────
+  fastify.get<{
+    Querystring: { page?: string; limit?: string; search?: string };
+  }>(
+    '/coordinators',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => {
+      const { page, limit, skip } = parsePagination(request.query);
+      const search = request.query.search?.trim();
+
+      const where = {
+        role: Role.COORDINATOR,
+        ...(search
+          ? {
+              OR: [
+                { firstName: { contains: search, mode: 'insensitive' as const } },
+                { lastName: { contains: search, mode: 'insensitive' as const } },
+                { email: { contains: search, mode: 'insensitive' as const } },
+              ],
+            }
+          : {}),
+      };
+
+      const [users, total] = await Promise.all([
+        prisma.user.findMany({
+          where,
+          include: {
+            _count: { select: { leaders: true } }, // leaders of this coordinator
+          },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.user.count({ where }),
+      ]);
+
+      // Calculate total supporters under each coordinator
+      const data: AdminCoordinatorItem[] = await Promise.all(
+        users.map(async (u) => {
+          const supportersCount = await prisma.user.count({
+            where: { role: Role.USER, leader: { coordinatorId: u.id } },
+          });
+          const isActive = u.status !== SupporterStatus.INVALID;
+          return {
+            id: u.id,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            email: u.email,
+            phone: u.phone,
+            city: u.city,
+            state: u.state,
+            active: isActive,
+            leadersCount: u._count.leaders,
+            supportersCount,
+            createdAt: u.createdAt.toISOString(),
+          };
+        })
+      );
+
+      return reply.send({
+        data,
+        meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
+    },
+  );
+
+  fastify.post<{ Body: CreateCoordinatorRequest }>(
+    '/coordinators',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => {
+      const body = request.body || ({} as CreateCoordinatorRequest);
+
+      const sanitized = {
+        firstName: sanitizeString(body.firstName || ''),
+        lastName: sanitizeString(body.lastName || ''),
+        email: sanitizeString(body.email || ''),
+        address: sanitizeString(body.address || ''),
+        city: sanitizeString(body.city || ''),
+        state: sanitizeString(body.state || ''),
+        cpf: body.cpf || '',
+        phone: body.phone || '',
+        password: body.password || '',
+      };
+
+      const normalized = normalizeRegisterInput(sanitized);
+      const validation = validateRegisterInput(normalized);
+
+      if (!validation.valid) {
+        return reply.status(400).send({ message: 'Dados inválidos', errors: validation.errors });
+      }
+
+      const [existingEmail, existingCpf] = await Promise.all([
+        prisma.user.findUnique({ where: { email: normalized.email } }),
+        prisma.user.findUnique({ where: { cpf: normalized.cpf } }),
+      ]);
+
+      if (existingEmail) return reply.status(409).send({ message: 'E-mail já cadastrado' });
+      if (existingCpf) return reply.status(409).send({ message: 'CPF já cadastrado' });
+
+      const hashedPassword = await bcrypt.hash(normalized.password, 12);
+
+      const user = await prisma.user.create({
+        data: {
+          email: normalized.email,
+          password: hashedPassword,
+          firstName: normalized.firstName,
+          lastName: normalized.lastName,
+          cpf: normalized.cpf,
+          phone: normalized.phone,
+          address: normalized.address,
+          city: normalized.city,
+          state: normalized.state,
+          role: Role.COORDINATOR,
+        },
+      });
+
+      return reply.status(201).send({ id: user.id });
+    },
+  );
+
+  fastify.put<{ Params: { id: string }; Body: UpdateCoordinatorRequest }>(
+    '/coordinators/:id',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const existing = await prisma.user.findFirst({
+        where: { id, role: Role.COORDINATOR },
+      });
+
+      if (!existing) return reply.status(404).send({ message: 'Coordenador não encontrado' });
+
+      const body = request.body || {};
+      const updateData: Record<string, unknown> = {};
+
+      if (body.firstName !== undefined) updateData.firstName = sanitizeString(body.firstName);
+      if (body.lastName !== undefined) updateData.lastName = sanitizeString(body.lastName);
+      if (body.phone !== undefined) updateData.phone = body.phone.replace(/\D/g, '');
+      if (body.address !== undefined) updateData.address = sanitizeString(body.address);
+      if (body.city !== undefined) updateData.city = sanitizeString(body.city);
+      if (body.state !== undefined) updateData.state = body.state.trim().toUpperCase();
+
+      await prisma.user.update({
+        where: { id },
+        data: updateData,
+      });
+
+      return reply.send({ success: true });
+    },
+  );
+
+  fastify.patch<{ Params: { id: string } }>(
+    '/coordinators/:id/deactivate',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const existing = await prisma.user.findFirst({
+        where: { id, role: Role.COORDINATOR },
+      });
+
+      if (!existing) return reply.status(404).send({ message: 'Coordenador não encontrado' });
+
+      // Desativar coordenador: muda o status para INVALID e bloqueia acesso
+      const isActive = existing.status !== SupporterStatus.INVALID;
+      const newStatus = isActive ? SupporterStatus.INVALID : SupporterStatus.VERIFIED;
+
+      await prisma.user.update({
+        where: { id },
+        data: { status: newStatus },
+      });
+
+      return reply.send({ success: true, message: `Coordenador ${isActive ? 'desativado' : 'ativado'}` });
+    },
+  );
+
+  // ─────────────────────────────────────────────────────────
+  // LEADERS CRUD (ADMIN)
+  // ─────────────────────────────────────────────────────────
+  fastify.get<{
+    Querystring: { page?: string; limit?: string; search?: string; coordinatorId?: string };
+  }>(
+    '/leaders',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => {
+      const { page, limit, skip } = parsePagination(request.query);
+      const search = request.query.search?.trim();
+      const coordinatorId = request.query.coordinatorId;
+
+      const where = {
+        role: Role.LEADER,
+        ...(coordinatorId ? { coordinatorId } : {}),
+        ...(search
+          ? {
+              OR: [
+                { firstName: { contains: search, mode: 'insensitive' as const } },
+                { lastName: { contains: search, mode: 'insensitive' as const } },
+                { email: { contains: search, mode: 'insensitive' as const } },
+              ],
+            }
+          : {}),
+      };
+
+      const [users, total] = await Promise.all([
+        prisma.user.findMany({
+          where,
+          include: {
+            coordinator: { select: { firstName: true, lastName: true } },
+            _count: { select: { supporters: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.user.count({ where }),
+      ]);
+
+      const data: AdminLeaderItem[] = users.map((u) => ({
+        id: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        email: u.email,
+        phone: u.phone,
+        city: u.city,
+        state: u.state,
+        active: !!u.leaderSlug, // If leaderSlug is null, leader is inactive
+        supportersCount: u._count.supporters,
+        coordinatorId: u.coordinatorId || '',
+        coordinatorName: u.coordinator ? `${u.coordinator.firstName} ${u.coordinator.lastName}` : '',
+        leaderSlug: u.leaderSlug || undefined,
+        createdAt: u.createdAt.toISOString(),
+      }));
+
+      return reply.send({
+        data,
+        meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
+    },
+  );
+
+  fastify.post<{ Body: AdminCreateLeaderRequest }>(
+    '/leaders',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => {
+      const body = request.body || ({} as AdminCreateLeaderRequest);
+
+      if (!body.coordinatorId) {
+        return reply.status(400).send({ message: 'O ID do coordenador é obrigatório.' });
+      }
+
+      const coordinator = await prisma.user.findFirst({
+        where: { id: body.coordinatorId, role: Role.COORDINATOR },
+      });
+
+      if (!coordinator) {
+        return reply.status(404).send({ message: 'Coordenador não encontrado.' });
+      }
+
+      const sanitized = {
+        firstName: sanitizeString(body.firstName || ''),
+        lastName: sanitizeString(body.lastName || ''),
+        email: sanitizeString(body.email || ''),
+        address: sanitizeString(body.address || ''),
+        city: sanitizeString(body.city || ''),
+        state: sanitizeString(body.state || ''),
+        cpf: body.cpf || '',
+        phone: body.phone || '',
+        password: body.password || '',
+      };
+
+      const normalized = normalizeRegisterInput(sanitized);
+      const validation = validateRegisterInput(normalized);
+
+      if (!validation.valid) {
+        return reply.status(400).send({ message: 'Dados inválidos', errors: validation.errors });
+      }
+
+      const [existingEmail, existingCpf] = await Promise.all([
+        prisma.user.findUnique({ where: { email: normalized.email } }),
+        prisma.user.findUnique({ where: { cpf: normalized.cpf } }),
+      ]);
+
+      if (existingEmail) return reply.status(409).send({ message: 'E-mail já cadastrado' });
+      if (existingCpf) return reply.status(409).send({ message: 'CPF já cadastrado' });
+
+      const hashedPassword = await bcrypt.hash(normalized.password, 12);
+      const leaderSlug = await generateUniqueLeaderSlug(normalized.firstName, normalized.lastName);
+
+      const user = await prisma.user.create({
+        data: {
+          email: normalized.email,
+          password: hashedPassword,
+          firstName: normalized.firstName,
+          lastName: normalized.lastName,
+          cpf: normalized.cpf,
+          phone: normalized.phone,
+          address: normalized.address,
+          city: normalized.city,
+          state: normalized.state,
+          role: Role.LEADER,
+          leaderSlug,
+          coordinatorId: coordinator.id,
+        },
+      });
+
+      return reply.status(201).send({ id: user.id });
+    },
+  );
+
+  fastify.put<{ Params: { id: string }; Body: UpdateLeaderRequest }>(
+    '/leaders/:id',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const existing = await prisma.user.findFirst({
+        where: { id, role: Role.LEADER },
+      });
+
+      if (!existing) return reply.status(404).send({ message: 'Líder não encontrado' });
+
+      const body = request.body || {};
+      const updateData: Record<string, unknown> = {};
+
+      if (body.firstName !== undefined) updateData.firstName = sanitizeString(body.firstName);
+      if (body.lastName !== undefined) updateData.lastName = sanitizeString(body.lastName);
+      if (body.phone !== undefined) updateData.phone = body.phone.replace(/\D/g, '');
+      if (body.address !== undefined) updateData.address = sanitizeString(body.address);
+      if (body.city !== undefined) updateData.city = sanitizeString(body.city);
+      if (body.state !== undefined) updateData.state = body.state.trim().toUpperCase();
+
+      if (body.firstName !== undefined || body.lastName !== undefined) {
+        const newFirst = (updateData.firstName as string) ?? existing.firstName;
+        const newLast = (updateData.lastName as string) ?? existing.lastName;
+        await prisma.user.update({ where: { id }, data: { leaderSlug: null } });
+        updateData.leaderSlug = await generateUniqueLeaderSlug(newFirst, newLast);
+      }
+
+      await prisma.user.update({
+        where: { id },
+        data: updateData,
+      });
+
+      return reply.send({ success: true });
+    },
+  );
+
+  fastify.patch<{ Params: { id: string } }>(
+    '/leaders/:id/deactivate',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const existing = await prisma.user.findFirst({
+        where: { id, role: Role.LEADER },
+      });
+
+      if (!existing) return reply.status(404).send({ message: 'Líder não encontrado' });
+
+      // Admin deactivates leader by removing slug exactly like coordinator does
+      // To activate, we generate a new slug
+      if (existing.leaderSlug) {
+        await prisma.user.update({
+          where: { id },
+          data: { leaderSlug: null },
+        });
+        return reply.send({ success: true, message: 'Líder desativado com sucesso' });
+      } else {
+        const newSlug = await generateUniqueLeaderSlug(existing.firstName, existing.lastName);
+        await prisma.user.update({
+          where: { id },
+          data: { leaderSlug: newSlug },
+        });
+        return reply.send({ success: true, message: 'Líder ativado com sucesso' });
+      }
     },
   );
 }

@@ -22,14 +22,20 @@ import type {
   RegisterRequest,
   RecipientCountResponse,
   SupporterListItem,
+  AdminCoordinatorItem,
+  AdminLeaderItem,
+  CreateCoordinatorRequest,
+  UpdateCoordinatorRequest,
+  AdminCreateLeaderRequest,
+  UpdateLeaderRequest,
   SupporterStatus,
   SupportersQuery,
   UpdateEventRequest,
-  UpdateLeaderRequest,
   UpdateLiveRequest,
   UpdatePostRequest,
   UserPublic,
 } from '@platform/types';
+
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -127,6 +133,60 @@ class ApiClient {
     return this.request<RecipientCountResponse>(
       `/admin/communication/recipients/count${this.qs(filters as Record<string, string | number | undefined>)}`
     );
+  }
+
+  // Admin: Coordinators
+  getAdminCoordinators(query?: { page?: number; limit?: number; search?: string }) {
+    return this.request<{ data: AdminCoordinatorItem[]; meta: { totalPages: number; total: number } }>(
+      `/admin/coordinators${this.qs(query as Record<string, string | number | undefined>)}`
+    );
+  }
+
+  createAdminCoordinator(data: CreateCoordinatorRequest) {
+    return this.request<{ id: string }>('/admin/coordinators', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  updateAdminCoordinator(id: string, data: UpdateCoordinatorRequest) {
+    return this.request<{ success: boolean }>(`/admin/coordinators/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  deactivateAdminCoordinator(id: string) {
+    return this.request<{ success: boolean; message: string }>(`/admin/coordinators/${id}/deactivate`, {
+      method: 'PATCH',
+    });
+  }
+
+  // Admin: Leaders
+  getAdminLeaders(query?: { page?: number; limit?: number; search?: string; coordinatorId?: string }) {
+    return this.request<{ data: AdminLeaderItem[]; meta: { totalPages: number; total: number } }>(
+      `/admin/leaders${this.qs(query as Record<string, string | number | undefined>)}`
+    );
+  }
+
+  createAdminLeader(data: AdminCreateLeaderRequest) {
+    return this.request<{ id: string }>('/admin/leaders', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  updateAdminLeader(id: string, data: UpdateLeaderRequest) {
+    return this.request<{ success: boolean }>(`/admin/leaders/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  deactivateAdminLeader(id: string) {
+    return this.request<{ success: boolean; message: string }>(`/admin/leaders/${id}/deactivate`, {
+      method: 'PATCH',
+    });
   }
 
   // Leader
