@@ -8,6 +8,7 @@ import type {
   CreateLeaderRequest,
   CreateLiveRequest,
   CreatePostRequest,
+  CreateSupporterRequest,
   EventPublic,
   LeaderDashboard,
   LeaderSupportersQuery,
@@ -125,6 +126,13 @@ class ApiClient {
     return this.request<{ id: string; firstName: string; lastName: string; leaderSlug: string }>(
       `/leader/${slug}`,
     );
+  }
+
+  createSupporter(slug: string, body: CreateSupporterRequest) {
+    return this.request<{ success: boolean; id: string }>(`/leader/${slug}/supporters`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
   }
 
   // Posts

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-import type { LeaderDashboard } from '@platform/types';
+import type { CreateSupporterRequest, LeaderDashboard } from '@platform/types';
 import { Role } from '@platform/types';
-import { parsePagination } from '@platform/utils';
+import { normalizeSupporterInput, parsePagination, validateSupporterInput } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toUserPublic } from '../lib/user-mapper';
 
@@ -132,4 +132,61 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       leaderSlug: leader.leaderSlug,
     });
   });
+
+  fastify.post<{ Params: { slug: string }; Body: CreateSupporterRequest }>(
+    '/:slug/supporters',
+    async (request, reply) => {
+      const { slug } = request.params;
+      const body = request.body || ({} as CreateSupporterRequest);
+
+      const leader = await prisma.user.findFirst({
+        where: { leaderSlug: slug, role: Role.LEADER },
+        select: { id: true, coordinatorId: true },
+      });
+
+      if (!leader) {
+        return reply.status(404).send({ message: 'Líder não encontrado' });
+      }
+
+      const normalized = normalizeSupporterInput(body);
+      const validation = validateSupporterInput(normalized);
+
+      if (!validation.valid) {
+        return reply.status(400).send({ message: 'Dados inválidos', errors: validation.errors });
+      }
+
+      // Prevenir duplicidade do mesmo número para o mesmo líder
+      const existing = await prisma.user.findFirst({
+        where: { phone: normalized.phone, leaderId: leader.id },
+      });
+
+      if (existing) {
+        return reply.status(409).send({ message: 'Você já está cadastrado com este WhatsApp para este líder.' });
+      }
+
+      // Gerar dados únicos falsos para campos obrigatórios do schema
+      const cuid = Date.now().toString(36) + Math.random().toString(36).substring(2);
+      const fakeEmail = `supporter-${cuid}@whatsapp.local`;
+      const fakeCpf = `SUPP-${cuid}`.substring(0, 14); // maxLength 14
+
+      const supporter = await prisma.user.create({
+        data: {
+          firstName: normalized.firstName,
+          lastName: normalized.lastName,
+          phone: normalized.phone,
+          city: normalized.city,
+          state: normalized.state,
+          email: fakeEmail,
+          cpf: fakeCpf,
+          password: cuid, // random string, user cannot login
+          address: 'Cadastro via WhatsApp',
+          role: Role.USER,
+          leaderId: leader.id,
+          coordinatorId: leader.coordinatorId,
+        },
+      });
+
+      return reply.status(201).send({ success: true, id: supporter.id });
+    },
+  );
 }

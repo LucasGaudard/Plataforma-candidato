@@ -260,3 +260,11 @@ export interface CoordinatorLeadersQuery {
   limit?: number;
   search?: string;
 }
+
+export interface CreateSupporterRequest {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  city: string;
+  state: string;
+}

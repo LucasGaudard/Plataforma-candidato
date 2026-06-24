@@ -3,6 +3,7 @@
 import { Role } from '@platform/types';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { AdminDashboardView } from '@/components/dashboard/admin-dashboard';
+import { CoordinatorDashboardView } from '@/components/dashboard/coordinator-dashboard';
 import { LeaderDashboardView } from '@/components/dashboard/leader-dashboard';
 import { UserDashboardView } from '@/components/dashboard/user-dashboard';
 import { useAuth } from '@/contexts/auth-context';
@@ -15,6 +16,8 @@ function DashboardContent() {
   switch (user.role) {
     case Role.ADMIN:
       return <AdminDashboardView />;
+    case Role.COORDINATOR:
+      return <CoordinatorDashboardView />;
     case Role.LEADER:
       return <LeaderDashboardView />;
     default:

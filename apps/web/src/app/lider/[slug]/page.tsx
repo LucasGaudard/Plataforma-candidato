@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Card } from '@platform/ui';
-import { RegisterForm } from '@/components/forms/register-form';
+import { SupporterForm } from '@/components/forms/supporter-form';
 import { api } from '@/lib/api';
 
 export default function LiderCadastroPage() {
@@ -17,6 +17,7 @@ export default function LiderCadastroPage() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     api
@@ -68,14 +69,32 @@ export default function LiderCadastroPage() {
         </div>
 
         <Card padding="lg">
-          <h1 className="text-2xl font-bold text-brand-900">Cadastro via Líder</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Você foi indicado por <strong>{leaderName}</strong>
-          </p>
+          {success ? (
+            <div className="text-center py-8">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl text-green-600">
+                ✓
+              </div>
+              <h2 className="text-2xl font-bold text-brand-900">Cadastro realizado!</h2>
+              <p className="mt-2 text-slate-600">
+                Obrigado pelo seu apoio. Em breve você receberá nossas atualizações pelo WhatsApp.
+              </p>
+            </div>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold text-brand-900">Cadastro via Líder</h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Você foi indicado por <strong>{leaderName}</strong>
+              </p>
 
-          <div className="mt-6">
-            <RegisterForm leaderSlug={slug} leaderName={leaderName} />
-          </div>
+              <div className="mt-6">
+                <SupporterForm
+                  leaderSlug={slug}
+                  leaderName={leaderName}
+                  onSuccess={() => setSuccess(true)}
+                />
+              </div>
+            </>
+          )}
         </Card>
       </div>
     </div>
