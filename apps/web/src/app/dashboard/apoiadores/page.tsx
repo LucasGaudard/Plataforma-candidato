@@ -8,6 +8,7 @@ import {
   Badge,
   Button,
   Card,
+  ConfirmModal,
   EmptyState,
   Input,
   Pagination,
@@ -100,8 +101,20 @@ function SupportersContent() {
     setPage(1);
   }
 
-  async function handleStatusChange(id: string, newStatus: SupporterStatus) {
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [statusChangeData, setStatusChangeData] = useState<{ id: string; newStatus: SupporterStatus; oldStatus: SupporterStatus } | null>(null);
+
+  function requestStatusChange(id: string, newStatus: SupporterStatus, oldStatus: SupporterStatus) {
+    if (newStatus === oldStatus) return;
+    setStatusChangeData({ id, newStatus, oldStatus });
+    setConfirmModalOpen(true);
+  }
+
+  async function handleConfirmStatusChange() {
+    if (!statusChangeData) return;
+    setLoading(true);
     try {
+      const { id, newStatus } = statusChangeData;
       if (isAdmin) {
         await api.updateAdminSupporterStatus(id, newStatus);
       } else if (isCoordinator) {
@@ -114,9 +127,17 @@ function SupportersContent() {
         prev.map((s) => (s.id === id ? { ...s, status: newStatus } : s)),
       );
       toast('Status atualizado com sucesso!', 'success');
+      setConfirmModalOpen(false);
     } catch (err) {
       toast((err as Error).message, 'error');
+    } finally {
+      setLoading(false);
     }
+  }
+
+  function handleCancelStatusChange() {
+    setConfirmModalOpen(false);
+    setStatusChangeData(null);
   }
 
   const subtitle =
@@ -150,7 +171,7 @@ function SupportersContent() {
           />
           <Select
             id="apoiadores-state"
-            options={BRAZILIAN_STATES.map((s) => ({ value: s, label: s }))}
+            options={[{ value: '', label: 'Todos os estados' }, ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s }))]}
             value={pendingState}
             onChange={(e) => setPendingState(e.target.value)}
           />
@@ -166,7 +187,7 @@ function SupportersContent() {
 
         {/* Contagem */}
         {!loading && (
-          <p className="mb-3 text-sm text-slate-500">
+          <p className="mb-3 text-sm font-medium text-slate-500">
             {total === 0
               ? 'Nenhum apoiador encontrado'
               : `${total} apoiador${total !== 1 ? 'es' : ''} encontrado${total !== 1 ? 's' : ''}`}
@@ -178,17 +199,17 @@ function SupportersContent() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200">
-                <th className="pb-3 font-semibold text-slate-600">Nome</th>
-                <th className="hidden pb-3 font-semibold text-slate-600 sm:table-cell">WhatsApp</th>
-                <th className="hidden pb-3 font-semibold text-slate-600 md:table-cell">Cidade / UF</th>
+                <th className="pb-3 font-semibold text-slate-600 px-4">Nome</th>
+                <th className="hidden pb-3 font-semibold text-slate-600 sm:table-cell px-4">WhatsApp</th>
+                <th className="hidden pb-3 font-semibold text-slate-600 md:table-cell px-4">Cidade / UF</th>
                 {showLeaderCol && (
-                  <th className="hidden pb-3 font-semibold text-slate-600 lg:table-cell">Líder</th>
+                  <th className="hidden pb-3 font-semibold text-slate-600 lg:table-cell px-4">Líder</th>
                 )}
                 {showCoordinatorCol && (
-                  <th className="hidden pb-3 font-semibold text-slate-600 xl:table-cell">Coordenador</th>
+                  <th className="hidden pb-3 font-semibold text-slate-600 xl:table-cell px-4">Coordenador</th>
                 )}
-                <th className="pb-3 font-semibold text-slate-600">Status</th>
-                <th className="pb-3 font-semibold text-slate-600">Cadastro</th>
+                <th className="pb-3 font-semibold text-slate-600 px-4">Status</th>
+                <th className="pb-3 font-semibold text-slate-600 px-4">Cadastro</th>
               </tr>
             </thead>
             <tbody>
@@ -210,57 +231,60 @@ function SupportersContent() {
               )}
 
               {!loading &&
-                supporters.map((s) => (
-                  <tr
-                    key={s.id}
-                    className="border-b border-slate-100 transition-colors hover:bg-slate-50"
-                  >
-                    <td className="py-3 font-medium text-slate-900">
-                      {s.firstName} {s.lastName}
-                    </td>
-                    <td className="hidden py-3 text-slate-600 sm:table-cell">
-                      {formatPhone(s.phone)}
-                    </td>
-                    <td className="hidden py-3 text-slate-500 md:table-cell">
-                      {s.city}
-                      {s.state ? ` / ${s.state}` : ''}
-                    </td>
-                    {showLeaderCol && (
-                      <td className="hidden py-3 text-slate-500 lg:table-cell">
-                        {s.leaderName ?? '—'}
+                supporters.map((s) => {
+                  const selectValue = statusChangeData?.id === s.id ? statusChangeData.newStatus : s.status;
+                  return (
+                    <tr
+                      key={s.id}
+                      className="border-b border-slate-100 transition-colors hover:bg-slate-50"
+                    >
+                      <td className="py-3 font-medium text-slate-900 px-4">
+                        {s.firstName} {s.lastName}
                       </td>
-                    )}
-                    {showCoordinatorCol && (
-                      <td className="hidden py-3 text-slate-500 xl:table-cell">
-                        {s.coordinatorName ?? '—'}
+                      <td className="hidden py-3 text-slate-600 sm:table-cell px-4">
+                        {formatPhone(s.phone)}
                       </td>
-                    )}
-                    <td className="py-3">
-                      <div className="flex flex-col gap-1 items-start">
-                        <Badge 
-                          variant={
-                            s.status === SupporterStatus.VERIFIED ? 'success' :
-                            s.status === SupporterStatus.INVALID ? 'danger' : 'warning'
-                          }
-                        >
-                          {s.status}
-                        </Badge>
-                        <select
-                          className="mt-1 block w-28 rounded-md border-slate-300 py-1 pl-2 pr-8 text-xs focus:border-brand-500 focus:outline-none focus:ring-brand-500"
-                          value={s.status}
-                          onChange={(e) => handleStatusChange(s.id, e.target.value as SupporterStatus)}
-                        >
-                          <option value={SupporterStatus.PENDING}>PENDING</option>
-                          <option value={SupporterStatus.VERIFIED}>VERIFIED</option>
-                          <option value={SupporterStatus.INVALID}>INVALID</option>
-                        </select>
-                      </div>
-                    </td>
-                    <td className="py-3 text-slate-400 text-xs">
-                      {new Date(s.createdAt).toLocaleDateString('pt-BR')}
-                    </td>
-                  </tr>
-                ))}
+                      <td className="hidden py-3 text-slate-500 md:table-cell px-4">
+                        {s.city}
+                        {s.state ? ` / ${s.state}` : ''}
+                      </td>
+                      {showLeaderCol && (
+                        <td className="hidden py-3 text-slate-500 lg:table-cell px-4">
+                          {s.leaderName ?? '—'}
+                        </td>
+                      )}
+                      {showCoordinatorCol && (
+                        <td className="hidden py-3 text-slate-500 xl:table-cell px-4">
+                          {s.coordinatorName ?? '—'}
+                        </td>
+                      )}
+                      <td className="py-3 px-4">
+                        <div className="flex flex-col gap-1 items-start">
+                          <Badge 
+                            variant={
+                              s.status === SupporterStatus.VERIFIED ? 'success' :
+                              s.status === SupporterStatus.INVALID ? 'danger' : 'warning'
+                            }
+                          >
+                            {s.status}
+                          </Badge>
+                          <select
+                            className="mt-1 block w-28 rounded-md border-slate-300 bg-white py-1 pl-2 pr-8 text-xs focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 shadow-sm"
+                            value={selectValue}
+                            onChange={(e) => requestStatusChange(s.id, e.target.value as SupporterStatus, s.status)}
+                          >
+                            <option value={SupporterStatus.PENDING}>PENDING</option>
+                            <option value={SupporterStatus.VERIFIED}>VERIFIED</option>
+                            <option value={SupporterStatus.INVALID}>INVALID</option>
+                          </select>
+                        </div>
+                      </td>
+                      <td className="py-3 text-slate-400 text-xs px-4">
+                        {new Date(s.createdAt).toLocaleDateString('pt-BR')}
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>
@@ -275,6 +299,17 @@ function SupportersContent() {
           />
         )}
       </Card>
+
+      <ConfirmModal
+        isOpen={confirmModalOpen}
+        title="Alterar Status do Apoiador"
+        message={`Você tem certeza que deseja alterar o status deste apoiador para ${statusChangeData?.newStatus}?`}
+        confirmLabel="Confirmar Alteração"
+        confirmVariant="primary"
+        onConfirm={handleConfirmStatusChange}
+        onCancel={handleCancelStatusChange}
+        isLoading={loading}
+      />
     </DashboardLayout>
   );
 }

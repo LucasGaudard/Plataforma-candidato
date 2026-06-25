@@ -11,7 +11,7 @@ import type {
   PostPublic,
 } from '@platform/types';
 import { PostCategory as PostCategoryEnum } from '@platform/types';
-import { Badge, Button, Card, EmptyState, Input, Select } from '@platform/ui';
+import { Badge, Button, Card, ConfirmModal, EmptyState, Input, Select } from '@platform/ui';
 import { api } from '@/lib/api';
 import { formatCategory, formatDate } from '@/lib/format';
 import { useToast } from '@/contexts/toast-context';
@@ -145,16 +145,27 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('Tem certeza que deseja excluir?')) return;
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+  function requestDelete(id: string) {
+    setItemToDelete(id);
+    setConfirmModalOpen(true);
+  }
+
+  async function handleConfirmDelete() {
+    if (!itemToDelete) return;
+    setLoading(true);
     try {
-      if (type === 'posts') await api.deletePost(id);
-      else if (type === 'events') await api.deleteEvent(id);
-      else await api.deleteLive(id);
+      if (type === 'posts') await api.deletePost(itemToDelete);
+      else if (type === 'events') await api.deleteEvent(itemToDelete);
+      else await api.deleteLive(itemToDelete);
       toast('Excluído com sucesso!', 'success');
+      setConfirmModalOpen(false);
       load();
     } catch (err) {
       toast((err as Error).message, 'error');
+      setLoading(false);
     }
   }
 
@@ -284,7 +295,7 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2 justify-end">
                   <Button size="sm" variant="outline" onClick={() => startEdit(item)}>Editar</Button>
-                  <Button size="sm" variant="danger" onClick={() => handleDelete(item.id)}>Excluir</Button>
+                  <Button size="sm" variant="danger" onClick={() => requestDelete(item.id)}>Excluir</Button>
                   <Button size="sm" onClick={() => openWhatsappModal(item)}>Enviar WhatsApp</Button>
                 </div>
               </Card>
@@ -292,6 +303,17 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModalOpen}
+        title="Confirmar Exclusão"
+        message="Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        confirmVariant="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmModalOpen(false)}
+        isLoading={loading}
+      />
 
       <WhatsappModal
         isOpen={!!whatsappContent}

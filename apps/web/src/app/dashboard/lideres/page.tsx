@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import type { AdminLeaderItem, AdminCoordinatorItem, AdminCreateLeaderRequest, UpdateLeaderRequest } from '@platform/types';
 import { Role } from '@platform/types';
 import { BRAZILIAN_STATES, formatPhone } from '@platform/utils';
-import { Button, Card, EmptyState, Input, Pagination, Select, TableRowSkeleton } from '@platform/ui';
+import { Badge, Button, Card, ConfirmModal, EmptyState, Input, Pagination, Select, TableRowSkeleton } from '@platform/ui';
 import { api } from '@/lib/api';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { ProtectedRoute } from '@/components/auth/protected-route';
@@ -49,6 +49,9 @@ function LeadersContent() {
   const [createForm, setCreateForm] = useState<AdminCreateLeaderRequest>({ ...emptyCreate, coordinatorId: initialCoordinatorId });
   const [editForm, setEditForm] = useState<UpdateLeaderRequest>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [leaderToDeactivate, setLeaderToDeactivate] = useState<AdminLeaderItem | null>(null);
 
   const loadLeaders = useCallback(async () => {
     setTableLoading(true);
@@ -151,16 +154,23 @@ function LeadersContent() {
     }
   }
 
-  async function handleDeactivate(leader: AdminLeaderItem) {
-    const action = leader.active ? 'Desativar' : 'Ativar';
-    const confirmed = window.confirm(`Deseja realmente ${action.toLowerCase()} o líder ${leader.firstName} ${leader.lastName}?`);
-    if (!confirmed) return;
+  function openDeactivateConfirm(leader: AdminLeaderItem) {
+    setLeaderToDeactivate(leader);
+    setConfirmModalOpen(true);
+  }
+
+  async function handleConfirmDeactivate() {
+    if (!leaderToDeactivate) return;
+    setFormLoading(true);
     try {
-      await api.deactivateAdminLeader(leader.id);
-      toast(`Líder ${leader.active ? 'desativado' : 'ativado'} com sucesso.`, 'success');
+      await api.deactivateAdminLeader(leaderToDeactivate.id);
+      toast(`Líder ${leaderToDeactivate.active ? 'desativado' : 'ativado'} com sucesso.`, 'success');
+      setConfirmModalOpen(false);
       await loadLeaders();
     } catch (err) {
       toast((err as Error).message, 'error');
+    } finally {
+      setFormLoading(false);
     }
   }
 
@@ -286,28 +296,32 @@ function LeadersContent() {
 
               {!tableLoading && leaders.map((leader) => (
                 <tr key={leader.id} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="py-3 font-medium text-slate-900">
+                  <td className="py-3 font-medium text-slate-900 px-4">
                     {leader.firstName} {leader.lastName}
                     <div className="text-xs text-slate-400 font-normal">{leader.email}</div>
                   </td>
-                  <td className="hidden py-3 text-slate-500 md:table-cell">
-                    <span className="inline-block rounded-md bg-slate-100 px-2 py-1 text-xs">
+                  <td className="hidden py-3 text-slate-500 md:table-cell px-4">
+                    <span className="inline-block rounded-md bg-slate-100 px-2 py-1 text-xs font-medium">
                       {leader.coordinatorName}
                     </span>
                   </td>
-                  <td className="hidden py-3 text-slate-500 sm:table-cell">{leader.city}/{leader.state}</td>
-                  <td className="py-3 text-center font-semibold text-brand-700">{leader.supportersCount}</td>
-                  <td className="py-3">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${leader.active ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                  <td className="hidden py-3 text-slate-500 sm:table-cell px-4">{leader.city}/{leader.state}</td>
+                  <td className="py-3 text-center font-semibold text-brand-700 px-4">{leader.supportersCount}</td>
+                  <td className="py-3 px-4">
+                    <Badge variant={leader.active ? 'success' : 'default'}>
                       {leader.active ? 'Ativo' : 'Inativo'}
-                    </span>
+                    </Badge>
                   </td>
-                  <td className="py-3 text-right">
+                  <td className="py-3 text-right px-4">
                     <div className="flex gap-2 justify-end">
-                      <button onClick={() => openEdit(leader)} className="rounded px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50">Editar</button>
-                      <button onClick={() => handleDeactivate(leader)} className={`rounded px-2 py-1 text-xs font-medium ${leader.active ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}>
+                      <Button variant="secondary" size="xs" onClick={() => openEdit(leader)}>Editar</Button>
+                      <Button 
+                        variant={leader.active ? 'danger' : 'success'} 
+                        size="xs" 
+                        onClick={() => openDeactivateConfirm(leader)}
+                      >
                         {leader.active ? 'Desativar' : 'Ativar'}
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -318,6 +332,17 @@ function LeadersContent() {
 
         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} className="mt-4" />
       </Card>
+
+      <ConfirmModal
+        isOpen={confirmModalOpen}
+        title={leaderToDeactivate?.active ? 'Desativar Líder' : 'Ativar Líder'}
+        message={`Deseja realmente ${leaderToDeactivate?.active ? 'desativar' : 'ativar'} o líder ${leaderToDeactivate?.firstName} ${leaderToDeactivate?.lastName}?`}
+        confirmLabel={leaderToDeactivate?.active ? 'Desativar' : 'Ativar'}
+        confirmVariant={leaderToDeactivate?.active ? 'danger' : 'success'}
+        onConfirm={handleConfirmDeactivate}
+        onCancel={() => setConfirmModalOpen(false)}
+        isLoading={formLoading}
+      />
     </DashboardLayout>
   );
 }

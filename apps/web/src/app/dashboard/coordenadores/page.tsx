@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { AdminCoordinatorItem, CreateCoordinatorRequest, UpdateCoordinatorRequest } from '@platform/types';
 import { Role } from '@platform/types';
 import { BRAZILIAN_STATES, formatPhone } from '@platform/utils';
-import { Button, Card, EmptyState, Input, Pagination, Select, TableRowSkeleton } from '@platform/ui';
+import { Badge, Button, Card, ConfirmModal, EmptyState, Input, Pagination, Select, TableRowSkeleton } from '@platform/ui';
 import { api } from '@/lib/api';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { ProtectedRoute } from '@/components/auth/protected-route';
@@ -43,6 +43,9 @@ function CoordinatorsContent() {
   const [createForm, setCreateForm] = useState<CreateCoordinatorRequest>(emptyCreate);
   const [editForm, setEditForm] = useState<UpdateCoordinatorRequest>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [coordinatorToDeactivate, setCoordinatorToDeactivate] = useState<AdminCoordinatorItem | null>(null);
 
   const loadCoordinators = useCallback(async () => {
     setTableLoading(true);
@@ -125,16 +128,23 @@ function CoordinatorsContent() {
     }
   }
 
-  async function handleDeactivate(coord: AdminCoordinatorItem) {
-    const action = coord.active ? 'Desativar' : 'Ativar';
-    const confirmed = window.confirm(`Deseja realmente ${action.toLowerCase()} o coordenador ${coord.firstName} ${coord.lastName}?`);
-    if (!confirmed) return;
+  function openDeactivateConfirm(coord: AdminCoordinatorItem) {
+    setCoordinatorToDeactivate(coord);
+    setConfirmModalOpen(true);
+  }
+
+  async function handleConfirmDeactivate() {
+    if (!coordinatorToDeactivate) return;
+    setFormLoading(true);
     try {
-      await api.deactivateAdminCoordinator(coord.id);
-      toast(`Coordenador ${coord.active ? 'desativado' : 'ativado'} com sucesso.`, 'success');
+      await api.deactivateAdminCoordinator(coordinatorToDeactivate.id);
+      toast(`Coordenador ${coordinatorToDeactivate.active ? 'desativado' : 'ativado'} com sucesso.`, 'success');
+      setConfirmModalOpen(false);
       await loadCoordinators();
     } catch (err) {
       toast((err as Error).message, 'error');
+    } finally {
+      setFormLoading(false);
     }
   }
 
@@ -241,28 +251,32 @@ function CoordinatorsContent() {
 
               {!tableLoading && coordinators.map((coord) => (
                 <tr key={coord.id} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="py-3 font-medium text-slate-900">
+                  <td className="py-3 font-medium text-slate-900 px-4">
                     {coord.firstName} {coord.lastName}
                     <div className="text-xs text-slate-400 font-normal">{coord.email}</div>
                   </td>
-                  <td className="hidden py-3 text-slate-500 md:table-cell">{formatPhone(coord.phone)}</td>
-                  <td className="hidden py-3 text-slate-500 sm:table-cell">{coord.city}/{coord.state}</td>
-                  <td className="py-3 text-center font-semibold text-brand-700">{coord.leadersCount}</td>
-                  <td className="py-3 text-center font-semibold text-brand-700">{coord.supportersCount}</td>
-                  <td className="py-3">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${coord.active ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                  <td className="hidden py-3 text-slate-500 md:table-cell px-4">{formatPhone(coord.phone)}</td>
+                  <td className="hidden py-3 text-slate-500 sm:table-cell px-4">{coord.city}/{coord.state}</td>
+                  <td className="py-3 text-center font-semibold text-brand-700 px-4">{coord.leadersCount}</td>
+                  <td className="py-3 text-center font-semibold text-brand-700 px-4">{coord.supportersCount}</td>
+                  <td className="py-3 px-4">
+                    <Badge variant={coord.active ? 'success' : 'default'}>
                       {coord.active ? 'Ativo' : 'Inativo'}
-                    </span>
+                    </Badge>
                   </td>
-                  <td className="py-3 text-right">
+                  <td className="py-3 text-right px-4">
                     <div className="flex gap-2 justify-end">
                       <Link href={`/dashboard/lideres?coordinatorId=${coord.id}`}>
-                        <button className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50">Líderes</button>
+                        <Button variant="outline" size="xs">Líderes</Button>
                       </Link>
-                      <button onClick={() => openEdit(coord)} className="rounded px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50">Editar</button>
-                      <button onClick={() => handleDeactivate(coord)} className={`rounded px-2 py-1 text-xs font-medium ${coord.active ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}>
+                      <Button variant="secondary" size="xs" onClick={() => openEdit(coord)}>Editar</Button>
+                      <Button 
+                        variant={coord.active ? 'danger' : 'success'} 
+                        size="xs" 
+                        onClick={() => openDeactivateConfirm(coord)}
+                      >
                         {coord.active ? 'Desativar' : 'Ativar'}
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -273,6 +287,17 @@ function CoordinatorsContent() {
 
         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} className="mt-4" />
       </Card>
+
+      <ConfirmModal
+        isOpen={confirmModalOpen}
+        title={coordinatorToDeactivate?.active ? 'Desativar Coordenador' : 'Ativar Coordenador'}
+        message={`Deseja realmente ${coordinatorToDeactivate?.active ? 'desativar' : 'ativar'} o coordenador ${coordinatorToDeactivate?.firstName} ${coordinatorToDeactivate?.lastName}?`}
+        confirmLabel={coordinatorToDeactivate?.active ? 'Desativar' : 'Ativar'}
+        confirmVariant={coordinatorToDeactivate?.active ? 'danger' : 'success'}
+        onConfirm={handleConfirmDeactivate}
+        onCancel={() => setConfirmModalOpen(false)}
+        isLoading={formLoading}
+      />
     </DashboardLayout>
   );
 }

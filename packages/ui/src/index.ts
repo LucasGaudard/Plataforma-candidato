@@ -7,3 +7,4 @@ export { Skeleton, CardSkeleton, TableRowSkeleton } from './Skeleton';
 export { EmptyState } from './EmptyState';
 export { Pagination } from './Pagination';
 export { Badge } from './Badge';
+export { ConfirmModal } from './ConfirmModal';
