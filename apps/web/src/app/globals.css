@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,15 +11,46 @@
 
   body {
     @apply bg-slate-50 text-slate-900 antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
   }
 }
 
 @layer utilities {
+  /* Hero principal — Gradiente rosa/magenta diagonal */
   .gradient-hero {
-    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e40af 100%);
+    background: linear-gradient(135deg, #831843 0%, #be185d 35%, #db2777 70%, #ec4899 100%);
   }
 
+  /* Gradiente da marca (botões, cards de destaque) */
+  .gradient-brand {
+    background: linear-gradient(135deg, #db2777 0%, #ec4899 100%);
+  }
+
+  /* Gradiente suave para seções de fundo */
+  .gradient-soft {
+    background: linear-gradient(135deg, #fff0f7 0%, #fce7f3 60%, #fbcfe8 100%);
+  }
+
+  /* Mantido por compatibilidade, agora na paleta rosa */
   .gradient-gold {
-    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+    background: linear-gradient(135deg, #db2777 0%, #f472b6 100%);
+  }
+
+  /* Sombra brand */
+  .shadow-brand {
+    box-shadow: 0 4px 24px -4px rgba(219, 39, 119, 0.3);
+  }
+
+  .shadow-brand-lg {
+    box-shadow: 0 8px 40px -8px rgba(219, 39, 119, 0.4);
+  }
+
+  /* Animações suaves */
+  .hover-lift {
+    @apply transition-transform duration-200 hover:-translate-y-1;
   }
 }

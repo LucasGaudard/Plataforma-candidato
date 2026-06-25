@@ -7,25 +7,26 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Campanha 2026 — Plataforma Política',
-    template: '%s | Campanha 2026',
+    default: 'Conecta Eleitor — Paula Quintanilha',
+    template: '%s | Conecta Eleitor',
   },
   description:
-    'Plataforma oficial da campanha. Cadastre-se, acompanhe novidades, eventos, lives e faça parte da mudança.',
-  keywords: ['campanha', 'política', 'deputado', 'eleições 2026'],
-  authors: [{ name: 'Campanha 2026' }],
+    'Plataforma oficial da campanha de Paula Quintanilha. Cadastre-se, acompanhe novidades, eventos, lives e faça parte da mudança que a Baixada precisa.',
+  keywords: ['Paula Quintanilha', 'Conecta Eleitor', 'campanha política', 'deputada estadual', 'Baixada Fluminense', 'eleições 2026'],
+  authors: [{ name: 'Conecta Eleitor' }],
   openGraph: {
     type: 'website',
     locale: 'pt_BR',
     url: siteUrl,
-    siteName: 'Campanha 2026',
-    title: 'Campanha 2026 — Plataforma Política',
-    description: 'Plataforma oficial da campanha para deputado.',
+    siteName: 'Conecta Eleitor',
+    title: 'Conecta Eleitor — Paula Quintanilha',
+    description: 'Plataforma oficial de gestão de apoiadores e mobilização digital da campanha de Paula Quintanilha.',
+    images: [{ url: `${siteUrl}/Images/PaulaQuintanilha.jpeg`, width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Campanha 2026',
-    description: 'Plataforma oficial da campanha para deputado.',
+    title: 'Conecta Eleitor — Paula Quintanilha',
+    description: 'Plataforma de gestão de apoiadores e mobilização digital.',
   },
   robots: { index: true, follow: true },
   icons: { icon: '/favicon.svg' },
