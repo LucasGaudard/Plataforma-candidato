@@ -1,6 +1,6 @@
-import { isValidCpf, stripCpf } from './cpf';
-import { isValidEmail, normalizeEmail } from './email';
-import { isValidPhone, stripPhone } from './phone';
+import { isValidCpf, stripCpf } from './cpf.js';
+import { isValidEmail, normalizeEmail } from './email.js';
+import { isValidPhone, stripPhone } from './phone.js';
 
 export interface RegisterValidationInput {
   email: string;
