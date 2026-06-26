@@ -5,3 +5,4 @@ export * from './slug.js';
 export * from './sanitize.js';
 export * from './validation.js';
 export * from './content.js';
+export * from './locations.js';

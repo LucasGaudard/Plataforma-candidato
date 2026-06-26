@@ -1,6 +1,7 @@
 import { isValidCpf, stripCpf } from './cpf.js';
 import { isValidEmail, normalizeEmail } from './email.js';
 import { isValidPhone, stripPhone } from './phone.js';
+import { BRAZILIAN_STATES, BrazilianState } from './locations.js';
 
 export interface RegisterValidationInput {
   email: string;
@@ -19,11 +20,7 @@ export interface ValidationResult {
   errors: Record<string, string>;
 }
 
-const BRAZILIAN_STATES = [
-  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
-  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
-  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
-];
+
 
 export function validateRegisterInput(input: RegisterValidationInput): ValidationResult {
   const errors: Record<string, string> = {};
@@ -57,7 +54,7 @@ export function validateRegisterInput(input: RegisterValidationInput): Validatio
   }
 
   const state = input.state?.trim().toUpperCase();
-  if (!state || !BRAZILIAN_STATES.includes(state)) {
+  if (!state || !BRAZILIAN_STATES.includes(state as BrazilianState)) {
     errors.state = 'Estado inválido (use sigla, ex: SP)';
   }
 
@@ -113,7 +110,7 @@ export function validateSupporterInput(input: SupporterValidationInput): Validat
   }
 
   const state = input.state?.trim().toUpperCase();
-  if (!state || !BRAZILIAN_STATES.includes(state)) {
+  if (!state || !BRAZILIAN_STATES.includes(state as BrazilianState)) {
     errors.state = 'Estado inválido (use sigla, ex: SP)';
   }
 

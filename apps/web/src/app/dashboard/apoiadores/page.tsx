@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Role, SupporterStatus } from '@platform/types';
 import type { SupporterListItem, SupportersQuery } from '@platform/types';
-import { BRAZILIAN_STATES, formatPhone } from '@platform/utils';
+import { BRAZILIAN_STATES, CITIES_BY_STATE, formatPhone } from '@platform/utils';
 import {
   Badge,
   Button,
@@ -152,6 +152,15 @@ function SupportersContent() {
   const showCoordinatorCol = isAdmin;
   const colCount = 5 + (showLeaderCol ? 1 : 0) + (showCoordinatorCol ? 1 : 0);
 
+  const cityFilterOptions = (() => {
+    if (!pendingState || !CITIES_BY_STATE[pendingState]) return [];
+    const opts = CITIES_BY_STATE[pendingState].map(c => ({ value: c, label: c }));
+    if (pendingCity && !opts.some(o => o.value === pendingCity)) {
+      opts.push({ value: pendingCity, label: pendingCity });
+    }
+    return [{ value: '', label: 'Todas as cidades' }, ...opts];
+  })();
+
   return (
     <DashboardLayout title="Apoiadores" subtitle={subtitle}>
       <Card>
@@ -163,17 +172,21 @@ function SupportersContent() {
             value={pendingSearch}
             onChange={(e) => setPendingSearch(e.target.value)}
           />
-          <Input
-            id="apoiadores-city"
-            placeholder="Cidade"
-            value={pendingCity}
-            onChange={(e) => setPendingCity(e.target.value)}
-          />
           <Select
             id="apoiadores-state"
             options={[{ value: '', label: 'Todos os estados' }, ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s }))]}
             value={pendingState}
-            onChange={(e) => setPendingState(e.target.value)}
+            onChange={(e) => {
+              setPendingState(e.target.value);
+              setPendingCity('');
+            }}
+          />
+          <Select
+            id="apoiadores-city"
+            value={pendingCity}
+            onChange={(e) => setPendingCity(e.target.value)}
+            options={cityFilterOptions}
+            disabled={!pendingState}
           />
           <div className="flex gap-2">
             <Button type="submit" className="flex-1">

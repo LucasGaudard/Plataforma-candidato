@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { AdminCoordinatorItem, CreateCoordinatorRequest, UpdateCoordinatorRequest } from '@platform/types';
 import { Role } from '@platform/types';
-import { BRAZILIAN_STATES, formatPhone } from '@platform/utils';
+import { BRAZILIAN_STATES, CITIES_BY_STATE, formatPhone } from '@platform/utils';
 import { Badge, Button, Card, ConfirmModal, EmptyState, Input, Pagination, Select, TableRowSkeleton } from '@platform/ui';
 import { api } from '@/lib/api';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -164,6 +164,24 @@ function CoordinatorsContent() {
     );
   }
 
+  const createCityOptions = (() => {
+    if (!createForm.state || !CITIES_BY_STATE[createForm.state]) return [];
+    const opts = CITIES_BY_STATE[createForm.state].map(c => ({ value: c, label: c }));
+    if (createForm.city && !opts.some(o => o.value === createForm.city)) {
+      opts.push({ value: createForm.city, label: createForm.city });
+    }
+    return [{ value: '', label: 'Selecione uma cidade' }, ...opts];
+  })();
+
+  const editCityOptions = (() => {
+    if (!editForm.state || !CITIES_BY_STATE[editForm.state]) return [];
+    const opts = CITIES_BY_STATE[editForm.state].map(c => ({ value: c, label: c }));
+    if (editForm.city && !opts.some(o => o.value === editForm.city)) {
+      opts.push({ value: editForm.city, label: editForm.city });
+    }
+    return [{ value: '', label: 'Selecione uma cidade' }, ...opts];
+  })();
+
   return (
     <DashboardLayout title="Coordenadores" subtitle="Gerencie os coordenadores da campanha">
       {formMode && (
@@ -186,8 +204,8 @@ function CoordinatorsContent() {
               <div className="sm:col-span-2">
                 <Input label="Endereço *" value={createForm.address} error={formErrors.address} onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })} />
               </div>
-              <Input label="Cidade *" value={createForm.city} error={formErrors.city} onChange={(e) => setCreateForm({ ...createForm, city: e.target.value })} />
-              <Select label="Estado *" options={[{ value: '', label: 'Selecione o estado' }, ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s }))]} value={createForm.state} onChange={(e) => setCreateForm({ ...createForm, state: e.target.value })} />
+              <Select label="Estado *" options={[{ value: '', label: 'Selecione o estado' }, ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s }))]} value={createForm.state} onChange={(e) => setCreateForm({ ...createForm, state: e.target.value, city: '' })} />
+              <Select label="Cidade *" value={createForm.city} error={formErrors.city} onChange={(e) => setCreateForm({ ...createForm, city: e.target.value })} options={createCityOptions} disabled={!createForm.state} />
               <div className="flex justify-end gap-3 sm:col-span-2">
                 <Button type="button" variant="outline" onClick={closeForm}>Cancelar</Button>
                 <Button type="submit" loading={formLoading}>Criar Coordenador</Button>
@@ -198,8 +216,8 @@ function CoordinatorsContent() {
               <Input label="Nome" value={editForm.firstName ?? ''} onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })} />
               <Input label="Sobrenome" value={editForm.lastName ?? ''} onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })} />
               <Input label="Telefone" value={editForm.phone ?? ''} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
-              <Input label="Cidade" value={editForm.city ?? ''} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })} />
-              <Select label="Estado" options={[{ value: '', label: 'Selecione o estado' }, ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s }))]} value={editForm.state ?? ''} onChange={(e) => setEditForm({ ...editForm, state: e.target.value })} />
+              <Select label="Estado" options={[{ value: '', label: 'Selecione o estado' }, ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s }))]} value={editForm.state ?? ''} onChange={(e) => setEditForm({ ...editForm, state: e.target.value, city: '' })} />
+              <Select label="Cidade" value={editForm.city ?? ''} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })} options={editCityOptions} disabled={!editForm.state} />
               <div className="flex justify-end gap-3 sm:col-span-2">
                 <Button type="button" variant="outline" onClick={closeForm}>Cancelar</Button>
                 <Button type="submit" loading={formLoading}>Salvar Alterações</Button>

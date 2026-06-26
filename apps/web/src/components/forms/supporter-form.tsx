@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button, Input, Select, Alert } from '@platform/ui';
-import { BRAZILIAN_STATES, formatPhone } from '@platform/utils';
+import { BRAZILIAN_STATES, CITIES_BY_STATE, formatPhone } from '@platform/utils';
 import { api } from '@/lib/api';
 
 interface SupporterFormProps {
@@ -33,13 +33,30 @@ export function SupporterForm({ leaderSlug, leaderName, onSuccess }: SupporterFo
       formatted = formatPhone(value);
     }
 
-    setForm((prev) => ({ ...prev, [field]: formatted }));
+    setForm((prev) => {
+      const next = { ...prev, [field]: formatted };
+      if (field === 'state') {
+        next.city = '';
+      }
+      return next;
+    });
+
     setErrors((prev) => {
       const next = { ...prev };
       delete next[field];
+      if (field === 'state') delete next['city'];
       return next;
     });
   }
+
+  const cityOptions = (() => {
+    if (!form.state || !CITIES_BY_STATE[form.state]) return [];
+    const opts = CITIES_BY_STATE[form.state].map(c => ({ value: c, label: c }));
+    if (form.city && !opts.some(o => o.value === form.city)) {
+      opts.push({ value: form.city, label: form.city });
+    }
+    return [{ value: '', label: 'Selecione uma cidade' }, ...opts];
+  })();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -105,15 +122,6 @@ export function SupporterForm({ leaderSlug, leaderName, onSuccess }: SupporterFo
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input
-          label="Cidade *"
-          name="city"
-          value={form.city}
-          onChange={(e) => updateField('city', e.target.value)}
-          error={errors.city}
-          placeholder="Sua cidade"
-          disabled={loading}
-        />
         <Select
           label="Estado *"
           name="state"
@@ -122,6 +130,15 @@ export function SupporterForm({ leaderSlug, leaderName, onSuccess }: SupporterFo
           error={errors.state}
           options={[{ value: '', label: 'Selecione' }, ...stateOptions]}
           disabled={loading}
+        />
+        <Select
+          label="Cidade *"
+          name="city"
+          value={form.city}
+          onChange={(e) => updateField('city', e.target.value)}
+          error={errors.city}
+          options={cityOptions}
+          disabled={loading || !form.state}
         />
       </div>
 

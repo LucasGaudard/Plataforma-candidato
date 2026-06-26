@@ -7,7 +7,7 @@ import type {
   CreateLeaderRequest,
   UpdateLeaderRequest,
 } from '@platform/types';
-import { BRAZILIAN_STATES, formatPhone } from '@platform/utils';
+import { BRAZILIAN_STATES, CITIES_BY_STATE, formatPhone } from '@platform/utils';
 import {
   Button,
   Card,
@@ -180,6 +180,24 @@ export function CoordinatorDashboardView() {
     );
   }
 
+  const createCityOptions = (() => {
+    if (!createForm.state || !CITIES_BY_STATE[createForm.state]) return [];
+    const opts = CITIES_BY_STATE[createForm.state].map(c => ({ value: c, label: c }));
+    if (createForm.city && !opts.some(o => o.value === createForm.city)) {
+      opts.push({ value: createForm.city, label: createForm.city });
+    }
+    return [{ value: '', label: 'Selecione uma cidade' }, ...opts];
+  })();
+
+  const editCityOptions = (() => {
+    if (!editForm.state || !CITIES_BY_STATE[editForm.state]) return [];
+    const opts = CITIES_BY_STATE[editForm.state].map(c => ({ value: c, label: c }));
+    if (editForm.city && !opts.some(o => o.value === editForm.city)) {
+      opts.push({ value: editForm.city, label: editForm.city });
+    }
+    return [{ value: '', label: 'Selecione uma cidade' }, ...opts];
+  })();
+
   return (
     <DashboardLayout title="Dashboard Coordenador" subtitle="Gerencie seus líderes">
       {/* Stats */}
@@ -265,13 +283,6 @@ export function CoordinatorDashboardView() {
                   onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })}
                 />
               </div>
-              <Input
-                label="Cidade *"
-                placeholder="Cidade"
-                value={createForm.city}
-                error={formErrors.city}
-                onChange={(e) => setCreateForm({ ...createForm, city: e.target.value })}
-              />
               <Select
                 label="Estado *"
                 options={[
@@ -279,7 +290,15 @@ export function CoordinatorDashboardView() {
                   ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s })),
                 ]}
                 value={createForm.state}
-                onChange={(e) => setCreateForm({ ...createForm, state: e.target.value })}
+                onChange={(e) => setCreateForm({ ...createForm, state: e.target.value, city: '' })}
+              />
+              <Select
+                label="Cidade *"
+                value={createForm.city}
+                error={formErrors.city}
+                onChange={(e) => setCreateForm({ ...createForm, city: e.target.value })}
+                options={createCityOptions}
+                disabled={!createForm.state}
               />
               <div className="flex justify-end gap-3 sm:col-span-2">
                 <Button type="button" variant="outline" onClick={closeForm}>
@@ -310,12 +329,6 @@ export function CoordinatorDashboardView() {
                 value={editForm.phone ?? ''}
                 onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
               />
-              <Input
-                label="Cidade"
-                placeholder="Cidade"
-                value={editForm.city ?? ''}
-                onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
-              />
               <Select
                 label="Estado"
                 options={[
@@ -323,7 +336,14 @@ export function CoordinatorDashboardView() {
                   ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s })),
                 ]}
                 value={editForm.state ?? ''}
-                onChange={(e) => setEditForm({ ...editForm, state: e.target.value })}
+                onChange={(e) => setEditForm({ ...editForm, state: e.target.value, city: '' })}
+              />
+              <Select
+                label="Cidade"
+                value={editForm.city ?? ''}
+                onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                options={editCityOptions}
+                disabled={!editForm.state}
               />
               <Input
                 label="Endereço"

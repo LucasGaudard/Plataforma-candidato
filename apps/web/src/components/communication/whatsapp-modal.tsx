@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { CommunicationFilters } from '@platform/types';
-import { BRAZILIAN_STATES } from '@platform/utils';
+import { BRAZILIAN_STATES, CITIES_BY_STATE } from '@platform/utils';
 import { Button, Input, Select } from '@platform/ui';
 import { api } from '@/lib/api';
 import { useToast } from '@/contexts/toast-context';
@@ -44,6 +44,15 @@ export function WhatsappModal({ isOpen, onClose, content }: WhatsappModalProps) 
   }, [isOpen, filters, content, toast]);
 
   if (!isOpen || !content) return null;
+
+  const cityFilterOptions = (() => {
+    if (!filters.state || !CITIES_BY_STATE[filters.state]) return [];
+    const opts = CITIES_BY_STATE[filters.state].map(c => ({ value: c, label: c }));
+    if (filters.city && !opts.some(o => o.value === filters.city)) {
+      opts.push({ value: filters.city, label: filters.city });
+    }
+    return [{ value: '', label: 'Todas as cidades' }, ...opts];
+  })();
 
   const previewMessage = `Olá!
 
@@ -106,13 +115,6 @@ Acompanhe as novidades.`;
                     Apenas apoiadores VERIFIED
                   </label>
                   
-                  <Input
-                    label="Por Cidade"
-                    placeholder="Ex: São Paulo"
-                    value={filters.city || ''}
-                    onChange={(e) => setFilters({ ...filters, city: e.target.value })}
-                  />
-                  
                   <Select
                     label="Por Estado"
                     options={[
@@ -120,7 +122,15 @@ Acompanhe as novidades.`;
                       ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s })),
                     ]}
                     value={filters.state || ''}
-                    onChange={(e) => setFilters({ ...filters, state: e.target.value })}
+                    onChange={(e) => setFilters({ ...filters, state: e.target.value, city: '' })}
+                  />
+
+                  <Select
+                    label="Por Cidade"
+                    value={filters.city || ''}
+                    onChange={(e) => setFilters({ ...filters, city: e.target.value })}
+                    options={cityFilterOptions}
+                    disabled={!filters.state}
                   />
                 </div>
               </div>
