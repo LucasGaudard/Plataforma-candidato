@@ -192,6 +192,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       search?: string;
       city?: string;
       state?: string;
+      neighborhood?: string;
       leaderId?: string;
       coordinatorId?: string;
     };
@@ -212,6 +213,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         ...(coordinatorId ? { coordinatorId } : {}),
         ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
         ...(state ? { state } : {}),
+        ...(request.query.neighborhood ? { neighborhood: { contains: request.query.neighborhood.trim(), mode: 'insensitive' as const } } : {}),
         ...(search
           ? {
               OR: [
@@ -244,6 +246,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         phone: u.phone,
         city: u.city,
         state: u.state,
+        neighborhood: u.neighborhood,
         status: u.status as SupporterStatus,
         createdAt: u.createdAt.toISOString(),
         leaderName: u.leader ? `${u.leader.firstName} ${u.leader.lastName}` : undefined,
@@ -292,12 +295,13 @@ export async function adminRoutes(fastify: FastifyInstance) {
       leaderId?: string;
       city?: string;
       state?: string;
+      neighborhood?: string;
     };
   }>(
     '/communication/recipients/count',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
     async (request, reply) => {
-      const { verifiedOnly, coordinatorId, leaderId, city, state } = request.query;
+      const { verifiedOnly, coordinatorId, leaderId, city, state, neighborhood } = request.query;
 
       const count = await prisma.user.count({
         where: {
@@ -310,6 +314,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
               : {}),
           ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
           ...(state ? { state: state.toUpperCase() } : {}),
+          ...(neighborhood ? { neighborhood: { contains: neighborhood, mode: 'insensitive' as const } } : {}),
         },
       });
 
@@ -370,6 +375,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
             phone: u.phone,
             city: u.city,
             state: u.state,
+            neighborhood: u.neighborhood,
             active: isActive,
             leadersCount: u._count.leaders,
             supportersCount,
@@ -398,6 +404,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         address: sanitizeString(body.address || ''),
         city: sanitizeString(body.city || ''),
         state: sanitizeString(body.state || ''),
+        neighborhood: sanitizeString(body.neighborhood || ''),
         cpf: body.cpf || '',
         phone: body.phone || '',
         password: body.password || '',
@@ -431,6 +438,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
           address: normalized.address,
           city: normalized.city,
           state: normalized.state,
+          neighborhood: normalized.neighborhood,
           role: Role.COORDINATOR,
         },
       });
@@ -460,6 +468,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       if (body.address !== undefined) updateData.address = sanitizeString(body.address);
       if (body.city !== undefined) updateData.city = sanitizeString(body.city);
       if (body.state !== undefined) updateData.state = body.state.trim().toUpperCase();
+      if (body.neighborhood !== undefined) updateData.neighborhood = sanitizeString(body.neighborhood);
 
       await prisma.user.update({
         where: { id },
@@ -544,6 +553,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         phone: u.phone,
         city: u.city,
         state: u.state,
+        neighborhood: u.neighborhood,
         active: !!u.leaderSlug, // If leaderSlug is null, leader is inactive
         supportersCount: u._count.supporters,
         coordinatorId: u.coordinatorId || '',
@@ -584,6 +594,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         address: sanitizeString(body.address || ''),
         city: sanitizeString(body.city || ''),
         state: sanitizeString(body.state || ''),
+        neighborhood: sanitizeString(body.neighborhood || ''),
         cpf: body.cpf || '',
         phone: body.phone || '',
         password: body.password || '',
@@ -618,6 +629,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
           address: normalized.address,
           city: normalized.city,
           state: normalized.state,
+          neighborhood: normalized.neighborhood,
           role: Role.LEADER,
           leaderSlug,
           coordinatorId: coordinator.id,
@@ -649,6 +661,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       if (body.address !== undefined) updateData.address = sanitizeString(body.address);
       if (body.city !== undefined) updateData.city = sanitizeString(body.city);
       if (body.state !== undefined) updateData.state = body.state.trim().toUpperCase();
+      if (body.neighborhood !== undefined) updateData.neighborhood = sanitizeString(body.neighborhood);
 
       if (body.firstName !== undefined || body.lastName !== undefined) {
         const newFirst = (updateData.firstName as string) ?? existing.firstName;

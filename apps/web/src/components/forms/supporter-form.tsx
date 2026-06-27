@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button, Input, Select, Alert } from '@platform/ui';
-import { BRAZILIAN_STATES, CITIES_BY_STATE, formatPhone } from '@platform/utils';
+import { CITIES_BY_STATE, NEIGHBORHOODS_BY_CITY, formatPhone } from '@platform/utils';
 import { api } from '@/lib/api';
 
 interface SupporterFormProps {
@@ -17,14 +17,14 @@ export function SupporterForm({ leaderSlug, leaderName, onSuccess }: SupporterFo
     lastName: '',
     phone: '',
     city: '',
-    state: '',
+    neighborhood: '',
+    state: 'RJ', // State is implicitly RJ for the public registration
   });
+  const [customNeighborhood, setCustomNeighborhood] = useState('');
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const stateOptions = BRAZILIAN_STATES.map((s) => ({ value: s, label: s }));
 
   function updateField(field: keyof typeof form, value: string) {
     let formatted = value;
@@ -35,8 +35,9 @@ export function SupporterForm({ leaderSlug, leaderName, onSuccess }: SupporterFo
 
     setForm((prev) => {
       const next = { ...prev, [field]: formatted };
-      if (field === 'state') {
-        next.city = '';
+      if (field === 'city') {
+        next.neighborhood = '';
+        setCustomNeighborhood('');
       }
       return next;
     });
@@ -44,18 +45,27 @@ export function SupporterForm({ leaderSlug, leaderName, onSuccess }: SupporterFo
     setErrors((prev) => {
       const next = { ...prev };
       delete next[field];
-      if (field === 'state') delete next['city'];
+      if (field === 'city') delete next['neighborhood'];
       return next;
     });
   }
 
   const cityOptions = (() => {
-    if (!form.state || !CITIES_BY_STATE[form.state]) return [];
-    const opts = CITIES_BY_STATE[form.state].map(c => ({ value: c, label: c }));
+    const rjCities = CITIES_BY_STATE['RJ'] || [];
+    const opts = rjCities.map(c => ({ value: c, label: c }));
     if (form.city && !opts.some(o => o.value === form.city)) {
       opts.push({ value: form.city, label: form.city });
     }
     return [{ value: '', label: 'Selecione uma cidade' }, ...opts];
+  })();
+
+  const neighborhoodOptions = (() => {
+    if (!form.city || !NEIGHBORHOODS_BY_CITY[form.city]) return [];
+    const opts = NEIGHBORHOODS_BY_CITY[form.city].map(n => ({ value: n, label: n }));
+    if (form.neighborhood && form.neighborhood !== 'Outro' && !opts.some(o => o.value === form.neighborhood)) {
+      opts.push({ value: form.neighborhood, label: form.neighborhood });
+    }
+    return [{ value: '', label: 'Selecione um bairro/região' }, ...opts];
   })();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -64,8 +74,19 @@ export function SupporterForm({ leaderSlug, leaderName, onSuccess }: SupporterFo
     setErrors({});
     setLoading(true);
 
+    const finalNeighborhood = form.neighborhood === 'Outro' ? customNeighborhood : form.neighborhood;
+
+    if (form.neighborhood === 'Outro' && !customNeighborhood.trim()) {
+      setErrors((prev) => ({ ...prev, neighborhood: 'Por favor, informe o bairro' }));
+      setLoading(false);
+      return;
+    }
+
     try {
-      await api.createSupporter(leaderSlug, form);
+      await api.createSupporter(leaderSlug, {
+        ...form,
+        neighborhood: finalNeighborhood,
+      });
       onSuccess();
     } catch (err) {
       const error = err as Error & { errors?: Record<string, string> };
@@ -123,23 +144,43 @@ export function SupporterForm({ leaderSlug, leaderName, onSuccess }: SupporterFo
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Select
-          label="Estado *"
-          name="state"
-          value={form.state}
-          onChange={(e) => updateField('state', e.target.value)}
-          error={errors.state}
-          options={[{ value: '', label: 'Selecione' }, ...stateOptions]}
-          disabled={loading}
-        />
-        <Select
           label="Cidade *"
           name="city"
           value={form.city}
           onChange={(e) => updateField('city', e.target.value)}
           error={errors.city}
           options={cityOptions}
-          disabled={loading || !form.state}
+          disabled={loading}
         />
+        <div className="space-y-4">
+          <Select
+            label="Bairro/Região *"
+            name="neighborhood"
+            value={form.neighborhood}
+            onChange={(e) => updateField('neighborhood', e.target.value)}
+            error={errors.neighborhood}
+            options={neighborhoodOptions}
+            disabled={loading || !form.city || neighborhoodOptions.length === 0}
+          />
+          {form.neighborhood === 'Outro' && (
+            <Input
+              label="Qual o seu bairro? *"
+              name="customNeighborhood"
+              value={customNeighborhood}
+              onChange={(e) => {
+                setCustomNeighborhood(e.target.value);
+                setErrors(prev => {
+                  const next = { ...prev };
+                  delete next['neighborhood'];
+                  return next;
+                });
+              }}
+              error={errors.neighborhood}
+              placeholder="Digite o nome do bairro"
+              disabled={loading}
+            />
+          )}
+        </div>
       </div>
 
       <div className="pt-2">

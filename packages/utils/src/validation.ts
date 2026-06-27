@@ -13,6 +13,7 @@ export interface RegisterValidationInput {
   address: string;
   city: string;
   state: string;
+  neighborhood?: string;
 }
 
 export interface ValidationResult {
@@ -79,6 +80,7 @@ export function normalizeRegisterInput(input: RegisterValidationInput): Register
     address: input.address.trim(),
     city: input.city.trim(),
     state: input.state.trim().toUpperCase(),
+    neighborhood: input.neighborhood?.trim(),
   };
 }
 
@@ -88,6 +90,7 @@ export interface SupporterValidationInput {
   phone: string;
   city: string;
   state: string;
+  neighborhood?: string;
 }
 
 export function validateSupporterInput(input: SupporterValidationInput): ValidationResult {
@@ -128,6 +131,7 @@ export function normalizeSupporterInput(input: SupporterValidationInput): Suppor
     lastName: input.lastName.trim(),
     city: input.city.trim(),
     state: input.state.trim().toUpperCase(),
+    neighborhood: input.neighborhood?.trim(),
   };
 }
 

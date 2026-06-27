@@ -69,6 +69,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       search?: string;
       city?: string;
       state?: string;
+      neighborhood?: string;
     };
   }>(
     '/supporters',
@@ -78,12 +79,14 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       const search = request.query.search?.trim();
       const city = request.query.city?.trim();
       const state = request.query.state?.trim().toUpperCase();
+      const neighborhood = request.query.neighborhood?.trim();
 
       const where = {
         role: Role.USER,
         leaderId: request.user.sub,
         ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
         ...(state ? { state } : {}),
+        ...(neighborhood ? { neighborhood: { contains: neighborhood, mode: 'insensitive' as const } } : {}),
         ...(search
           ? {
               OR: [
@@ -113,6 +116,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
         phone: s.phone,
         city: s.city,
         state: s.state,
+        neighborhood: s.neighborhood,
         status: s.status as SupporterStatus,
         createdAt: s.createdAt.toISOString(),
       }));
@@ -168,6 +172,9 @@ export async function leaderRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ message: 'Líder não encontrado' });
       }
 
+      // Fix state to 'RJ' implicitly since Paula Quintanilha is a local candidate
+      body.state = body.state || 'RJ';
+
       const normalized = normalizeSupporterInput(body);
       const validation = validateSupporterInput(normalized);
 
@@ -196,6 +203,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
           phone: normalized.phone,
           city: normalized.city,
           state: normalized.state,
+          neighborhood: normalized.neighborhood,
           email: fakeEmail,
           cpf: fakeCpf,
           password: cuid, // random string, user cannot login
@@ -244,13 +252,14 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       verifiedOnly?: string;
       city?: string;
       state?: string;
+      neighborhood?: string;
     };
   }>(
     '/communication/recipients/count',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.LEADER)] },
     async (request, reply) => {
       const leaderId = request.user.sub;
-      const { verifiedOnly, city, state } = request.query;
+      const { verifiedOnly, city, state, neighborhood } = request.query;
 
       const count = await prisma.user.count({
         where: {
@@ -259,6 +268,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
           ...(verifiedOnly === 'true' ? { status: SupporterStatus.VERIFIED } : {}),
           ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
           ...(state ? { state: state.toUpperCase() } : {}),
+          ...(neighborhood ? { neighborhood: { contains: neighborhood, mode: 'insensitive' as const } } : {}),
         },
       });
 

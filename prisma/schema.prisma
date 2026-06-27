@@ -48,6 +48,7 @@ model User {
   address       String
   city          String
   state         String
+  neighborhood  String?
   role          Role           @default(USER)
   status        SupporterStatus @default(PENDING)
   leaderSlug    String?        @unique

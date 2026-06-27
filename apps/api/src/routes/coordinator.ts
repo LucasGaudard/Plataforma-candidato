@@ -20,6 +20,7 @@ const leaderSelect = {
   phone: true,
   city: true,
   state: true,
+  neighborhood: true,
   leaderSlug: true,
   createdAt: true,
   _count: { select: { supporters: true } },
@@ -47,6 +48,7 @@ function toLeaderItem(leader: {
   phone: string;
   city: string;
   state: string;
+  neighborhood: string | null;
   leaderSlug: string | null;
   createdAt: Date;
   _count: { supporters: number };
@@ -59,6 +61,7 @@ function toLeaderItem(leader: {
     phone: leader.phone,
     city: leader.city,
     state: leader.state,
+    neighborhood: leader.neighborhood,
     leaderSlug: leader.leaderSlug,
     supporterCount: leader._count.supporters,
     createdAt: leader.createdAt.toISOString(),
@@ -175,6 +178,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
         address: sanitizeString(body.address || ''),
         city: sanitizeString(body.city || ''),
         state: sanitizeString(body.state || ''),
+        neighborhood: sanitizeString(body.neighborhood || ''),
         cpf: body.cpf || '',
         phone: body.phone || '',
         password: body.password || '',
@@ -209,6 +213,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
           address: normalized.address,
           city: normalized.city,
           state: normalized.state,
+          neighborhood: normalized.neighborhood,
           role: Role.LEADER,
           leaderSlug,
           coordinatorId,
@@ -249,6 +254,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
       if (body.address !== undefined) updateData.address = sanitizeString(body.address);
       if (body.city !== undefined) updateData.city = sanitizeString(body.city);
       if (body.state !== undefined) updateData.state = body.state.trim().toUpperCase();
+      if (body.neighborhood !== undefined) updateData.neighborhood = sanitizeString(body.neighborhood);
 
       // Regenera slug se o nome foi alterado
       if (body.firstName !== undefined || body.lastName !== undefined) {
@@ -308,7 +314,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
   // Lista paginada dos apoiadores vinculados aos líderes deste coordenador
   // ─────────────────────────────────────────────────────────
   fastify.get<{
-    Querystring: { page?: string; limit?: string; search?: string; city?: string; state?: string; leaderId?: string };
+    Querystring: { page?: string; limit?: string; search?: string; city?: string; state?: string; neighborhood?: string; leaderId?: string };
   }>(
     '/supporters',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.COORDINATOR)] },
@@ -318,6 +324,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
       const search = request.query.search?.trim();
       const city = request.query.city?.trim();
       const state = request.query.state?.trim().toUpperCase();
+      const neighborhood = request.query.neighborhood?.trim();
       const leaderId = request.query.leaderId;
 
       const where = {
@@ -326,6 +333,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
         ...(leaderId ? { leaderId } : {}),
         ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
         ...(state ? { state } : {}),
+        ...(neighborhood ? { neighborhood: { contains: neighborhood, mode: 'insensitive' as const } } : {}),
         ...(search
           ? {
               OR: [
@@ -357,6 +365,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
         phone: u.phone,
         city: u.city,
         state: u.state,
+        neighborhood: u.neighborhood,
         status: u.status as SupporterStatus,
         createdAt: u.createdAt.toISOString(),
         leaderName: u.leader ? `${u.leader.firstName} ${u.leader.lastName}` : undefined,
@@ -408,13 +417,14 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
       leaderId?: string;
       city?: string;
       state?: string;
+      neighborhood?: string;
     };
   }>(
     '/communication/recipients/count',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.COORDINATOR)] },
     async (request, reply) => {
       const coordinatorId = request.user.sub;
-      const { verifiedOnly, leaderId, city, state } = request.query;
+      const { verifiedOnly, leaderId, city, state, neighborhood } = request.query;
 
       const count = await prisma.user.count({
         where: {
@@ -425,6 +435,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
             : { leader: { coordinatorId } }),
           ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
           ...(state ? { state: state.toUpperCase() } : {}),
+          ...(neighborhood ? { neighborhood: { contains: neighborhood, mode: 'insensitive' as const } } : {}),
         },
       });
 

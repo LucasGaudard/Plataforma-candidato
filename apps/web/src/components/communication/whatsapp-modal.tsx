@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { CommunicationFilters } from '@platform/types';
-import { BRAZILIAN_STATES, CITIES_BY_STATE } from '@platform/utils';
+import { BRAZILIAN_STATES, CITIES_BY_STATE, NEIGHBORHOODS_BY_CITY } from '@platform/utils';
 import { Button, Input, Select } from '@platform/ui';
 import { api } from '@/lib/api';
 import { useToast } from '@/contexts/toast-context';
@@ -24,6 +24,7 @@ export function WhatsappModal({ isOpen, onClose, content }: WhatsappModalProps) 
     verifiedOnly: false,
     city: '',
     state: '',
+    neighborhood: '',
   });
 
   const [testPhone, setTestPhone] = useState('');
@@ -52,6 +53,15 @@ export function WhatsappModal({ isOpen, onClose, content }: WhatsappModalProps) 
       opts.push({ value: filters.city, label: filters.city });
     }
     return [{ value: '', label: 'Todas as cidades' }, ...opts];
+  })();
+
+  const neighborhoodFilterOptions = (() => {
+    if (!filters.city || !NEIGHBORHOODS_BY_CITY[filters.city]) return [];
+    const opts = NEIGHBORHOODS_BY_CITY[filters.city].map(n => ({ value: n, label: n }));
+    if (filters.neighborhood && filters.neighborhood !== 'Outro' && !opts.some(o => o.value === filters.neighborhood)) {
+      opts.push({ value: filters.neighborhood, label: filters.neighborhood });
+    }
+    return [{ value: '', label: 'Todos os bairros/regiões' }, ...opts];
   })();
 
   const previewMessage = `Olá!
@@ -122,15 +132,23 @@ Acompanhe as novidades.`;
                       ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s })),
                     ]}
                     value={filters.state || ''}
-                    onChange={(e) => setFilters({ ...filters, state: e.target.value, city: '' })}
+                    onChange={(e) => setFilters({ ...filters, state: e.target.value, city: '', neighborhood: '' })}
                   />
 
                   <Select
                     label="Por Cidade"
                     value={filters.city || ''}
-                    onChange={(e) => setFilters({ ...filters, city: e.target.value })}
+                    onChange={(e) => setFilters({ ...filters, city: e.target.value, neighborhood: '' })}
                     options={cityFilterOptions}
                     disabled={!filters.state}
+                  />
+
+                  <Select
+                    label="Por Bairro/Região"
+                    value={filters.neighborhood || ''}
+                    onChange={(e) => setFilters({ ...filters, neighborhood: e.target.value })}
+                    options={neighborhoodFilterOptions}
+                    disabled={!filters.city}
                   />
                 </div>
               </div>

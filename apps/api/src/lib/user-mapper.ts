@@ -12,6 +12,7 @@ export function toUserPublic(user: User): UserPublic {
     address: user.address,
     city: user.city,
     state: user.state,
+    neighborhood: user.neighborhood,
     role: user.role as Role,
     leaderSlug: user.leaderSlug,
     leaderId: user.leaderId,

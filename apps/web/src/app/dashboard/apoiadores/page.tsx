@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Role, SupporterStatus } from '@platform/types';
 import type { SupporterListItem, SupportersQuery } from '@platform/types';
-import { BRAZILIAN_STATES, CITIES_BY_STATE, formatPhone } from '@platform/utils';
+import { BRAZILIAN_STATES, CITIES_BY_STATE, NEIGHBORHOODS_BY_CITY, formatPhone } from '@platform/utils';
 import {
   Badge,
   Button,
@@ -35,15 +35,16 @@ function SupportersContent() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Filtros
   const [search, setSearch] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
+  const [neighborhood, setNeighborhood] = useState('');
 
   // Filtros pendentes (aplicados apenas ao submeter)
   const [pendingSearch, setPendingSearch] = useState('');
   const [pendingCity, setPendingCity] = useState('');
   const [pendingState, setPendingState] = useState('');
+  const [pendingNeighborhood, setPendingNeighborhood] = useState('');
 
   const isAdmin = user?.role === Role.ADMIN;
   const isCoordinator = user?.role === Role.COORDINATOR;
@@ -58,6 +59,7 @@ function SupportersContent() {
         search: search || undefined,
         city: city || undefined,
         state: state || undefined,
+        neighborhood: neighborhood || undefined,
       };
 
       let result;
@@ -77,7 +79,7 @@ function SupportersContent() {
     } finally {
       setLoading(false);
     }
-  }, [user, page, search, city, state, isAdmin, isCoordinator, toast]);
+  }, [user, page, search, city, state, neighborhood, isAdmin, isCoordinator, toast]);
 
   useEffect(() => {
     loadSupporters();
@@ -88,6 +90,7 @@ function SupportersContent() {
     setSearch(pendingSearch);
     setCity(pendingCity);
     setState(pendingState);
+    setNeighborhood(pendingNeighborhood);
     setPage(1);
   }
 
@@ -95,9 +98,11 @@ function SupportersContent() {
     setPendingSearch('');
     setPendingCity('');
     setPendingState('');
+    setPendingNeighborhood('');
     setSearch('');
     setCity('');
     setState('');
+    setNeighborhood('');
     setPage(1);
   }
 
@@ -161,6 +166,15 @@ function SupportersContent() {
     return [{ value: '', label: 'Todas as cidades' }, ...opts];
   })();
 
+  const neighborhoodFilterOptions = (() => {
+    if (!pendingCity || !NEIGHBORHOODS_BY_CITY[pendingCity]) return [];
+    const opts = NEIGHBORHOODS_BY_CITY[pendingCity].map(n => ({ value: n, label: n }));
+    if (pendingNeighborhood && pendingNeighborhood !== 'Outro' && !opts.some(o => o.value === pendingNeighborhood)) {
+      opts.push({ value: pendingNeighborhood, label: pendingNeighborhood });
+    }
+    return [{ value: '', label: 'Todos os bairros/regiões' }, ...opts];
+  })();
+
   return (
     <DashboardLayout title="Apoiadores" subtitle={subtitle}>
       <Card>
@@ -184,11 +198,21 @@ function SupportersContent() {
           <Select
             id="apoiadores-city"
             value={pendingCity}
-            onChange={(e) => setPendingCity(e.target.value)}
+            onChange={(e) => {
+              setPendingCity(e.target.value);
+              setPendingNeighborhood('');
+            }}
             options={cityFilterOptions}
             disabled={!pendingState}
           />
-          <div className="flex gap-2">
+          <Select
+            id="apoiadores-neighborhood"
+            value={pendingNeighborhood}
+            onChange={(e) => setPendingNeighborhood(e.target.value)}
+            options={neighborhoodFilterOptions}
+            disabled={!pendingCity}
+          />
+          <div className="flex gap-2 lg:col-span-4">
             <Button type="submit" className="flex-1">
               Filtrar
             </Button>
@@ -260,6 +284,7 @@ function SupportersContent() {
                       <td className="hidden py-3 text-slate-500 md:table-cell px-4">
                         {s.city}
                         {s.state ? ` / ${s.state}` : ''}
+                        {s.neighborhood && <div className="text-xs text-slate-400 mt-1">{s.neighborhood}</div>}
                       </td>
                       {showLeaderCol && (
                         <td className="hidden py-3 text-slate-500 lg:table-cell px-4">

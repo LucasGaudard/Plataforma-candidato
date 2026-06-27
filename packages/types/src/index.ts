@@ -58,6 +58,7 @@ export interface UserPublic {
   address: string;
   city: string;
   state: string;
+  neighborhood?: string | null;
   role: Role;
   leaderSlug: string | null;
   leaderId: string | null;
@@ -85,6 +86,7 @@ export interface RegisterRequest {
   address: string;
   city: string;
   state: string;
+  neighborhood?: string;
   leaderSlug?: string;
 }
 
@@ -237,6 +239,7 @@ export interface CoordinatorLeaderItem {
   phone: string;
   city: string;
   state: string;
+  neighborhood?: string | null;
   leaderSlug: string | null;
   supporterCount: number;
   createdAt: string;
@@ -261,6 +264,7 @@ export interface CreateLeaderRequest {
   address: string;
   city: string;
   state: string;
+  neighborhood?: string;
 }
 
 export interface UpdateLeaderRequest {
@@ -270,6 +274,7 @@ export interface UpdateLeaderRequest {
   address?: string;
   city?: string;
   state?: string;
+  neighborhood?: string;
 }
 
 export interface CoordinatorLeadersQuery {
@@ -284,6 +289,7 @@ export interface CreateSupporterRequest {
   phone: string;
   city: string;
   state: string;
+  neighborhood?: string;
 }
 
 export interface SupportersQuery {
@@ -292,6 +298,7 @@ export interface SupportersQuery {
   search?: string;
   city?: string;
   state?: string;
+  neighborhood?: string;
   leaderId?: string;
   coordinatorId?: string;
 }
@@ -302,6 +309,7 @@ export interface CommunicationFilters {
   leaderId?: string;
   city?: string;
   state?: string;
+  neighborhood?: string;
 }
 
 export interface RecipientCountResponse {
@@ -315,6 +323,7 @@ export interface SupporterListItem {
   phone: string;
   city: string;
   state: string;
+  neighborhood?: string | null;
   status: SupporterStatus;
   createdAt: string;
   leaderName?: string;
@@ -329,6 +338,7 @@ export interface AdminCoordinatorItem {
   phone: string;
   city: string;
   state: string;
+  neighborhood?: string | null;
   active: boolean;
   leadersCount: number;
   supportersCount: number;
@@ -345,6 +355,7 @@ export interface CreateCoordinatorRequest {
   address: string;
   city: string;
   state: string;
+  neighborhood?: string;
 }
 
 export interface UpdateCoordinatorRequest {
@@ -355,6 +366,7 @@ export interface UpdateCoordinatorRequest {
   address?: string;
   city?: string;
   state?: string;
+  neighborhood?: string;
 }
 
 export interface AdminLeaderItem {
@@ -365,6 +377,7 @@ export interface AdminLeaderItem {
   phone: string;
   city: string;
   state: string;
+  neighborhood?: string | null;
   active: boolean;
   supportersCount: number;
   coordinatorId: string;

@@ -6,6 +6,7 @@ import { Button, Input, Select, Alert } from '@platform/ui';
 import {
   BRAZILIAN_STATES,
   CITIES_BY_STATE,
+  NEIGHBORHOODS_BY_CITY,
   formatCpf,
   formatPhone,
   validateRegisterInput,
@@ -29,10 +30,12 @@ export function RegisterForm({ leaderSlug, leaderName }: RegisterFormProps) {
     email: '',
     address: '',
     city: '',
-    state: '',
+    neighborhood: '',
+    state: 'RJ', // Default to RJ for Paula's campaign
     password: '',
     confirmPassword: '',
   });
+  const [customNeighborhood, setCustomNeighborhood] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,6 +52,12 @@ export function RegisterForm({ leaderSlug, leaderName }: RegisterFormProps) {
       const next = { ...prev, [field]: formatted };
       if (field === 'state') {
         next.city = '';
+        next.neighborhood = '';
+        setCustomNeighborhood('');
+      }
+      if (field === 'city') {
+        next.neighborhood = '';
+        setCustomNeighborhood('');
       }
       return next;
     });
@@ -56,7 +65,11 @@ export function RegisterForm({ leaderSlug, leaderName }: RegisterFormProps) {
     setErrors((prev) => {
       const next = { ...prev };
       delete next[field];
-      if (field === 'state') delete next['city'];
+      if (field === 'state') {
+        delete next['city'];
+        delete next['neighborhood'];
+      }
+      if (field === 'city') delete next['neighborhood'];
       return next;
     });
   }
@@ -70,9 +83,20 @@ export function RegisterForm({ leaderSlug, leaderName }: RegisterFormProps) {
     return [{ value: '', label: 'Selecione uma cidade' }, ...opts];
   })();
 
+  const neighborhoodOptions = (() => {
+    if (!form.city || !NEIGHBORHOODS_BY_CITY[form.city]) return [];
+    const opts = NEIGHBORHOODS_BY_CITY[form.city].map(n => ({ value: n, label: n }));
+    if (form.neighborhood && form.neighborhood !== 'Outro' && !opts.some(o => o.value === form.neighborhood)) {
+      opts.push({ value: form.neighborhood, label: form.neighborhood });
+    }
+    return [{ value: '', label: 'Selecione um bairro/região' }, ...opts];
+  })();
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError('');
+
+    const finalNeighborhood = form.neighborhood === 'Outro' ? customNeighborhood : form.neighborhood;
 
     const validation = validateRegisterInput({
       firstName: form.firstName,
@@ -87,6 +111,10 @@ export function RegisterForm({ leaderSlug, leaderName }: RegisterFormProps) {
     });
 
     const fieldErrors = { ...validation.errors };
+
+    if (form.neighborhood === 'Outro' && !customNeighborhood.trim()) {
+      fieldErrors.neighborhood = 'Por favor, informe o bairro';
+    }
 
     if (form.password !== form.confirmPassword) {
       fieldErrors.confirmPassword = 'As senhas não coincidem';
@@ -109,6 +137,7 @@ export function RegisterForm({ leaderSlug, leaderName }: RegisterFormProps) {
         address: form.address,
         city: form.city,
         state: form.state,
+        neighborhood: finalNeighborhood,
         password: form.password,
         leaderSlug,
       });
@@ -190,7 +219,7 @@ export function RegisterForm({ leaderSlug, leaderName }: RegisterFormProps) {
         value={form.address}
         onChange={(e) => updateField('address', e.target.value)}
         error={errors.address}
-        placeholder="Rua, número, bairro"
+        placeholder="Rua, número, complemento"
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -211,6 +240,47 @@ export function RegisterForm({ leaderSlug, leaderName }: RegisterFormProps) {
           options={cityOptions}
           disabled={!form.state}
         />
+      </div>
+
+      <div className="space-y-4">
+        {form.city && NEIGHBORHOODS_BY_CITY[form.city] ? (
+          <Select
+            label="Bairro/Região (Opcional)"
+            name="neighborhood"
+            value={form.neighborhood}
+            onChange={(e) => updateField('neighborhood', e.target.value)}
+            error={errors.neighborhood}
+            options={neighborhoodOptions}
+          />
+        ) : (
+          <Input
+            label="Bairro/Região (Opcional)"
+            name="customNeighborhood"
+            value={customNeighborhood}
+            onChange={(e) => {
+              setCustomNeighborhood(e.target.value);
+              updateField('neighborhood', 'Outro');
+            }}
+            placeholder="Digite o nome do bairro"
+          />
+        )}
+        {form.neighborhood === 'Outro' && form.city && NEIGHBORHOODS_BY_CITY[form.city] && (
+          <Input
+            label="Qual o seu bairro? *"
+            name="customNeighborhood"
+            value={customNeighborhood}
+            onChange={(e) => {
+              setCustomNeighborhood(e.target.value);
+              setErrors(prev => {
+                const next = { ...prev };
+                delete next['neighborhood'];
+                return next;
+              });
+            }}
+            error={errors.neighborhood}
+            placeholder="Digite o nome do bairro"
+          />
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

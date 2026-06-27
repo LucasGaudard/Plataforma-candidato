@@ -7,7 +7,7 @@ import type {
   CreateLeaderRequest,
   UpdateLeaderRequest,
 } from '@platform/types';
-import { BRAZILIAN_STATES, CITIES_BY_STATE, formatPhone } from '@platform/utils';
+import { BRAZILIAN_STATES, CITIES_BY_STATE, NEIGHBORHOODS_BY_CITY, formatPhone } from '@platform/utils';
 import {
   Button,
   Card,
@@ -34,6 +34,7 @@ const emptyCreate: CreateLeaderRequest = {
   address: '',
   city: '',
   state: '',
+  neighborhood: '',
 };
 
 export function CoordinatorDashboardView() {
@@ -55,6 +56,9 @@ export function CoordinatorDashboardView() {
   const [createForm, setCreateForm] = useState<CreateLeaderRequest>(emptyCreate);
   const [editForm, setEditForm] = useState<UpdateLeaderRequest>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const [createCustomNeighborhood, setCreateCustomNeighborhood] = useState('');
+  const [editCustomNeighborhood, setEditCustomNeighborhood] = useState('');
 
   const loadStats = useCallback(async () => {
     try {
@@ -101,8 +105,10 @@ export function CoordinatorDashboardView() {
       address: '',
       city: leader.city,
       state: leader.state,
+      neighborhood: leader.neighborhood || '',
     });
     setFormErrors({});
+    setEditCustomNeighborhood('');
     setEditingLeader(leader);
     setFormMode('edit');
   }
@@ -118,7 +124,16 @@ export function CoordinatorDashboardView() {
     setFormLoading(true);
     setFormErrors({});
     try {
-      await api.createCoordinatorLeader(createForm);
+      const payload = { ...createForm };
+      if (payload.neighborhood === 'Outro') {
+        payload.neighborhood = createCustomNeighborhood;
+      }
+      if (payload.neighborhood === 'Outro' && !createCustomNeighborhood.trim()) {
+        setFormErrors({ neighborhood: 'Por favor, informe o bairro' });
+        setFormLoading(false);
+        return;
+      }
+      await api.createCoordinatorLeader(payload);
       toast('Líder criado com sucesso!', 'success');
       closeForm();
       await Promise.all([loadStats(), loadLeaders()]);
@@ -137,7 +152,16 @@ export function CoordinatorDashboardView() {
     setFormLoading(true);
     setFormErrors({});
     try {
-      await api.updateCoordinatorLeader(editingLeader.id, editForm);
+      const payload = { ...editForm };
+      if (payload.neighborhood === 'Outro') {
+        payload.neighborhood = editCustomNeighborhood;
+      }
+      if (payload.neighborhood === 'Outro' && !editCustomNeighborhood.trim()) {
+        setFormErrors({ neighborhood: 'Por favor, informe o bairro' });
+        setFormLoading(false);
+        return;
+      }
+      await api.updateCoordinatorLeader(editingLeader.id, payload);
       toast('Líder atualizado com sucesso!', 'success');
       closeForm();
       await loadLeaders();
@@ -196,6 +220,24 @@ export function CoordinatorDashboardView() {
       opts.push({ value: editForm.city, label: editForm.city });
     }
     return [{ value: '', label: 'Selecione uma cidade' }, ...opts];
+  })();
+
+  const createNeighborhoodOptions = (() => {
+    if (!createForm.city || !NEIGHBORHOODS_BY_CITY[createForm.city]) return [];
+    const opts = NEIGHBORHOODS_BY_CITY[createForm.city].map(n => ({ value: n, label: n }));
+    if (createForm.neighborhood && createForm.neighborhood !== 'Outro' && !opts.some(o => o.value === createForm.neighborhood)) {
+      opts.push({ value: createForm.neighborhood, label: createForm.neighborhood });
+    }
+    return [{ value: '', label: 'Selecione um bairro/região' }, ...opts];
+  })();
+
+  const editNeighborhoodOptions = (() => {
+    if (!editForm.city || !NEIGHBORHOODS_BY_CITY[editForm.city]) return [];
+    const opts = NEIGHBORHOODS_BY_CITY[editForm.city].map(n => ({ value: n, label: n }));
+    if (editForm.neighborhood && editForm.neighborhood !== 'Outro' && !opts.some(o => o.value === editForm.neighborhood)) {
+      opts.push({ value: editForm.neighborhood, label: editForm.neighborhood });
+    }
+    return [{ value: '', label: 'Selecione um bairro/região' }, ...opts];
   })();
 
   return (
@@ -290,16 +332,26 @@ export function CoordinatorDashboardView() {
                   ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s })),
                 ]}
                 value={createForm.state}
-                onChange={(e) => setCreateForm({ ...createForm, state: e.target.value, city: '' })}
+                onChange={(e) => setCreateForm({ ...createForm, state: e.target.value, city: '', neighborhood: '' })}
               />
               <Select
                 label="Cidade *"
                 value={createForm.city}
                 error={formErrors.city}
-                onChange={(e) => setCreateForm({ ...createForm, city: e.target.value })}
+                onChange={(e) => setCreateForm({ ...createForm, city: e.target.value, neighborhood: '' })}
                 options={createCityOptions}
                 disabled={!createForm.state}
               />
+              <div className="space-y-4">
+                {createForm.city && NEIGHBORHOODS_BY_CITY[createForm.city] ? (
+                  <Select label="Bairro/Região" name="neighborhood" value={createForm.neighborhood || ''} onChange={(e) => setCreateForm({ ...createForm, neighborhood: e.target.value })} error={formErrors.neighborhood} options={createNeighborhoodOptions} />
+                ) : (
+                  <Input label="Bairro/Região" name="customNeighborhood" value={createCustomNeighborhood} onChange={(e) => { setCreateCustomNeighborhood(e.target.value); setCreateForm({ ...createForm, neighborhood: 'Outro' }); }} />
+                )}
+                {createForm.neighborhood === 'Outro' && createForm.city && NEIGHBORHOODS_BY_CITY[createForm.city] && (
+                  <Input label="Qual o seu bairro? *" value={createCustomNeighborhood} onChange={(e) => setCreateCustomNeighborhood(e.target.value)} error={formErrors.neighborhood} />
+                )}
+              </div>
               <div className="flex justify-end gap-3 sm:col-span-2">
                 <Button type="button" variant="outline" onClick={closeForm}>
                   Cancelar
@@ -336,15 +388,25 @@ export function CoordinatorDashboardView() {
                   ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s })),
                 ]}
                 value={editForm.state ?? ''}
-                onChange={(e) => setEditForm({ ...editForm, state: e.target.value, city: '' })}
+                onChange={(e) => setEditForm({ ...editForm, state: e.target.value, city: '', neighborhood: '' })}
               />
               <Select
                 label="Cidade"
                 value={editForm.city ?? ''}
-                onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                onChange={(e) => setEditForm({ ...editForm, city: e.target.value, neighborhood: '' })}
                 options={editCityOptions}
                 disabled={!editForm.state}
               />
+              <div className="space-y-4">
+                {editForm.city && NEIGHBORHOODS_BY_CITY[editForm.city] ? (
+                  <Select label="Bairro/Região" name="neighborhood" value={editForm.neighborhood || ''} onChange={(e) => setEditForm({ ...editForm, neighborhood: e.target.value })} error={formErrors.neighborhood} options={editNeighborhoodOptions} />
+                ) : (
+                  <Input label="Bairro/Região" name="customNeighborhood" value={editCustomNeighborhood} onChange={(e) => { setEditCustomNeighborhood(e.target.value); setEditForm({ ...editForm, neighborhood: 'Outro' }); }} />
+                )}
+                {editForm.neighborhood === 'Outro' && editForm.city && NEIGHBORHOODS_BY_CITY[editForm.city] && (
+                  <Input label="Qual o seu bairro? *" value={editCustomNeighborhood} onChange={(e) => setEditCustomNeighborhood(e.target.value)} error={formErrors.neighborhood} />
+                )}
+              </div>
               <Input
                 label="Endereço"
                 placeholder="Rua, número, bairro"

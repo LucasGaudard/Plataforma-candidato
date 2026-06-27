@@ -33,3 +33,34 @@ export const CITIES_BY_STATE: Record<string, string[]> = {
   ],
   'RN': [], 'RS': [], 'RO': [], 'RR': [], 'SC': [], 'SP': [], 'SE': [], 'TO': [],
 };
+
+// Bairros/Regiões por cidade (Rio de Janeiro com lista completa; demais cidades com lista base)
+const RJ_DEFAULT_NEIGHBORHOODS = ['Centro', 'Outro'];
+
+export const NEIGHBORHOODS_BY_CITY: Record<string, string[]> = {
+  'Rio de Janeiro': [
+    'Bangu', 'Barra da Tijuca', 'Botafogo', 'Campo Grande', 'Centro',
+    'Cidade de Deus', 'Copacabana', 'Deodoro', 'Flamengo', 'Grajaú',
+    'Guaratiba', 'Ipanema', 'Jacarepaguá', 'Lapa', 'Leblon',
+    'Madureira', 'Méier', 'Paciência', 'Padre Miguel', 'Penha',
+    'Piedade', 'Realengo', 'Recreio dos Bandeirantes', 'Riachuelo',
+    'Santa Cruz', 'Santíssimo', 'São Cristóvão', 'Sepetiba',
+    'Tijuca', 'Vila Isabel', 'Outro',
+  ],
+  'Belford Roxo': [...RJ_DEFAULT_NEIGHBORHOODS],
+  'Duque de Caxias': [...RJ_DEFAULT_NEIGHBORHOODS],
+  'Guapimirim': [...RJ_DEFAULT_NEIGHBORHOODS],
+  'Itaboraí': [...RJ_DEFAULT_NEIGHBORHOODS],
+  'Japeri': [...RJ_DEFAULT_NEIGHBORHOODS],
+  'Magé': [...RJ_DEFAULT_NEIGHBORHOODS],
+  'Mesquita': [...RJ_DEFAULT_NEIGHBORHOODS],
+  'Nilópolis': [...RJ_DEFAULT_NEIGHBORHOODS],
+  'Niterói': ['Barreto', 'Centro', 'Fonseca', 'Icaraí', 'Ingá', 'Pendotiba', 'Santa Rosa', 'São Francisco', 'Outro'],
+  'Nova Iguaçu': [...RJ_DEFAULT_NEIGHBORHOODS],
+  'Paracambi': [...RJ_DEFAULT_NEIGHBORHOODS],
+  'Queimados': [...RJ_DEFAULT_NEIGHBORHOODS],
+  'São Gonçalo': ['Alcântara', 'Arsenal', 'Centro', 'Neves', 'Porto Velho', 'Rocha', 'Outro'],
+  'São João de Meriti': [...RJ_DEFAULT_NEIGHBORHOODS],
+  'Seropédica': [...RJ_DEFAULT_NEIGHBORHOODS],
+  'Tanguá': [...RJ_DEFAULT_NEIGHBORHOODS],
+};
