@@ -710,4 +710,41 @@ export async function adminRoutes(fastify: FastifyInstance) {
       }
     },
   );
+
+  // WhatsApp config status — nunca expõe valores de tokens
+  fastify.get(
+    '/whatsapp/config-status',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (_request, reply) => {
+      const enabled = process.env.WHATSAPP_ENABLED === 'true';
+      const hasAccessToken = Boolean(process.env.WHATSAPP_ACCESS_TOKEN);
+      const hasPhoneNumberId = Boolean(process.env.WHATSAPP_PHONE_NUMBER_ID);
+      const hasBusinessAccountId = Boolean(process.env.WHATSAPP_BUSINESS_ACCOUNT_ID);
+      const hasVerifyToken = Boolean(process.env.WHATSAPP_VERIFY_TOKEN);
+      const apiVersion = process.env.WHATSAPP_API_VERSION || 'v19.0';
+      const apiUrl = process.env.API_URL || process.env.RENDER_EXTERNAL_URL || 'https://SUA-API.onrender.com';
+      const webhookUrl = `${apiUrl}/webhooks/whatsapp`;
+
+      const allTokensPresent = hasAccessToken && hasPhoneNumberId && hasBusinessAccountId && hasVerifyToken;
+      let mode: 'simulation' | 'ready' | 'incomplete';
+      if (!enabled) {
+        mode = 'simulation';
+      } else if (allTokensPresent) {
+        mode = 'ready';
+      } else {
+        mode = 'incomplete';
+      }
+
+      return reply.send({
+        enabled,
+        hasAccessToken,
+        hasPhoneNumberId,
+        hasBusinessAccountId,
+        hasVerifyToken,
+        apiVersion,
+        webhookUrl,
+        mode,
+      });
+    },
+  );
 }

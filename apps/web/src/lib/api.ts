@@ -34,6 +34,7 @@ import type {
   UpdateLiveRequest,
   UpdatePostRequest,
   UserPublic,
+  WhatsappConfigStatus,
 } from '@platform/types';
 
 
@@ -362,6 +363,10 @@ class ApiClient {
     return this.request<RecipientCountResponse>(
       `/coordinator/communication/recipients/count${this.qs(filters as Record<string, string | number | undefined>)}`
     );
+  }
+
+  getWhatsappConfigStatus() {
+    return this.request<WhatsappConfigStatus>('/admin/whatsapp/config-status');
   }
 }
 

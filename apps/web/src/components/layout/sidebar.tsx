@@ -21,6 +21,7 @@ const navItems: NavItem[] = [
   { href: '/dashboard/eventos', label: 'Eventos', icon: '📅', roles: [Role.ADMIN, Role.LEADER, Role.USER] },
   { href: '/dashboard/lives', label: 'Lives', icon: '📺', roles: [Role.ADMIN, Role.LEADER, Role.USER] },
   { href: '/dashboard/posts', label: 'Posts', icon: '📢', roles: [Role.ADMIN] },
+  { href: '/dashboard/configuracoes/whatsapp', label: 'Config WhatsApp', icon: '⚙️', roles: [Role.ADMIN] },
 ];
 
 const roleLabels: Record<Role, string> = {

@@ -401,3 +401,14 @@ export interface AdminLeaderItem {
 export interface AdminCreateLeaderRequest extends CreateLeaderRequest {
   coordinatorId: string;
 }
+
+export interface WhatsappConfigStatus {
+  enabled: boolean;
+  hasAccessToken: boolean;
+  hasPhoneNumberId: boolean;
+  hasBusinessAccountId: boolean;
+  hasVerifyToken: boolean;
+  apiVersion: string;
+  webhookUrl: string;
+  mode: 'simulation' | 'ready' | 'incomplete';
+}
