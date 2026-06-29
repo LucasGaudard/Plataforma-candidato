@@ -37,6 +37,14 @@ enum SupporterStatus {
   INVALID
 }
 
+enum WhatsappStatus {
+  PENDING
+  SENT
+  CONFIRMED
+  FAILED
+  OPT_OUT
+}
+
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
@@ -49,8 +57,13 @@ model User {
   city          String
   state         String
   neighborhood  String?
-  role          Role           @default(USER)
-  status        SupporterStatus @default(PENDING)
+  role                 Role           @default(USER)
+  status               SupporterStatus @default(PENDING)
+  whatsappStatus       WhatsappStatus @default(PENDING)
+  whatsappLastSent     DateTime?
+  whatsappConfirmedAt  DateTime?
+  whatsappLastResponse String?
+  whatsappError        String?
   leaderSlug    String?        @unique
   leaderId      String?
   leader        User?          @relation("LeaderSupporters", fields: [leaderId], references: [id], onDelete: SetNull)

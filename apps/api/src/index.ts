@@ -13,6 +13,7 @@ import { postRoutes } from './routes/posts';
 import { eventRoutes } from './routes/events';
 import { liveRoutes } from './routes/lives';
 import { notificationRoutes } from './routes/notifications';
+import webhookRoutes from './routes/webhooks';
 import { prisma } from './lib/prisma';
 
 const PORT =
@@ -72,6 +73,7 @@ async function bootstrap() {
   await fastify.register(eventRoutes, { prefix: '/events' });
   await fastify.register(liveRoutes, { prefix: '/lives' });
   await fastify.register(notificationRoutes, { prefix: '/notifications' });
+  await fastify.register(webhookRoutes, { prefix: '/webhooks' });
 
   try {
     await fastify.listen({ port: PORT, host: HOST });

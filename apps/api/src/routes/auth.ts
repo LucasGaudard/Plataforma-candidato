@@ -10,6 +10,7 @@ import {
 } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toUserPublic } from '../lib/user-mapper';
+import { whatsappService } from '../services/whatsapp.service';
 
 const authRateLimit = {
   config: {
@@ -127,6 +128,11 @@ export async function authRoutes(fastify: FastifyInstance) {
         role: Role.USER,
         leaderId,
       },
+    });
+
+    // Enviar mensagem de confirmação do WhatsApp (assíncrono)
+    whatsappService.sendConfirmationMessage(user).catch(err => {
+      fastify.log.error('Erro ao chamar whatsappService:', err);
     });
 
     const token = fastify.jwt.sign({

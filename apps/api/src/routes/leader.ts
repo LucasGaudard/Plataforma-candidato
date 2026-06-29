@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import type { CreateSupporterRequest, LeaderDashboard, SupporterListItem } from '@platform/types';
-import { Role, SupporterStatus } from '@platform/types';
+import { Role, SupporterStatus, WhatsappStatus } from '@platform/types';
 import { normalizeSupporterInput, parsePagination, validateSupporterInput } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toUserPublic } from '../lib/user-mapper';
+import { whatsappService } from '../services/whatsapp.service';
 
 export async function leaderRoutes(fastify: FastifyInstance) {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -118,6 +119,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
         state: s.state,
         neighborhood: s.neighborhood,
         status: s.status as SupporterStatus,
+        whatsappStatus: s.whatsappStatus as WhatsappStatus,
         createdAt: s.createdAt.toISOString(),
       }));
 
@@ -212,6 +214,10 @@ export async function leaderRoutes(fastify: FastifyInstance) {
           leaderId: leader.id,
           coordinatorId: leader.coordinatorId,
         },
+      });
+
+      whatsappService.sendConfirmationMessage(supporter).catch(err => {
+        fastify.log.error('Erro ao chamar whatsappService:', err);
       });
 
       return reply.status(201).send({ success: true, id: supporter.id });

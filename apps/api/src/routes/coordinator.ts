@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import type { CreateLeaderRequest, SupporterListItem, UpdateLeaderRequest } from '@platform/types';
-import { Role, SupporterStatus } from '@platform/types';
+import { Role, SupporterStatus, WhatsappStatus } from '@platform/types';
 import {
   generateSlug,
   normalizeRegisterInput,
@@ -367,6 +367,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
         state: u.state,
         neighborhood: u.neighborhood,
         status: u.status as SupporterStatus,
+        whatsappStatus: u.whatsappStatus as WhatsappStatus,
         createdAt: u.createdAt.toISOString(),
         leaderName: u.leader ? `${u.leader.firstName} ${u.leader.lastName}` : undefined,
       }));

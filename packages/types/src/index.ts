@@ -15,6 +15,16 @@ export const SupporterStatus = {
 
 export type SupporterStatus = (typeof SupporterStatus)[keyof typeof SupporterStatus];
 
+export const WhatsappStatus = {
+  PENDING: 'PENDING',
+  SENT: 'SENT',
+  CONFIRMED: 'CONFIRMED',
+  FAILED: 'FAILED',
+  OPT_OUT: 'OPT_OUT',
+} as const;
+
+export type WhatsappStatus = (typeof WhatsappStatus)[keyof typeof WhatsappStatus];
+
 export const PostCategory = {
   VIDEO: 'VIDEO',
   LIVE: 'LIVE',
@@ -60,6 +70,7 @@ export interface UserPublic {
   state: string;
   neighborhood?: string | null;
   role: Role;
+  whatsappStatus?: WhatsappStatus;
   leaderSlug: string | null;
   leaderId: string | null;
   coordinatorId: string | null;
@@ -325,6 +336,7 @@ export interface SupporterListItem {
   state: string;
   neighborhood?: string | null;
   status: SupporterStatus;
+  whatsappStatus: WhatsappStatus;
   createdAt: string;
   leaderName?: string;
   coordinatorName?: string;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Role, SupporterStatus } from '@platform/types';
+import { Role, SupporterStatus, WhatsappStatus } from '@platform/types';
 import type { SupporterListItem, SupportersQuery } from '@platform/types';
 import { BRAZILIAN_STATES, CITIES_BY_STATE, NEIGHBORHOODS_BY_CITY, formatPhone } from '@platform/utils';
 import {
@@ -246,6 +246,7 @@ function SupportersContent() {
                   <th className="hidden pb-3 font-semibold text-slate-600 xl:table-cell px-4">Coordenador</th>
                 )}
                 <th className="pb-3 font-semibold text-slate-600 px-4">Status</th>
+                <th className="pb-3 font-semibold text-slate-600 px-4">Status WhatsApp</th>
                 <th className="pb-3 font-semibold text-slate-600 px-4">Cadastro</th>
               </tr>
             </thead>
@@ -316,6 +317,23 @@ function SupportersContent() {
                             <option value={SupporterStatus.INVALID}>INVALID</option>
                           </select>
                         </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        {s.whatsappStatus && (
+                          <Badge 
+                            variant={
+                              s.whatsappStatus === WhatsappStatus.CONFIRMED ? 'success' :
+                              s.whatsappStatus === WhatsappStatus.FAILED || s.whatsappStatus === WhatsappStatus.OPT_OUT ? 'danger' : 
+                              s.whatsappStatus === WhatsappStatus.SENT ? 'info' : 'warning'
+                            }
+                          >
+                            {s.whatsappStatus === WhatsappStatus.PENDING ? 'Pendente' :
+                             s.whatsappStatus === WhatsappStatus.SENT ? 'Enviado' :
+                             s.whatsappStatus === WhatsappStatus.CONFIRMED ? 'Confirmado' :
+                             s.whatsappStatus === WhatsappStatus.FAILED ? 'Falhou' :
+                             s.whatsappStatus === WhatsappStatus.OPT_OUT ? 'Opt-out' : s.whatsappStatus}
+                          </Badge>
+                        )}
                       </td>
                       <td className="py-3 text-slate-400 text-xs px-4">
                         {new Date(s.createdAt).toLocaleDateString('pt-BR')}
