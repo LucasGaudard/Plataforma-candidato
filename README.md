@@ -1,181 +1,109 @@
 # Plataforma de Campanha Política
 
-Monorepo profissional para campanha de deputado, com frontend Next.js, backend Fastify, PostgreSQL e autenticação JWT.
+Sistema Full Stack desenvolvido para gerenciamento de campanhas políticas, permitindo a administração de usuários, coordenadores, líderes e apoiadores através de uma plataforma web moderna, segura e escalável.
 
-## Estrutura do Projeto
+---
 
-```
-├── apps/
-│   ├── api/          # Backend Fastify (REST API) — porta 3333
-│   └── web/          # Frontend Next.js — porta 3000
-├── packages/
-│   ├── types/        # Tipos TypeScript compartilhados
-│   ├── utils/        # Validações, máscaras e utilitários
-│   └── ui/           # Componentes React reutilizáveis
-├── prisma/           # Schema, migrations e seed
-├── .env              # Variáveis de ambiente (raiz do monorepo)
-└── docker-compose.yml
-```
+## Tecnologias Utilizadas
 
-## Pré-requisitos
+### Front-end
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+- Shadcn/ui
 
-- Node.js 18+
-- pnpm 8+
-- PostgreSQL 14+ **ou** Docker
+### Back-end
+- Node.js
+- Fastify
+- Prisma ORM
+- JWT Authentication
 
-## Configuração rápida
+### Banco de Dados
+- PostgreSQL (Neon)
 
-### 1. Instalar dependências
+### Infraestrutura
+- Vercel
+- Render
+- Docker
+- Git/GitHub
 
-```bash
-pnpm install
-```
+---
 
-### 2. Configurar variáveis de ambiente
+## Principais Funcionalidades
 
-O arquivo `.env` deve ficar na **raiz do monorepo** (não dentro de `apps/api`).
+- Autenticação de usuários
+- Controle de acesso por níveis de permissão
+- Dashboard administrativo
+- Gestão de coordenadores
+- Gestão de líderes
+- Gestão de apoiadores
+- Cadastro de eventos
+- Publicações da campanha
+- Sistema de notificações
+- APIs REST
+- Interface responsiva
 
-```bash
-cp .env.example .env
-cp .env.example apps/web/.env.local
-```
+---
 
-Edite o `.env` com suas credenciais do PostgreSQL. O `apps/web/.env.local` precisa apenas de:
+## Arquitetura
 
-```
-NEXT_PUBLIC_API_URL="http://localhost:3333"
-```
-
-### 3. Iniciar o PostgreSQL
-
-**Opção A — Docker (recomendado):**
-
-```bash
-pnpm db:up
-```
-
-**Opção B — PostgreSQL local:**
-
-Crie o banco manualmente:
-
-```sql
-CREATE DATABASE plataforma_candidato;
-```
-
-Ajuste `DATABASE_URL` no `.env`:
+Projeto desenvolvido em arquitetura **Monorepo**, dividido em:
 
 ```
-DATABASE_URL="postgresql://USUARIO:SENHA@localhost:5432/plataforma_candidato?schema=public"
+apps/
+ ├── api
+ └── web
+
+packages/
+ ├── types
+ ├── ui
+ └── utils
 ```
 
-### 4. Rodar migrations e seed
+---
 
-```bash
-pnpm db:setup
-```
+## Objetivos do Projeto
 
-Isso executa: `prisma generate` → `prisma migrate deploy` → `prisma seed`
+O sistema foi desenvolvido visando:
 
-**Alternativa (desenvolvimento, sem migration):**
+- organização de campanhas políticas;
+- gerenciamento de equipes;
+- acompanhamento de apoiadores;
+- administração centralizada;
+- arquitetura escalável para futuras funcionalidades.
 
-```bash
-pnpm db:generate
-pnpm db:push
-pnpm db:seed
-```
+---
 
-### 5. Usuários de teste (seed)
+## Tecnologias e Conceitos Aplicados
 
-| Perfil | E-mail | Senha |
-|--------|--------|-------|
-| Admin | admin@campanha.com | admin12345 |
-| Líder | joao.silva@campanha.com | lider12345 |
+- Componentização
+- Clean Code
+- Responsividade
+- APIs REST
+- Autenticação JWT
+- CRUD Completo
+- Arquitetura em Camadas
+- Tipagem com TypeScript
+- Integração Front-end e Back-end
+- Versionamento com Git
 
-Link do líder: `http://localhost:3000/lider/joao-silva`
+---
 
-## Executando o Projeto
+## Status
 
-### Desenvolvimento (frontend + backend)
+Em desenvolvimento.
 
-```bash
-pnpm dev
-```
+Novas funcionalidades continuam sendo implementadas.
 
-- **API:** http://localhost:3333
-- **Web:** http://localhost:3000
+---
 
-### Executar separadamente
+## Autor
 
-```bash
-pnpm --filter @platform/api dev
-pnpm --filter @platform/web dev
-```
+Lucas Gaudard
 
-### Verificar se a API está ok
+LinkedIn:
+https://www.linkedin.com/in/lucas-gaudard07/
 
-```bash
-curl http://localhost:3333/
-curl http://localhost:3333/health
-```
-
-## Migrations
-
-| Comando | Quando usar |
-|---------|-------------|
-| `pnpm db:migrate` | Desenvolvimento — cria nova migration interativa |
-| `pnpm db:migrate:deploy` | Produção/CI — aplica migrations existentes |
-| `pnpm db:push` | Prototipagem — sincroniza schema sem migration |
-| `pnpm db:setup` | Setup inicial completo |
-
-As migrations ficam em `prisma/migrations/`.
-
-## API Endpoints
-
-| Método | Rota | Descrição | Auth |
-|--------|------|-----------|------|
-| GET | `/` | Status da API | — |
-| GET | `/health` | Health check + banco | — |
-| POST | `/auth/login` | Login | — |
-| POST | `/auth/register` | Cadastro | — |
-| GET | `/auth/me` | Usuário logado | JWT |
-| GET | `/admin/dashboard` | Dashboard admin | JWT (ADMIN) |
-| GET | `/leader/dashboard` | Dashboard líder | JWT (LEADER) |
-| GET | `/leader/:slug` | Dados do líder | — |
-
-## Scripts
-
-| Script | Descrição |
-|--------|-----------|
-| `pnpm dev` | API + Web em paralelo |
-| `pnpm build` | Build de produção |
-| `pnpm lint` | Lint em todos os pacotes |
-| `pnpm db:up` | Sobe PostgreSQL via Docker |
-| `pnpm db:setup` | Generate + migrate + seed |
-| `pnpm db:studio` | Prisma Studio |
-
-## Solução de problemas
-
-### `Environment variable not found: DATABASE_URL`
-
-1. Confirme que existe `.env` na **raiz** do projeto (ao lado de `package.json`)
-2. Confirme que `DATABASE_URL` está definida no `.env`
-3. Reinicie a API após criar/editar o `.env`
-
-### Erro de conexão com PostgreSQL
-
-1. Verifique se o PostgreSQL está rodando: `pnpm db:up` ou serviço local
-2. Confirme usuário, senha e nome do banco no `DATABASE_URL`
-3. Teste: `pnpm db:studio`
-
-### Frontend não conecta na API
-
-1. Confirme `NEXT_PUBLIC_API_URL=http://localhost:3333` em `apps/web/.env.local`
-2. Reinicie o Next.js após alterar variáveis `NEXT_PUBLIC_*`
-
-## Segurança
-
-- Senhas com hash bcrypt (12 rounds)
-- JWT com expiração de 7 dias
-- Middleware de autenticação e autorização por role
-- Validação e sanitização de inputs
-- CORS restrito ao frontend configurado
+GitHub:
+https://github.com/LucasGaudard
