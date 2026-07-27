@@ -76,6 +76,7 @@ async function bootstrap() {
   await fastify.register(webhookRoutes, { prefix: '/webhooks' });
 
   try {
+    await prisma.$connect();
     await fastify.listen({ port: PORT, host: HOST });
     console.log(`API rodando em http://localhost:${PORT}`);
   } catch (err) {

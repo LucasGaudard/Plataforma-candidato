@@ -1,5 +1,28 @@
-import type { User } from '@prisma/client';
-import type { Role, UserPublic } from '@platform/types';
+import type { Campaign, User } from '@prisma/client';
+import type {
+  AuthenticatedUserPublic,
+  CampaignPublic,
+  CampaignStatus,
+  Role,
+  UserPublic,
+} from '@platform/types';
+
+type UserWithCampaign = User & { campaign: Campaign };
+
+export function toCampaignPublic(campaign: Campaign): CampaignPublic {
+  return {
+    id: campaign.id,
+    name: campaign.name,
+    slug: campaign.slug,
+    candidateName: campaign.candidateName,
+    party: campaign.party,
+    logoUrl: campaign.logoUrl,
+    primaryColor: campaign.primaryColor,
+    secondaryColor: campaign.secondaryColor,
+    whatsappNumber: campaign.whatsappNumber,
+    status: campaign.status as CampaignStatus,
+  };
+}
 
 export function toUserPublic(user: User): UserPublic {
   return {
@@ -18,5 +41,15 @@ export function toUserPublic(user: User): UserPublic {
     leaderId: user.leaderId,
     coordinatorId: user.coordinatorId,
     createdAt: user.createdAt.toISOString(),
+  };
+}
+
+export function toAuthenticatedUserPublic(
+  user: UserWithCampaign,
+): AuthenticatedUserPublic {
+  return {
+    ...toUserPublic(user),
+    campaignId: user.campaignId,
+    campaign: toCampaignPublic(user.campaign),
   };
 }

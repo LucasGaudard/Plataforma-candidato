@@ -9,11 +9,15 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { LoginRequest, RegisterRequest, UserPublic } from '@platform/types';
+import type {
+  AuthenticatedUserPublic,
+  LoginRequest,
+  RegisterRequest,
+} from '@platform/types';
 import { api } from '@/lib/api';
 
 interface AuthContextValue {
-  user: UserPublic | null;
+  user: AuthenticatedUserPublic | null;
   loading: boolean;
   login: (data: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
@@ -24,7 +28,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserPublic | null>(null);
+  const [user, setUser] = useState<AuthenticatedUserPublic | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refreshUser = useCallback(async () => {

@@ -33,7 +33,7 @@ import type {
   UpdateEventRequest,
   UpdateLiveRequest,
   UpdatePostRequest,
-  UserPublic,
+  AuthenticatedUserPublic,
   WhatsappConfigStatus,
   WhatsappTestState,
   TestConnectionResponse,
@@ -107,7 +107,7 @@ class ApiClient {
   }
 
   me() {
-    return this.request<UserPublic>('/auth/me');
+    return this.request<AuthenticatedUserPublic>('/auth/me');
   }
 
   // Admin

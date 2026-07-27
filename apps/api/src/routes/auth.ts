@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import type { AuthResponse, LoginRequest, RegisterRequest } from '@platform/types';
 import { Role } from '@platform/types';
+import { CampaignStatus } from '@prisma/client';
 import {
   isValidSlug,
   normalizeRegisterInput,
@@ -9,7 +10,7 @@ import {
   validateRegisterInput,
 } from '@platform/utils';
 import { prisma } from '../lib/prisma';
-import { toUserPublic } from '../lib/user-mapper';
+import { toAuthenticatedUserPublic } from '../lib/user-mapper';
 import { whatsappService } from '../services/whatsapp.service';
 
 const authRateLimit = {
@@ -28,6 +29,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
     const user = await prisma.user.findUnique({
       where: { email: email.trim().toLowerCase() },
+      include: { campaign: true },
     });
 
     if (!user) {
@@ -39,15 +41,20 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ message: 'Credenciais inválidas' });
     }
 
+    if (user.campaign.status !== CampaignStatus.ACTIVE) {
+      return reply.status(403).send({ message: 'Acesso indisponível' });
+    }
+
     const token = fastify.jwt.sign({
       sub: user.id,
       email: user.email,
       role: user.role,
+      campaignId: user.campaignId,
     });
 
     const response: AuthResponse = {
       token,
-      user: toUserPublic(user),
+      user: toAuthenticatedUserPublic(user),
     };
 
     return reply.send(response);
@@ -128,6 +135,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         role: Role.USER,
         leaderId,
       },
+      include: { campaign: true },
     });
 
     // Enviar mensagem de confirmação do WhatsApp (assíncrono)
@@ -135,15 +143,20 @@ export async function authRoutes(fastify: FastifyInstance) {
       fastify.log.error('Erro ao chamar whatsappService:', err);
     });
 
+    if (user.campaign.status !== CampaignStatus.ACTIVE) {
+      return reply.status(403).send({ message: 'Acesso indisponível' });
+    }
+
     const token = fastify.jwt.sign({
       sub: user.id,
       email: user.email,
       role: user.role,
+      campaignId: user.campaignId,
     });
 
     const response: AuthResponse = {
       token,
-      user: toUserPublic(user),
+      user: toAuthenticatedUserPublic(user),
     };
 
     return reply.status(201).send(response);
@@ -153,15 +166,19 @@ export async function authRoutes(fastify: FastifyInstance) {
     '/me',
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
-      const user = await prisma.user.findUnique({
-        where: { id: request.user.sub },
+      const user = await prisma.user.findFirst({
+        where: {
+          id: request.user.sub,
+          campaignId: request.user.campaignId,
+        },
+        include: { campaign: true },
       });
 
       if (!user) {
         return reply.status(404).send({ message: 'Usuário não encontrado' });
       }
 
-      return reply.send(toUserPublic(user));
+      return reply.send(toAuthenticatedUserPublic(user));
     },
   );
 }

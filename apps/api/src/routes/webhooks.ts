@@ -1,7 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { PrismaClient, WhatsappStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { WhatsappStatus } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 
 export default async function webhookRoutes(fastify: FastifyInstance) {
   // Verificação de token da Meta

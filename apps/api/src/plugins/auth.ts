@@ -5,6 +5,7 @@ export interface JwtPayload {
   sub: string;
   email: string;
   role: Role;
+  campaignId: string;
 }
 
 declare module '@fastify/jwt' {
@@ -25,6 +26,13 @@ export async function registerAuth(fastify: FastifyInstance) {
   fastify.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       await request.jwtVerify();
+
+      if (
+        typeof request.user.campaignId !== 'string' ||
+        !request.user.campaignId.trim()
+      ) {
+        return reply.status(401).send({ message: 'Token inválido ou expirado' });
+      }
     } catch {
       return reply.status(401).send({ message: 'Token inválido ou expirado' });
     }

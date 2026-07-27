@@ -25,6 +25,27 @@ export const WhatsappStatus = {
 
 export type WhatsappStatus = (typeof WhatsappStatus)[keyof typeof WhatsappStatus];
 
+export const CampaignStatus = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+  SUSPENDED: 'SUSPENDED',
+} as const;
+
+export type CampaignStatus = (typeof CampaignStatus)[keyof typeof CampaignStatus];
+
+export interface CampaignPublic {
+  id: string;
+  name: string;
+  slug: string;
+  candidateName: string;
+  party: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  whatsappNumber: string | null;
+  status: CampaignStatus;
+}
+
 export const LGPD_CONSENT_VERSION = '2026-07-27-v1';
 
 export const LGPD_CONSENT_TEXT =
@@ -82,9 +103,14 @@ export interface UserPublic {
   createdAt: string;
 }
 
+export interface AuthenticatedUserPublic extends UserPublic {
+  campaignId: string;
+  campaign: CampaignPublic;
+}
+
 export interface AuthResponse {
   token: string;
-  user: UserPublic;
+  user: AuthenticatedUserPublic;
 }
 
 export interface LoginRequest {
