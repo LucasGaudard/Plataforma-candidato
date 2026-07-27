@@ -20,6 +20,7 @@ import {
 } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toEventPublic, toLivePublic, toPostPublic } from '../lib/mappers';
+import { whatsappLogStore } from '../lib/whatsapp-log';
 
 const authorSelect = { firstName: true, lastName: true };
 
@@ -745,6 +746,162 @@ export async function adminRoutes(fastify: FastifyInstance) {
         webhookUrl,
         mode,
       });
+    },
+  );
+
+  fastify.get(
+    '/whatsapp/test-status',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (_request, reply) => {
+      return reply.send(whatsappLogStore.getState());
+    },
+  );
+
+  fastify.post(
+    '/whatsapp/test-connection',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (_request, reply) => {
+      const token = process.env.WHATSAPP_ACCESS_TOKEN;
+      const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+      const version = process.env.WHATSAPP_API_VERSION || 'v19.0';
+      
+      if (!token || !phoneId) {
+        whatsappLogStore.updateConnectionTest(false, { error: 'Credenciais ausentes' });
+        return reply.status(400).send({ success: false, message: 'Credenciais ausentes' });
+      }
+
+      try {
+        const response = await fetch(`https://graph.facebook.com/${version}/${phoneId}`, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        
+        if (!response.ok) {
+          whatsappLogStore.updateConnectionTest(false, data);
+          return reply.status(400).send({ success: false, message: (data as any).error?.message || 'Erro na Meta API' });
+        }
+        
+        whatsappLogStore.updateConnectionTest(true, data);
+        return reply.send({ success: true, data });
+      } catch (error) {
+        whatsappLogStore.updateConnectionTest(false, { error: (error as Error).message });
+        return reply.status(500).send({ success: false, message: (error as Error).message });
+      }
+    },
+  );
+
+  fastify.post(
+    '/whatsapp/test-message',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => {
+      const { phone } = request.body as { phone: string };
+      if (!phone) return reply.status(400).send({ success: false, message: 'Telefone obrigatório' });
+
+      const enabled = process.env.WHATSAPP_ENABLED === 'true';
+      if (!enabled) {
+        whatsappLogStore.updateMessageTest(true, phone);
+        return reply.send({ success: true, message: 'Simulação: Mensagem enviada com sucesso.' });
+      }
+
+      const token = process.env.WHATSAPP_ACCESS_TOKEN;
+      const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+      const version = process.env.WHATSAPP_API_VERSION || 'v19.0';
+
+      if (!token || !phoneId) {
+        whatsappLogStore.updateMessageTest(false, phone);
+        return reply.status(400).send({ success: false, message: 'Credenciais ausentes' });
+      }
+
+      try {
+        const sanitizedPhone = phone.replace(/\D/g, '');
+        const to = sanitizedPhone.startsWith('55') ? sanitizedPhone : `55${sanitizedPhone}`;
+        
+        const payload = {
+          messaging_product: 'whatsapp',
+          to,
+          type: 'text',
+          text: {
+            body: `[TESTE] Olá! Esta é uma mensagem de teste da sua plataforma.`,
+          },
+        };
+
+        const response = await fetch(`https://graph.facebook.com/${version}/${phoneId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          whatsappLogStore.updateMessageTest(false, phone);
+          return reply.status(400).send({ success: false, message: (data as any).error?.message || 'Erro ao enviar' });
+        }
+
+        whatsappLogStore.updateMessageTest(true, phone);
+        return reply.send({ success: true, message: 'Mensagem real enviada com sucesso' });
+      } catch (error) {
+        whatsappLogStore.updateMessageTest(false, phone);
+        return reply.status(500).send({ success: false, message: (error as Error).message });
+      }
+    },
+  );
+
+  fastify.post(
+    '/whatsapp/test-webhook',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => {
+      const { phone } = request.body as { phone: string };
+      
+      const payload = {
+        object: "whatsapp_business_account",
+        entry: [{
+          id: "TEST_ENTRY_ID",
+          changes: [{
+            value: {
+              messaging_product: "whatsapp",
+              metadata: {
+                display_phone_number: "5511999999999",
+                phone_number_id: "TEST_PHONE_ID"
+              },
+              contacts: [{
+                profile: { name: "Test User" },
+                wa_id: phone || "5511999999999"
+              }],
+              messages: [{
+                from: phone || "5511999999999",
+                id: "wamid.TEST_MSG_ID",
+                timestamp: Math.floor(Date.now() / 1000).toString(),
+                text: { body: "SIM" },
+                type: "text"
+              }]
+            },
+            field: "messages"
+          }]
+        }]
+      };
+
+      try {
+        const injectResponse = await fastify.inject({
+          method: 'POST',
+          url: '/webhooks/whatsapp',
+          payload
+        });
+
+        if (injectResponse.statusCode === 200) {
+          whatsappLogStore.updateWebhookTest(true);
+          return reply.send({ success: true, message: 'Webhook processado com sucesso' });
+        } else {
+          whatsappLogStore.updateWebhookTest(false);
+          return reply.status(400).send({ success: false, message: `Erro no webhook: ${injectResponse.statusCode}` });
+        }
+      } catch (error) {
+        whatsappLogStore.updateWebhookTest(false);
+        return reply.status(500).send({ success: false, message: (error as Error).message });
+      }
     },
   );
 }

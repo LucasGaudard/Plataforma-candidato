@@ -19,6 +19,7 @@ export function SupporterForm({ leaderSlug, leaderName, onSuccess }: SupporterFo
     city: '',
     neighborhood: '',
     state: 'RJ', // State is implicitly RJ for the public registration
+    lgpdConsent: false,
   });
   const [customNeighborhood, setCustomNeighborhood] = useState('');
 
@@ -78,6 +79,12 @@ export function SupporterForm({ leaderSlug, leaderName, onSuccess }: SupporterFo
 
     if (form.neighborhood === 'Outro' && !customNeighborhood.trim()) {
       setErrors((prev) => ({ ...prev, neighborhood: 'Por favor, informe o bairro' }));
+      setLoading(false);
+      return;
+    }
+
+    if (!form.lgpdConsent) {
+      setErrors((prev) => ({ ...prev, lgpdConsent: 'É necessário autorizar o tratamento dos dados para concluir o cadastro.' }));
       setLoading(false);
       return;
     }
@@ -183,8 +190,51 @@ export function SupporterForm({ leaderSlug, leaderName, onSuccess }: SupporterFo
         </div>
       </div>
 
+      <div className="flex items-start gap-3 rounded-lg border p-4 bg-slate-50 border-slate-200">
+        <input
+          type="checkbox"
+          id="lgpdConsent"
+          name="lgpdConsent"
+          checked={form.lgpdConsent}
+          onChange={(e) => {
+            setForm((prev) => ({ ...prev, lgpdConsent: e.target.checked }));
+            setErrors((prev) => {
+              const next = { ...prev };
+              delete next['lgpdConsent'];
+              return next;
+            });
+          }}
+          disabled={loading}
+          className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600 cursor-pointer"
+        />
+        <div className="flex-1">
+          <label htmlFor="lgpdConsent" className="text-sm text-slate-700 cursor-pointer select-none">
+            Autorizo a utilização e o tratamento dos meus dados pessoais, de forma segura e transparente, em conformidade com a{' '}
+            <a 
+              href="/politica-de-privacidade" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-blue-600 hover:underline cursor-pointer font-medium"
+              onClick={(e) => e.stopPropagation()}
+            >
+              LGPD - Lei Geral de Proteção de Dados
+            </a>
+            , para realização do meu cadastro e para o envio de informações, ações, eventos e demais comunicações da campanha por e-mail, telefone e WhatsApp. Declaro estar ciente de que posso revogar esta autorização a qualquer momento. <span className="text-red-500">*</span>
+          </label>
+          {errors.lgpdConsent && (
+            <p className="mt-1 text-sm font-medium text-red-600">{errors.lgpdConsent}</p>
+          )}
+        </div>
+      </div>
+
       <div className="pt-2">
-        <Button type="submit" loading={loading} className="w-full" size="lg">
+        <Button 
+          type="submit" 
+          loading={loading} 
+          disabled={!form.lgpdConsent || loading}
+          className={`w-full ${!form.lgpdConsent ? 'opacity-50 cursor-not-allowed' : ''}`} 
+          size="lg"
+        >
           Quero ser Apoiador
         </Button>
       </div>

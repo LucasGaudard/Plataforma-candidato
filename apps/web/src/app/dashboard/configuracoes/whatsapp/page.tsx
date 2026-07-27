@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Role } from '@platform/types';
-import type { WhatsappConfigStatus } from '@platform/types';
+import type { WhatsappConfigStatus, WhatsappTestState } from '@platform/types';
 import { Card, Button } from '@platform/ui';
 import { api } from '@/lib/api';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -11,75 +11,17 @@ import { useToast } from '@/contexts/toast-context';
 
 const ALLOWED_ROLES: Role[] = [Role.ADMIN];
 
-function CheckItem({ label, configured }: { label: string; configured: boolean }) {
+function ChecklistItem({ label, checked }: { label: string; checked: boolean }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
-      <span className="text-sm font-medium text-slate-700">{label}</span>
-      <span
-        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
-          configured
-            ? 'bg-emerald-100 text-emerald-700'
-            : 'bg-red-100 text-red-600'
-        }`}
-      >
-        {configured ? (
-          <>
-            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 fill-emerald-600" xmlns="http://www.w3.org/2000/svg">
-              <path fillRule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clipRule="evenodd" />
-            </svg>
-            Configurado
-          </>
-        ) : (
-          <>
-            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 fill-red-500" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z" />
-            </svg>
-            Não configurado
-          </>
+    <div className="flex items-center gap-3 py-1.5">
+      <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${checked ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300 bg-slate-50'}`}>
+        {checked && (
+          <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
         )}
-      </span>
-    </div>
-  );
-}
-
-function ModeCard({ mode }: { mode: 'simulation' | 'ready' | 'incomplete' | null }) {
-  if (!mode) return null;
-
-  const config = {
-    simulation: {
-      label: 'Modo Simulação',
-      description: 'WHATSAPP_ENABLED=false. Nenhuma mensagem é enviada. Apenas logs no console.',
-      bg: 'bg-amber-50 border-amber-200',
-      badge: 'bg-amber-100 text-amber-800',
-      icon: '🟡',
-    },
-    ready: {
-      label: 'Pronto para ativar',
-      description: 'Todas as credenciais estão configuradas e WHATSAPP_ENABLED=true. O sistema está enviando mensagens.',
-      bg: 'bg-emerald-50 border-emerald-200',
-      badge: 'bg-emerald-100 text-emerald-800',
-      icon: '🟢',
-    },
-    incomplete: {
-      label: 'Incompleto',
-      description: 'WHATSAPP_ENABLED=true mas uma ou mais credenciais estão ausentes. Mensagens não serão enviadas.',
-      bg: 'bg-red-50 border-red-200',
-      badge: 'bg-red-100 text-red-800',
-      icon: '🔴',
-    },
-  }[mode];
-
-  return (
-    <div className={`rounded-xl border-2 p-5 ${config.bg}`}>
-      <div className="flex items-start gap-3">
-        <span className="text-2xl">{config.icon}</span>
-        <div>
-          <span className={`inline-block rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${config.badge}`}>
-            {config.label}
-          </span>
-          <p className="mt-2 text-sm text-slate-600">{config.description}</p>
-        </div>
       </div>
+      <span className={`text-sm ${checked ? 'text-slate-800 font-medium' : 'text-slate-500'}`}>{label}</span>
     </div>
   );
 }
@@ -87,14 +29,26 @@ function ModeCard({ mode }: { mode: 'simulation' | 'ready' | 'incomplete' | null
 function WhatsappConfigContent() {
   const { toast } = useToast();
   const [config, setConfig] = useState<WhatsappConfigStatus | null>(null);
+  const [testState, setTestState] = useState<WhatsappTestState | null>(null);
   const [loading, setLoading] = useState(true);
-  const [testing, setTesting] = useState(false);
-  const [copied, setCopied] = useState(false);
+  
+  const [testingAll, setTestingAll] = useState(false);
+  const [testingConn, setTestingConn] = useState(false);
+  const [testingMsg, setTestingMsg] = useState(false);
+  const [testingWebhook, setTestingWebhook] = useState(false);
+  
+  const [testPhone, setTestPhone] = useState('');
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedToken, setCopiedToken] = useState(false);
 
-  const fetchConfig = useCallback(async () => {
+  const fetchStatus = useCallback(async () => {
     try {
-      const data = await api.getWhatsappConfigStatus();
-      setConfig(data);
+      const [conf, state] = await Promise.all([
+        api.getWhatsappConfigStatus(),
+        api.getWhatsappTestStatus(),
+      ]);
+      setConfig(conf);
+      setTestState(state);
     } catch (err) {
       toast((err as Error).message, 'error');
     } finally {
@@ -103,140 +57,322 @@ function WhatsappConfigContent() {
   }, [toast]);
 
   useEffect(() => {
-    fetchConfig();
-  }, [fetchConfig]);
+    fetchStatus();
+  }, [fetchStatus]);
 
-  async function handleTest() {
-    setTesting(true);
-    try {
-      const data = await api.getWhatsappConfigStatus();
-      setConfig(data);
-      if (data.mode === 'ready') {
-        toast('✅ Configuração pronta para ativar!', 'success');
-      } else if (data.mode === 'simulation') {
-        toast('🟡 Sistema em modo simulação (WHATSAPP_ENABLED=false)', 'info');
-      } else {
-        toast('❌ Ainda faltam credenciais para ativar o envio real', 'error');
-      }
-    } catch (err) {
-      toast((err as Error).message, 'error');
-    } finally {
-      setTesting(false);
-    }
-  }
-
-  async function handleCopy() {
-    if (!config?.webhookUrl) return;
-    await navigator.clipboard.writeText(config.webhookUrl);
+  async function handleCopy(text: string, setCopied: (v: boolean) => void) {
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
+  async function runTestConnection() {
+    setTestingConn(true);
+    try {
+      await api.testWhatsappConnection();
+      toast('Conexão com a Meta realizada com sucesso!', 'success');
+    } catch (err) {
+      toast(`Falha na conexão: ${(err as Error).message}`, 'error');
+    } finally {
+      setTestingConn(false);
+      fetchStatus();
+    }
+  }
+
+  async function runTestMessage() {
+    if (!testPhone) {
+      toast('Digite um número de telefone para teste', 'error');
+      return;
+    }
+    setTestingMsg(true);
+    try {
+      await api.testWhatsappMessage({ phone: testPhone });
+      toast('Mensagem de teste enviada!', 'success');
+    } catch (err) {
+      toast(`Falha no envio: ${(err as Error).message}`, 'error');
+    } finally {
+      setTestingMsg(false);
+      fetchStatus();
+    }
+  }
+
+  async function runTestWebhook() {
+    if (!testPhone) {
+      toast('Digite um número de telefone (pode ser fictício) para simular o Webhook', 'error');
+      return;
+    }
+    setTestingWebhook(true);
+    try {
+      await api.testWhatsappWebhook({ phone: testPhone });
+      toast('Webhook simulado com sucesso!', 'success');
+    } catch (err) {
+      toast(`Falha no Webhook: ${(err as Error).message}`, 'error');
+    } finally {
+      setTestingWebhook(false);
+      fetchStatus();
+    }
+  }
+
+  async function handleTestAll() {
+    setTestingAll(true);
+    try {
+      await api.testWhatsappConnection();
+      if (testPhone) {
+        await api.testWhatsappMessage({ phone: testPhone });
+        await api.testWhatsappWebhook({ phone: testPhone });
+      }
+      toast('Relatório: Todos os testes concluídos!', 'success');
+    } catch (err) {
+      toast(`Teste interrompido: ${(err as Error).message}`, 'error');
+    } finally {
+      setTestingAll(false);
+      fetchStatus();
+    }
+  }
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Assistente de Ativação" subtitle="WhatsApp Cloud API">
+        <div className="animate-pulse space-y-6 max-w-4xl">
+          <div className="h-32 bg-slate-100 rounded-xl" />
+          <div className="h-64 bg-slate-100 rounded-xl" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const isConnOk = testState?.lastConnectionTest?.success ?? false;
+  const isMsgOk = testState?.lastMessageTest?.success ?? false;
+  const isWebhookOk = testState?.lastWebhookTest?.success ?? false;
+  const isSystemReady = Boolean(isConnOk && isMsgOk && isWebhookOk && config?.enabled);
+
   return (
     <DashboardLayout
-      title="Configurações WhatsApp"
-      subtitle="Status da integração com WhatsApp Cloud API da Meta"
+      title="Assistente de Ativação"
+      subtitle="Validação e testes da integração WhatsApp Cloud API"
     >
-      <div className="space-y-6 max-w-2xl">
-        {/* Status geral */}
-        <Card>
-          <h2 className="mb-4 text-base font-semibold text-slate-800">Status Geral</h2>
-          {loading ? (
-            <div className="h-20 animate-pulse rounded-xl bg-slate-100" />
-          ) : (
-            <ModeCard mode={config?.mode ?? null} />
-          )}
-        </Card>
-
-        {/* Checklist de credenciais */}
-        <Card>
-          <h2 className="mb-4 text-base font-semibold text-slate-800">Credenciais</h2>
-          {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-12 animate-pulse rounded-lg bg-slate-100" />
-              ))}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl">
+        
+        {/* Coluna Esquerda: Ações de Teste */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-800">1. Testar Credenciais da Meta</h2>
+              <Button size="sm" onClick={runTestConnection} disabled={testingConn || testingAll}>
+                {testingConn ? 'Testando...' : 'Testar conexão com a Meta'}
+              </Button>
             </div>
-          ) : config ? (
-            <div className="space-y-3">
-              <CheckItem label="WHATSAPP_ENABLED" configured={config.enabled} />
-              <CheckItem label="WHATSAPP_ACCESS_TOKEN" configured={config.hasAccessToken} />
-              <CheckItem label="WHATSAPP_PHONE_NUMBER_ID" configured={config.hasPhoneNumberId} />
-              <CheckItem label="WHATSAPP_BUSINESS_ACCOUNT_ID" configured={config.hasBusinessAccountId} />
-              <CheckItem label="WHATSAPP_VERIFY_TOKEN" configured={config.hasVerifyToken} />
-              <div className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
-                <span className="text-sm font-medium text-slate-700">WHATSAPP_API_VERSION</span>
-                <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                  {config.apiVersion}
-                </span>
+            
+            <div className="rounded-lg bg-slate-50 p-4 border border-slate-100">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-sm font-semibold text-slate-700">Status do Access Token:</span>
+                {testState?.lastConnectionTest ? (
+                  isConnOk ? (
+                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                      🟢 Token válido
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">
+                      🔴 Token inválido
+                    </span>
+                  )
+                ) : (
+                  <span className="text-sm text-slate-500">Aguardando teste...</span>
+                )}
+              </div>
+              
+              {isConnOk && testState?.lastConnectionTest?.data && (
+                <div className="grid grid-cols-2 gap-4 text-sm mt-4 border-t pt-4 border-slate-200">
+                  <div>
+                    <span className="block text-xs text-slate-500">Phone Number ID</span>
+                    <span className="font-medium text-slate-800">{config?.hasPhoneNumberId ? 'Válido' : 'Não configurado'}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs text-slate-500">Business Account ID</span>
+                    <span className="font-medium text-slate-800">{config?.hasBusinessAccountId ? 'Válido' : 'Não configurado'}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs text-slate-500">API Version</span>
+                    <span className="font-medium text-slate-800">{config?.apiVersion}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card>
+            <h2 className="text-lg font-bold text-slate-800 mb-4">2. Teste de Envio & Webhook</h2>
+            
+            <div className="mb-6 bg-blue-50 border border-blue-100 rounded-lg p-4">
+              <label className="block text-sm font-medium text-blue-900 mb-1">
+                Número de telefone para testes
+              </label>
+              <input
+                type="text"
+                placeholder="5511999999999"
+                className="w-full max-w-sm rounded-md border-slate-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm"
+                value={testPhone}
+                onChange={(e) => setTestPhone(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-blue-700">Necessário para os testes abaixo.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="border border-slate-200 rounded-lg p-4 relative">
+                <h3 className="font-semibold text-slate-800 mb-2">Envio de Mensagem</h3>
+                <p className="text-xs text-slate-500 mb-4 h-8">
+                  {config?.enabled 
+                    ? 'Realiza um disparo de verdade usando a API da Meta.' 
+                    : 'Modo simulação ativo. Nenhuma mensagem real será enviada.'}
+                </p>
+                <Button size="sm" variant="secondary" className="w-full" onClick={runTestMessage} disabled={testingMsg || testingAll}>
+                  {testingMsg ? 'Enviando...' : 'Enviar mensagem teste'}
+                </Button>
+                {testState?.lastMessageTest && (
+                  <div className="mt-3 text-center">
+                    {isMsgOk ? (
+                      <span className="text-xs font-bold text-emerald-600">Mensagem enviada com sucesso</span>
+                    ) : (
+                      <span className="text-xs font-bold text-red-600">Erro retornado pela Meta</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="border border-slate-200 rounded-lg p-4 relative">
+                <h3 className="font-semibold text-slate-800 mb-2">Simular Webhook</h3>
+                <p className="text-xs text-slate-500 mb-4 h-8">
+                  Simula o recebimento de uma resposta &quot;SIM&quot; do telefone informado.
+                </p>
+                <Button size="sm" variant="secondary" className="w-full" onClick={runTestWebhook} disabled={testingWebhook || testingAll}>
+                  {testingWebhook ? 'Processando...' : 'Testar Webhook'}
+                </Button>
+                {testState?.lastWebhookTest && (
+                  <div className="mt-3 text-center">
+                    {isWebhookOk ? (
+                      <span className="text-xs font-bold text-emerald-600">Webhook funcionando</span>
+                    ) : (
+                      <span className="text-xs font-bold text-red-600">Erro no processamento</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-          ) : null}
-        </Card>
+          </Card>
 
-        {/* URL do Webhook */}
-        <Card>
-          <h2 className="mb-1 text-base font-semibold text-slate-800">URL do Webhook</h2>
-          <p className="mb-4 text-sm text-slate-500">
-            Esta URL deve ser cadastrada no painel da Meta for Developers ao configurar o webhook do WhatsApp.
-          </p>
-          {loading ? (
-            <div className="h-12 animate-pulse rounded-lg bg-slate-100" />
-          ) : config ? (
-            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-              <code className="flex-1 break-all text-sm text-slate-700">{config.webhookUrl}</code>
-              <button
-                onClick={handleCopy}
-                className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100"
-              >
-                {copied ? '✅ Copiado!' : 'Copiar'}
-              </button>
+          <Card>
+            <h2 className="text-lg font-bold text-slate-800 mb-4">3. Dados de Configuração do Webhook</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">URL do Webhook</label>
+                <div className="flex gap-2">
+                  <code className="flex-1 block rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
+                    {config?.webhookUrl}
+                  </code>
+                  <Button size="sm" variant="secondary" onClick={() => handleCopy(config?.webhookUrl || '', setCopiedUrl)}>
+                    {copiedUrl ? 'Copiado!' : 'Copiar URL'}
+                  </Button>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Verify Token</label>
+                <div className="flex gap-2">
+                  <code className="flex-1 block rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
+                    {config?.hasVerifyToken ? '*** (Configurado nas variáveis de ambiente)' : 'Não configurado'}
+                  </code>
+                  <Button size="sm" variant="secondary" onClick={() => handleCopy('AQUI_VAI_O_VALOR_REAL_SE_A_GENTE_EXPUSSE_MAS_A_REGRA_EH_NAO_EXPOR_ENTAO_ISSO_PODE_SER_SO_UM_FEEDBACK_OU_USAR_O_TOKEN_SE_PERMITIDO', setCopiedToken)} disabled={true}>
+                    Protegido
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">O token real deve ser consultado nas variáveis de ambiente do Render.</p>
+              </div>
             </div>
-          ) : null}
-          <p className="mt-3 text-xs text-slate-400">
-            No campo <strong>Verify Token</strong> do Meta for Developers, use exatamente o valor de <code>WHATSAPP_VERIFY_TOKEN</code> configurado no Render.
-          </p>
-        </Card>
+          </Card>
 
-        {/* Instruções de ativação */}
-        <Card>
-          <h2 className="mb-3 text-base font-semibold text-slate-800">Como ativar quando as credenciais chegarem</h2>
-          <ol className="space-y-2 text-sm text-slate-600">
-            <li className="flex gap-2">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">1</span>
-              Receba os dados da conta WhatsApp Business da Paula Quintanilha.
-            </li>
-            <li className="flex gap-2">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">2</span>
-              Configure as 4 variáveis de ambiente no painel do Render e faça redeploy da API.
-            </li>
-            <li className="flex gap-2">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">3</span>
-              Clique em <strong>Testar configuração</strong> aqui. Todos os campos devem mostrar ✅ Configurado.
-            </li>
-            <li className="flex gap-2">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">4</span>
-              No Meta for Developers, cadastre a URL do Webhook acima com o Verify Token correto.
-            </li>
-            <li className="flex gap-2">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">5</span>
-              Altere <code>WHATSAPP_ENABLED=true</code> no Render e faça o redeploy final.
-            </li>
-          </ol>
-        </Card>
+        </div>
 
-        {/* Botão Testar */}
-        <div className="flex justify-end">
-          <Button onClick={handleTest} disabled={testing || loading}>
-            {testing ? 'Verificando...' : '🔍 Testar configuração'}
-          </Button>
+        {/* Coluna Direita: Status e Checklist */}
+        <div className="space-y-6">
+          <Card className="bg-slate-800 text-white border-0 shadow-lg relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <svg viewBox="0 0 24 24" className="w-24 h-24 fill-current">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            
+            <h2 className="text-lg font-bold mb-4 relative z-10">Saúde da Integração</h2>
+            
+            <div className="space-y-3 text-sm relative z-10">
+              <div className="flex justify-between border-b border-slate-700 pb-2">
+                <span className="text-slate-300">Status Geral</span>
+                {config?.mode === 'ready' ? (
+                  <span className="font-bold text-emerald-400">Online</span>
+                ) : config?.mode === 'simulation' ? (
+                  <span className="font-bold text-amber-400">Simulação</span>
+                ) : (
+                  <span className="font-bold text-red-400">Erro / Incompleto</span>
+                )}
+              </div>
+              
+              <div className="flex justify-between border-b border-slate-700 pb-2">
+                <span className="text-slate-300">Testes Executados</span>
+                <span className="font-bold">{testState?.totalTestsRun || 0}</span>
+              </div>
+
+              <div className="flex justify-between border-b border-slate-700 pb-2">
+                <span className="text-slate-300">Última Conexão</span>
+                <span className="text-slate-100">{testState?.lastConnectionTest?.date ? new Date(testState.lastConnectionTest.date).toLocaleTimeString() : 'Nunca'}</span>
+              </div>
+
+              <div className="flex justify-between border-b border-slate-700 pb-2">
+                <span className="text-slate-300">Último Envio</span>
+                <span className="text-slate-100">{testState?.lastMessageTest?.date ? new Date(testState.lastMessageTest.date).toLocaleTimeString() : 'Nunca'}</span>
+              </div>
+              
+              <div className="flex justify-between pb-2">
+                <span className="text-slate-300">Último Webhook</span>
+                <span className="text-slate-100">{testState?.lastWebhookTest?.date ? new Date(testState.lastWebhookTest.date).toLocaleTimeString() : 'Nunca'}</span>
+              </div>
+            </div>
+
+            <Button 
+              className="w-full mt-6 bg-brand-500 hover:bg-brand-600 text-white relative z-10 shadow-md"
+              onClick={handleTestAll}
+              disabled={testingAll}
+            >
+              {testingAll ? 'Executando testes...' : '⚡ Testar integração completa'}
+            </Button>
+          </Card>
+
+          <Card>
+            <h2 className="text-lg font-bold text-slate-800 mb-4">Checklist Inteligente</h2>
+            <div className="space-y-1">
+              <ChecklistItem label="Conta Meta criada" checked={isConnOk} />
+              <ChecklistItem label="Página Facebook criada" checked={isConnOk} />
+              <ChecklistItem label="WhatsApp Business conectado" checked={isConnOk} />
+              <ChecklistItem label="Aplicativo criado" checked={isConnOk} />
+              <ChecklistItem label="Produto WhatsApp adicionado" checked={isConnOk} />
+              <ChecklistItem label="Access Token válido" checked={isConnOk} />
+              <ChecklistItem label="Phone Number ID válido" checked={isConnOk} />
+              <ChecklistItem label="Business Account ID válido" checked={config?.hasBusinessAccountId ?? false} />
+              <ChecklistItem label="Verify Token configurado" checked={config?.hasVerifyToken ?? false} />
+              <ChecklistItem label="Webhook configurado" checked={isWebhookOk} />
+              <ChecklistItem label="Teste de envio realizado" checked={isMsgOk} />
+              <ChecklistItem label="Teste do Webhook realizado" checked={isWebhookOk} />
+              <div className="my-2 border-t border-slate-200"></div>
+              <ChecklistItem label="Sistema pronto para produção" checked={isSystemReady} />
+            </div>
+          </Card>
         </div>
       </div>
     </DashboardLayout>
   );
 }
 
-export default function WhatsappConfigPage() {
+export default function WhatsappWizardPage() {
   return (
     <ProtectedRoute allowedRoles={ALLOWED_ROLES}>
       <WhatsappConfigContent />

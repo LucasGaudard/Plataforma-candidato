@@ -64,6 +64,10 @@ model User {
   whatsappConfirmedAt  DateTime?
   whatsappLastResponse String?
   whatsappError        String?
+  lgpdConsent          Boolean        @default(false)
+  lgpdConsentAt        DateTime?
+  lgpdConsentText      String?
+  lgpdConsentVersion   String?
   leaderSlug    String?        @unique
   leaderId      String?
   leader        User?          @relation("LeaderSupporters", fields: [leaderId], references: [id], onDelete: SetNull)

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { CreateSupporterRequest, LeaderDashboard, SupporterListItem } from '@platform/types';
-import { Role, SupporterStatus, WhatsappStatus } from '@platform/types';
+import { Role, SupporterStatus, WhatsappStatus, LGPD_CONSENT_TEXT, LGPD_CONSENT_VERSION } from '@platform/types';
 import { normalizeSupporterInput, parsePagination, validateSupporterInput } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toUserPublic } from '../lib/user-mapper';
@@ -213,6 +213,10 @@ export async function leaderRoutes(fastify: FastifyInstance) {
           role: Role.USER,
           leaderId: leader.id,
           coordinatorId: leader.coordinatorId,
+          lgpdConsent: true,
+          lgpdConsentAt: new Date(),
+          lgpdConsentText: LGPD_CONSENT_TEXT,
+          lgpdConsentVersion: LGPD_CONSENT_VERSION,
         },
       });
 

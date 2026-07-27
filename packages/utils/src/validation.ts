@@ -91,6 +91,7 @@ export interface SupporterValidationInput {
   city: string;
   state: string;
   neighborhood?: string;
+  lgpdConsent?: boolean;
 }
 
 export function validateSupporterInput(input: SupporterValidationInput): ValidationResult {
@@ -117,6 +118,10 @@ export function validateSupporterInput(input: SupporterValidationInput): Validat
     errors.state = 'Estado inválido (use sigla, ex: SP)';
   }
 
+  if (input.lgpdConsent !== true) {
+    errors.lgpdConsent = 'É necessário autorizar o tratamento dos dados para concluir o cadastro.';
+  }
+
   return {
     valid: Object.keys(errors).length === 0,
     errors,
@@ -132,6 +137,7 @@ export function normalizeSupporterInput(input: SupporterValidationInput): Suppor
     city: input.city.trim(),
     state: input.state.trim().toUpperCase(),
     neighborhood: input.neighborhood?.trim(),
+    lgpdConsent: input.lgpdConsent,
   };
 }
 

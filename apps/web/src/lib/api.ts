@@ -35,6 +35,12 @@ import type {
   UpdatePostRequest,
   UserPublic,
   WhatsappConfigStatus,
+  WhatsappTestState,
+  TestConnectionResponse,
+  TestMessageRequest,
+  TestMessageResponse,
+  TestWebhookRequest,
+  TestWebhookResponse,
 } from '@platform/types';
 
 
@@ -367,6 +373,28 @@ class ApiClient {
 
   getWhatsappConfigStatus() {
     return this.request<WhatsappConfigStatus>('/admin/whatsapp/config-status');
+  }
+
+  getWhatsappTestStatus() {
+    return this.request<WhatsappTestState>('/admin/whatsapp/test-status');
+  }
+
+  testWhatsappConnection() {
+    return this.request<TestConnectionResponse>('/admin/whatsapp/test-connection', { method: 'POST' });
+  }
+
+  testWhatsappMessage(data: TestMessageRequest) {
+    return this.request<TestMessageResponse>('/admin/whatsapp/test-message', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  testWhatsappWebhook(data: TestWebhookRequest) {
+    return this.request<TestWebhookResponse>('/admin/whatsapp/test-webhook', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 }
 

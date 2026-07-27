@@ -25,6 +25,11 @@ export const WhatsappStatus = {
 
 export type WhatsappStatus = (typeof WhatsappStatus)[keyof typeof WhatsappStatus];
 
+export const LGPD_CONSENT_VERSION = '2026-07-27-v1';
+
+export const LGPD_CONSENT_TEXT =
+  'Autorizo a utilização e o tratamento dos meus dados pessoais, de forma segura e transparente, em conformidade com a Lei Geral de Proteção de Dados (LGPD), para realização do meu cadastro e para o envio de informações, ações, eventos e demais comunicações da campanha por e-mail, telefone e WhatsApp. Declaro estar ciente de que posso revogar esta autorização a qualquer momento.';
+
 export const PostCategory = {
   VIDEO: 'VIDEO',
   LIVE: 'LIVE',
@@ -99,6 +104,7 @@ export interface RegisterRequest {
   state: string;
   neighborhood?: string;
   leaderSlug?: string;
+  lgpdConsent?: boolean;
 }
 
 export interface PostPublic {
@@ -301,6 +307,7 @@ export interface CreateSupporterRequest {
   city: string;
   state: string;
   neighborhood?: string;
+  lgpdConsent: boolean;
 }
 
 export interface SupportersQuery {
@@ -411,4 +418,35 @@ export interface WhatsappConfigStatus {
   apiVersion: string;
   webhookUrl: string;
   mode: 'simulation' | 'ready' | 'incomplete';
+}
+
+export interface WhatsappTestState {
+  lastConnectionTest: { success: boolean; date: string; data?: any } | null;
+  lastMessageTest: { success: boolean; date: string; phone?: string } | null;
+  lastWebhookTest: { success: boolean; date: string } | null;
+  totalTestsRun: number;
+}
+
+export interface TestConnectionResponse {
+  success: boolean;
+  message?: string;
+  data?: any;
+}
+
+export interface TestMessageRequest {
+  phone: string;
+}
+
+export interface TestMessageResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface TestWebhookRequest {
+  phone: string;
+}
+
+export interface TestWebhookResponse {
+  success: boolean;
+  message: string;
 }
