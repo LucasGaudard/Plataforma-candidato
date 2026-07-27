@@ -45,45 +45,73 @@ enum WhatsappStatus {
   OPT_OUT
 }
 
+enum CampaignStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Campaign {
+  id             String         @id @default(cuid())
+  name           String
+  slug           String         @unique
+  candidateName  String
+  party          String?
+  logoUrl        String?
+  primaryColor   String?
+  secondaryColor String?
+  whatsappNumber String?
+  status         CampaignStatus @default(ACTIVE)
+  users          User[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  password      String
-  firstName     String
-  lastName      String
-  cpf           String         @unique
-  phone         String
-  address       String
-  city          String
-  state         String
-  neighborhood  String?
-  role                 Role           @default(USER)
+  id                   String          @id @default(cuid())
+  email                String          @unique
+  password             String
+  firstName            String
+  lastName             String
+  cpf                  String          @unique
+  phone                String
+  address              String
+  city                 String
+  state                String
+  neighborhood         String?
+  role                 Role            @default(USER)
   status               SupporterStatus @default(PENDING)
-  whatsappStatus       WhatsappStatus @default(PENDING)
+  whatsappStatus       WhatsappStatus  @default(PENDING)
   whatsappLastSent     DateTime?
   whatsappConfirmedAt  DateTime?
   whatsappLastResponse String?
   whatsappError        String?
-  lgpdConsent          Boolean        @default(false)
+  lgpdConsent          Boolean         @default(false)
   lgpdConsentAt        DateTime?
   lgpdConsentText      String?
   lgpdConsentVersion   String?
-  leaderSlug    String?        @unique
-  leaderId      String?
-  leader        User?          @relation("LeaderSupporters", fields: [leaderId], references: [id], onDelete: SetNull)
-  supporters    User[]         @relation("LeaderSupporters")
-  coordinatorId String?
-  coordinator   User?          @relation("CoordinatorLeaders", fields: [coordinatorId], references: [id], onDelete: SetNull)
-  leaders       User[]         @relation("CoordinatorLeaders")
-  posts         Post[]
-  events        Event[]
-  lives         Live[]
-  notifications Notification[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  leaderSlug           String?         @unique
+  leaderId             String?
+  leader               User?           @relation("LeaderSupporters", fields: [leaderId], references: [id], onDelete: SetNull)
+  supporters           User[]          @relation("LeaderSupporters")
+  coordinatorId        String?
+  coordinator          User?           @relation("CoordinatorLeaders", fields: [coordinatorId], references: [id], onDelete: SetNull)
+  leaders              User[]          @relation("CoordinatorLeaders")
+  campaignId           String          @default("cm5paulaquintanilha000001")
+  campaign             Campaign        @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  posts                Post[]
+  events               Event[]
+  lives                Live[]
+  notifications        Notification[]
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
 
   @@index([leaderId])
   @@index([coordinatorId])
+  @@index([campaignId])
   @@index([role])
   @@index([leaderSlug])
   @@index([createdAt])

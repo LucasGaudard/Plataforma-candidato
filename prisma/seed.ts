@@ -1,7 +1,7 @@
 import { config } from 'dotenv';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
-import { PrismaClient, Role, PostCategory } from '@prisma/client';
+import { CampaignStatus, PrismaClient, Role, PostCategory } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const rootEnv = resolve(__dirname, '..', '.env');
@@ -10,17 +10,35 @@ if (existsSync(rootEnv)) {
 }
 
 const prisma = new PrismaClient();
+const INITIAL_CAMPAIGN_ID = 'cm5paulaquintanilha000001';
+const INITIAL_CAMPAIGN_SLUG = 'paula-quintanilha';
 
 async function main() {
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL não configurada. Crie o arquivo .env na raiz do projeto.');
   }
 
+  const campaign = await prisma.campaign.upsert({
+    where: { slug: INITIAL_CAMPAIGN_SLUG },
+    update: {
+      name: 'Paula Quintanilha',
+      candidateName: 'Paula Quintanilha',
+      status: CampaignStatus.ACTIVE,
+    },
+    create: {
+      id: INITIAL_CAMPAIGN_ID,
+      name: 'Paula Quintanilha',
+      slug: INITIAL_CAMPAIGN_SLUG,
+      candidateName: 'Paula Quintanilha',
+      status: CampaignStatus.ACTIVE,
+    },
+  });
+
   const adminPassword = await bcrypt.hash('admin12345', 12);
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@campanha.com' },
-    update: {},
+    update: { campaignId: campaign.id },
     create: {
       email: 'admin@campanha.com',
       password: adminPassword,
@@ -32,6 +50,7 @@ async function main() {
       city: 'São Paulo',
       state: 'SP',
       role: Role.ADMIN,
+      campaignId: campaign.id,
     },
   });
 
@@ -39,7 +58,7 @@ async function main() {
 
   const leader = await prisma.user.upsert({
     where: { email: 'joao.silva@campanha.com' },
-    update: {},
+    update: { campaignId: campaign.id },
     create: {
       email: 'joao.silva@campanha.com',
       password: leaderPassword,
@@ -52,6 +71,7 @@ async function main() {
       state: 'SP',
       role: Role.LEADER,
       leaderSlug: 'joao-silva',
+      campaignId: campaign.id,
     },
   });
 
