@@ -18,16 +18,18 @@ export function UserDashboardView() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user?.campaign.slug) return;
+
     Promise.all([
-      api.getEvents({ limit: 3 }),
-      api.getLives({ limit: 3 }),
+      api.getEvents(user.campaign.slug, { limit: 3 }),
+      api.getLives(user.campaign.slug, { limit: 3 }),
     ])
       .then(([eventsRes, livesRes]) => {
         setEvents(eventsRes.data);
         setLives(livesRes.data);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [user?.campaign.slug]);
 
   if (!user) return null;
 

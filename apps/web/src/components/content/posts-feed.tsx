@@ -4,25 +4,29 @@ import { useEffect, useState } from 'react';
 import type { PostPublic } from '@platform/types';
 import { CardSkeleton, EmptyState } from '@platform/ui';
 import { api } from '@/lib/api';
+import { useAuth } from '@/contexts/auth-context';
 import { PostCard } from './post-card';
 
 interface PostsFeedProps {
+  campaignSlug?: string | null;
   limit?: number;
   title?: string;
 }
 
-export function PostsFeed({ limit = 6, title = 'Últimas novidades' }: PostsFeedProps) {
+export function PostsFeed({ campaignSlug, limit = 6, title = 'Últimas novidades' }: PostsFeedProps) {
+  const { user } = useAuth();
+  const resolvedCampaignSlug = campaignSlug || user?.campaign.slug || '';
   const [posts, setPosts] = useState<PostPublic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     api
-      .getPosts({ limit })
+      .getPosts(resolvedCampaignSlug, { limit })
       .then((res) => setPosts(res.data))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [limit]);
+  }, [limit, resolvedCampaignSlug]);
 
   if (loading) {
     return (

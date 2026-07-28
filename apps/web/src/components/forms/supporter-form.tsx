@@ -6,12 +6,13 @@ import { CITIES_BY_STATE, NEIGHBORHOODS_BY_CITY, formatPhone } from '@platform/u
 import { api } from '@/lib/api';
 
 interface SupporterFormProps {
+  campaignSlug: string;
   leaderSlug: string;
   leaderName: string;
   onSuccess: () => void;
 }
 
-export function SupporterForm({ leaderSlug, leaderName, onSuccess }: SupporterFormProps) {
+export function SupporterForm({ campaignSlug, leaderSlug, leaderName, onSuccess }: SupporterFormProps) {
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -90,7 +91,7 @@ export function SupporterForm({ leaderSlug, leaderName, onSuccess }: SupporterFo
     }
 
     try {
-      await api.createSupporter(leaderSlug, {
+      await api.createSupporter(campaignSlug, leaderSlug, {
         ...form,
         neighborhood: finalNeighborhood,
       });

@@ -1,11 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { CreateLiveRequest, UpdateLiveRequest } from '@platform/types';
 import { NotificationType, Role } from '@platform/types';
-import {
-  parsePagination,
-  sanitizeString,
-  validateLiveInput,
-} from '@platform/utils';
+import { sanitizeString, validateLiveInput } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toLivePublic } from '../lib/mappers';
 import { notifyAllUsers } from '../lib/notifications';
@@ -15,39 +11,13 @@ const authorSelect = { firstName: true, lastName: true };
 export async function liveRoutes(fastify: FastifyInstance) {
   fastify.get<{ Querystring: { page?: string; limit?: string } }>(
     '/',
-    async (request, reply) => {
-      const { page, limit, skip } = parsePagination(request.query);
-      const where = { published: true };
-
-      const [lives, total] = await Promise.all([
-        prisma.live.findMany({
-          where,
-          include: { author: { select: authorSelect } },
-          orderBy: { scheduledAt: 'desc' },
-          skip,
-          take: limit,
-        }),
-        prisma.live.count({ where }),
-      ]);
-
-      return reply.send({
-        data: lives.map(toLivePublic),
-        meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
-      });
+    async (_request, reply) => {
+      return reply.status(404).send({ message: 'Campanha não encontrada' });
     },
   );
 
-  fastify.get<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    const live = await prisma.live.findFirst({
-      where: { id: request.params.id, published: true },
-      include: { author: { select: authorSelect } },
-    });
-
-    if (!live) {
-      return reply.status(404).send({ message: 'Live não encontrada' });
-    }
-
-    return reply.send(toLivePublic(live));
+  fastify.get<{ Params: { id: string } }>('/:id', async (_request, reply) => {
+    return reply.status(404).send({ message: 'Campanha não encontrada' });
   });
 
   fastify.post<{ Body: CreateLiveRequest }>(

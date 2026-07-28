@@ -8,8 +8,10 @@ import { api } from '@/lib/api';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { GrowthChart } from '@/components/charts/growth-chart';
 import { PostsFeed } from '@/components/content/posts-feed';
+import { useAuth } from '@/contexts/auth-context';
 
 export function AdminDashboardView() {
+  const { user } = useAuth();
   const [data, setData] = useState<AdminDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -112,7 +114,9 @@ export function AdminDashboardView() {
                 <tr key={leader.leaderId} className="border-b border-slate-100">
                   <td className="py-3 text-slate-400">{leader.rank}</td>
                   <td className="py-3 font-medium text-slate-900">{leader.leaderName}</td>
-                  <td className="hidden py-3 text-slate-500 sm:table-cell">/lider/{leader.leaderSlug}</td>
+                  <td className="hidden py-3 text-slate-500 sm:table-cell">
+                    /campanhas/{user?.campaign.slug}/lider/{leader.leaderSlug}
+                  </td>
                   <td className="py-3 text-right font-semibold text-brand-700">{leader.count}</td>
                   <td className="hidden py-3 text-right text-slate-500 md:table-cell">+{leader.recentCount}</td>
                 </tr>

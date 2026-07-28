@@ -1,22 +1,12 @@
 import Link from 'next/link';
 import { Card } from '@platform/ui';
 import { RegisterForm } from '@/components/forms/register-form';
-import { configuredPublicCampaignSlug } from '@/lib/public-campaign';
 
-export default function CadastroPage() {
-  if (!configuredPublicCampaignSlug) {
-    return (
-      <div className="flex min-h-screen items-center justify-center px-4">
-        <Card className="max-w-md text-center">
-          <h1 className="text-xl font-bold text-brand-900">Campanha não informada</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Use um link de cadastro que identifique a campanha.
-          </p>
-        </Card>
-      </div>
-    );
-  }
-
+export default function CampaignRegistrationPage({
+  params,
+}: {
+  params: { campaignSlug: string };
+}) {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-2xl">
@@ -36,7 +26,7 @@ export default function CadastroPage() {
           </p>
 
           <div className="mt-6">
-            <RegisterForm campaignSlug={configuredPublicCampaignSlug} />
+            <RegisterForm campaignSlug={params.campaignSlug} />
           </div>
 
           <p className="mt-6 text-center text-sm text-slate-500">

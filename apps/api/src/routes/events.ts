@@ -1,11 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { CreateEventRequest, UpdateEventRequest } from '@platform/types';
 import { NotificationType, Role } from '@platform/types';
-import {
-  parsePagination,
-  sanitizeString,
-  validateEventInput,
-} from '@platform/utils';
+import { sanitizeString, validateEventInput } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toEventPublic } from '../lib/mappers';
 import { notifyAllUsers } from '../lib/notifications';
@@ -15,40 +11,13 @@ const authorSelect = { firstName: true, lastName: true };
 export async function eventRoutes(fastify: FastifyInstance) {
   fastify.get<{ Querystring: { page?: string; limit?: string } }>(
     '/',
-    async (request, reply) => {
-      const { page, limit, skip } = parsePagination(request.query);
-
-      const where = { published: true };
-
-      const [events, total] = await Promise.all([
-        prisma.event.findMany({
-          where,
-          include: { author: { select: authorSelect } },
-          orderBy: { date: 'asc' },
-          skip,
-          take: limit,
-        }),
-        prisma.event.count({ where }),
-      ]);
-
-      return reply.send({
-        data: events.map(toEventPublic),
-        meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
-      });
+    async (_request, reply) => {
+      return reply.status(404).send({ message: 'Campanha não encontrada' });
     },
   );
 
-  fastify.get<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    const event = await prisma.event.findFirst({
-      where: { id: request.params.id, published: true },
-      include: { author: { select: authorSelect } },
-    });
-
-    if (!event) {
-      return reply.status(404).send({ message: 'Evento não encontrado' });
-    }
-
-    return reply.send(toEventPublic(event));
+  fastify.get<{ Params: { id: string } }>('/:id', async (_request, reply) => {
+    return reply.status(404).send({ message: 'Campanha não encontrada' });
   });
 
   fastify.post<{ Body: CreateEventRequest }>(

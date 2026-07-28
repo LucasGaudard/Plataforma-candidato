@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Header } from '@/components/layout/header';
 import { PostsFeed } from '@/components/content/posts-feed';
 import { Button } from '@platform/ui';
+import { configuredPublicCampaignSlug } from '@/lib/public-campaign';
 
 // ─── Dados da campanha atual ──────────────────────────────────────────────────
 // Para trocar de candidato no futuro, altere apenas este bloco.
@@ -175,7 +176,11 @@ export default function HomePage() {
          ══════════════════════════════════════════════════════════ */}
       <section className="bg-white px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl">
-          <PostsFeed limit={6} title="Últimas novidades da campanha" />
+          <PostsFeed
+            campaignSlug={configuredPublicCampaignSlug}
+            limit={6}
+            title="Últimas novidades da campanha"
+          />
         </div>
       </section>
 

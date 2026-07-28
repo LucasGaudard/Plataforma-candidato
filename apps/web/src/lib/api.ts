@@ -19,6 +19,7 @@ import type {
   PaginatedResponse,
   PostCategory,
   PostPublic,
+  PublicCampaignSummary,
   RegisterRequest,
   RecipientCountResponse,
   SupporterListItem,
@@ -102,8 +103,11 @@ class ApiClient {
     return this.request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify(body) });
   }
 
-  register(body: RegisterRequest) {
-    return this.request<AuthResponse>('/auth/register', { method: 'POST', body: JSON.stringify(body) });
+  register(campaignSlug: string, body: RegisterRequest) {
+    return this.request<AuthResponse>(`/auth/register/${encodeURIComponent(campaignSlug)}`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
   }
 
   me() {
@@ -224,28 +228,39 @@ class ApiClient {
     );
   }
 
-  getLeaderBySlug(slug: string) {
-    return this.request<{ id: string; firstName: string; lastName: string; leaderSlug: string }>(
-      `/leader/${slug}`,
+  getPublicCampaign(campaignSlug: string) {
+    return this.request<PublicCampaignSummary>(
+      `/public/campaigns/${encodeURIComponent(campaignSlug)}`,
     );
   }
 
-  createSupporter(slug: string, body: CreateSupporterRequest) {
-    return this.request<{ success: boolean; id: string }>(`/leader/${slug}/supporters`, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+  getLeaderBySlug(campaignSlug: string, leaderSlug: string) {
+    return this.request<{ id: string; firstName: string; lastName: string; leaderSlug: string }>(
+      `/public/campaigns/${encodeURIComponent(campaignSlug)}/leaders/${encodeURIComponent(leaderSlug)}`,
+    );
+  }
+
+  createSupporter(campaignSlug: string, leaderSlug: string, body: CreateSupporterRequest) {
+    return this.request<{ success: boolean; id: string }>(
+      `/public/campaigns/${encodeURIComponent(campaignSlug)}/leaders/${encodeURIComponent(leaderSlug)}/supporters`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+    );
   }
 
   // Posts
-  getPosts(params: { page?: number; limit?: number; category?: PostCategory } = {}) {
+  getPosts(campaignSlug: string, params: { page?: number; limit?: number; category?: PostCategory } = {}) {
     return this.request<PaginatedResponse<PostPublic>>(
-      `/posts${this.qs({ page: params.page, limit: params.limit, category: params.category })}`,
+      `/public/campaigns/${encodeURIComponent(campaignSlug)}/posts${this.qs({ page: params.page, limit: params.limit, category: params.category })}`,
     );
   }
 
-  getPost(id: string) {
-    return this.request<PostPublic>(`/posts/${id}`);
+  getPost(campaignSlug: string, id: string) {
+    return this.request<PostPublic>(
+      `/public/campaigns/${encodeURIComponent(campaignSlug)}/posts/${encodeURIComponent(id)}`,
+    );
   }
 
   createPost(body: CreatePostRequest) {
@@ -261,9 +276,9 @@ class ApiClient {
   }
 
   // Events
-  getEvents(params: { page?: number; limit?: number } = {}) {
+  getEvents(campaignSlug: string, params: { page?: number; limit?: number } = {}) {
     return this.request<PaginatedResponse<EventPublic>>(
-      `/events${this.qs({ page: params.page, limit: params.limit })}`,
+      `/public/campaigns/${encodeURIComponent(campaignSlug)}/events${this.qs({ page: params.page, limit: params.limit })}`,
     );
   }
 
@@ -280,9 +295,9 @@ class ApiClient {
   }
 
   // Lives
-  getLives(params: { page?: number; limit?: number } = {}) {
+  getLives(campaignSlug: string, params: { page?: number; limit?: number } = {}) {
     return this.request<PaginatedResponse<LivePublic>>(
-      `/lives${this.qs({ page: params.page, limit: params.limit })}`,
+      `/public/campaigns/${encodeURIComponent(campaignSlug)}/lives${this.qs({ page: params.page, limit: params.limit })}`,
     );
   }
 

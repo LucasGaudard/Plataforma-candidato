@@ -46,6 +46,16 @@ export interface CampaignPublic {
   status: CampaignStatus;
 }
 
+export interface PublicCampaignSummary {
+  name: string;
+  slug: string;
+  candidateName: string;
+  party: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+}
+
 export const LGPD_CONSENT_VERSION = '2026-07-27-v1';
 
 export const LGPD_CONSENT_TEXT =

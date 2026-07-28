@@ -19,13 +19,15 @@ function LivesView() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getLives({ page, limit: 9 })
+    if (!user?.campaign.slug) return;
+
+    api.getLives(user.campaign.slug, { page, limit: 9 })
       .then((res) => {
         setLives(res.data);
         setTotalPages(res.meta.totalPages);
       })
       .finally(() => setLoading(false));
-  }, [page]);
+  }, [page, user?.campaign.slug]);
 
   if (user?.role === Role.ADMIN) {
     return <ContentManager type="lives" title="Gerenciar Lives" />;

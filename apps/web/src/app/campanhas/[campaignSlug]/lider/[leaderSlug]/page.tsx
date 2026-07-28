@@ -6,27 +6,23 @@ import { useParams } from 'next/navigation';
 import { Card } from '@platform/ui';
 import { SupporterForm } from '@/components/forms/supporter-form';
 import { api } from '@/lib/api';
-import { configuredPublicCampaignSlug } from '@/lib/public-campaign';
 
-export default function LiderCadastroPage() {
+export default function CampaignLeaderRegistrationPage() {
   const params = useParams();
-  const slug = params.slug as string;
-
-  const [leader, setLeader] = useState<{
-    firstName: string;
-    lastName: string;
-  } | null>(null);
+  const campaignSlug = params.campaignSlug as string;
+  const leaderSlug = params.leaderSlug as string;
+  const [leader, setLeader] = useState<{ firstName: string; lastName: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     api
-      .getLeaderBySlug(configuredPublicCampaignSlug || '', slug)
-      .then((data) => setLeader(data))
+      .getLeaderBySlug(campaignSlug, leaderSlug)
+      .then(setLeader)
       .catch(() => setError('Líder não encontrado'))
       .finally(() => setLoading(false));
-  }, [slug]);
+  }, [campaignSlug, leaderSlug]);
 
   if (loading) {
     return (
@@ -41,15 +37,9 @@ export default function LiderCadastroPage() {
       <div className="flex min-h-screen items-center justify-center px-4">
         <Card className="max-w-md text-center">
           <h1 className="text-xl font-bold text-brand-900">Link inválido</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            O link de cadastro não foi encontrado.
-          </p>
+          <p className="mt-2 text-sm text-slate-500">O link de cadastro não foi encontrado.</p>
           <Link
-            href={
-              configuredPublicCampaignSlug
-                ? `/campanhas/${configuredPublicCampaignSlug}/cadastro`
-                : '/cadastro'
-            }
+            href={`/campanhas/${campaignSlug}/cadastro`}
             className="mt-4 inline-block text-sm font-semibold text-brand-600 hover:underline"
           >
             Cadastrar sem indicação
@@ -75,7 +65,7 @@ export default function LiderCadastroPage() {
 
         <Card padding="lg">
           {success ? (
-            <div className="text-center py-8">
+            <div className="py-8 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl text-green-600">
                 ✓
               </div>
@@ -90,11 +80,10 @@ export default function LiderCadastroPage() {
               <p className="mt-1 text-sm text-slate-500">
                 Você foi indicado por <strong>{leaderName}</strong>
               </p>
-
               <div className="mt-6">
                 <SupporterForm
-                  campaignSlug={configuredPublicCampaignSlug || ''}
-                  leaderSlug={slug}
+                  campaignSlug={campaignSlug}
+                  leaderSlug={leaderSlug}
                   leaderName={leaderName}
                   onSuccess={() => setSuccess(true)}
                 />

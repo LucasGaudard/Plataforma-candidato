@@ -1,11 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { CreatePostRequest, UpdatePostRequest } from '@platform/types';
 import { NotificationType, PostCategory, Role } from '@platform/types';
-import {
-  parsePagination,
-  sanitizeString,
-  validatePostInput,
-} from '@platform/utils';
+import { sanitizeString, validatePostInput } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toPostPublic } from '../lib/mappers';
 import { notifyAllUsers } from '../lib/notifications';
@@ -15,46 +11,13 @@ const authorSelect = { firstName: true, lastName: true };
 export async function postRoutes(fastify: FastifyInstance) {
   fastify.get<{ Querystring: { page?: string; limit?: string; category?: string } }>(
     '/',
-    async (request, reply) => {
-      const { page, limit, skip } = parsePagination(request.query);
-      const category = request.query.category as PostCategory | undefined;
-
-      const where = {
-        published: true,
-        ...(category && Object.values(PostCategory).includes(category)
-          ? { category }
-          : {}),
-      };
-
-      const [posts, total] = await Promise.all([
-        prisma.post.findMany({
-          where,
-          include: { author: { select: authorSelect } },
-          orderBy: { publishedAt: 'desc' },
-          skip,
-          take: limit,
-        }),
-        prisma.post.count({ where }),
-      ]);
-
-      return reply.send({
-        data: posts.map(toPostPublic),
-        meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
-      });
+    async (_request, reply) => {
+      return reply.status(404).send({ message: 'Campanha não encontrada' });
     },
   );
 
-  fastify.get<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    const post = await prisma.post.findFirst({
-      where: { id: request.params.id, published: true },
-      include: { author: { select: authorSelect } },
-    });
-
-    if (!post) {
-      return reply.status(404).send({ message: 'Post não encontrado' });
-    }
-
-    return reply.send(toPostPublic(post));
+  fastify.get<{ Params: { id: string } }>('/:id', async (_request, reply) => {
+    return reply.status(404).send({ message: 'Campanha não encontrada' });
   });
 
   fastify.post<{ Body: CreatePostRequest }>(

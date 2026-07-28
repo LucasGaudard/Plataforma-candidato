@@ -10,6 +10,7 @@ import {
   validateRegisterInput,
 } from '@platform/utils';
 import { prisma } from '../lib/prisma';
+import { resolveActivePublicCampaign } from '../lib/public-campaign';
 import { toAuthenticatedUserPublic } from '../lib/user-mapper';
 import { whatsappService } from '../services/whatsapp.service';
 
@@ -60,7 +61,21 @@ export async function authRoutes(fastify: FastifyInstance) {
     return reply.send(response);
   });
 
-  fastify.post<{ Body: RegisterRequest }>('/register', authRateLimit, async (request, reply) => {
+  fastify.post('/register', authRateLimit, async (_request, reply) => {
+    return reply.status(404).send({
+      message: 'Campanha não encontrada',
+    });
+  });
+
+  fastify.post<{ Params: { campaignSlug: string }; Body: RegisterRequest }>(
+    '/register/:campaignSlug',
+    authRateLimit,
+    async (request, reply) => {
+    const campaign = await resolveActivePublicCampaign(request.params.campaignSlug);
+    if (!campaign) {
+      return reply.status(404).send({ message: 'Campanha não encontrada' });
+    }
+
     const body = request.body || ({} as RegisterRequest);
     const sanitized: RegisterRequest = {
       ...body,
@@ -87,6 +102,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     }
 
     let leaderId: string | undefined;
+    let coordinatorId: string | undefined;
 
     if (sanitized.leaderSlug) {
       if (!isValidSlug(sanitized.leaderSlug)) {
@@ -94,7 +110,11 @@ export async function authRoutes(fastify: FastifyInstance) {
       }
 
       const leader = await prisma.user.findFirst({
-        where: { leaderSlug: sanitized.leaderSlug, role: Role.LEADER },
+        where: {
+          leaderSlug: sanitized.leaderSlug,
+          role: Role.LEADER,
+          campaignId: campaign.id,
+        },
       });
 
       if (!leader) {
@@ -102,6 +122,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       }
 
       leaderId = leader.id;
+      coordinatorId = leader.coordinatorId ?? undefined;
     }
 
     const existingEmail = await prisma.user.findUnique({
@@ -134,6 +155,8 @@ export async function authRoutes(fastify: FastifyInstance) {
         neighborhood: normalized.neighborhood,
         role: Role.USER,
         leaderId,
+        coordinatorId,
+        campaignId: campaign.id,
       },
       include: { campaign: true },
     });
@@ -160,7 +183,8 @@ export async function authRoutes(fastify: FastifyInstance) {
     };
 
     return reply.status(201).send(response);
-  });
+    },
+  );
 
   fastify.get(
     '/me',

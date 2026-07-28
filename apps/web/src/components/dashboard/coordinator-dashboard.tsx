@@ -19,6 +19,7 @@ import {
   TableRowSkeleton,
 } from '@platform/ui';
 import { api } from '@/lib/api';
+import { useAuth } from '@/contexts/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { useToast } from '@/contexts/toast-context';
 
@@ -38,6 +39,7 @@ const emptyCreate: CreateLeaderRequest = {
 };
 
 export function CoordinatorDashboardView() {
+  const { user } = useAuth();
   const { toast } = useToast();
 
   const [stats, setStats] = useState<CoordinatorDashboard | null>(null);
@@ -512,7 +514,9 @@ export function CoordinatorDashboardView() {
                       {leader.supporterCount}
                     </td>
                     <td className="hidden py-3 text-xs text-slate-400 lg:table-cell">
-                      {leader.leaderSlug ? `/lider/${leader.leaderSlug}` : '—'}
+                      {leader.leaderSlug
+                        ? `/campanhas/${user?.campaign.slug}/lider/${leader.leaderSlug}`
+                        : '—'}
                     </td>
                     <td className="py-3">
                       <span

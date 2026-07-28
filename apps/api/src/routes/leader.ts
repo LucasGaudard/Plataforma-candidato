@@ -1,10 +1,9 @@
 import type { FastifyInstance } from 'fastify';
-import type { CreateSupporterRequest, LeaderDashboard, SupporterListItem } from '@platform/types';
-import { Role, SupporterStatus, WhatsappStatus, LGPD_CONSENT_TEXT, LGPD_CONSENT_VERSION } from '@platform/types';
-import { normalizeSupporterInput, parsePagination, validateSupporterInput } from '@platform/utils';
+import type { LeaderDashboard, SupporterListItem } from '@platform/types';
+import { Role, SupporterStatus, WhatsappStatus } from '@platform/types';
+import { parsePagination } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toUserPublic } from '../lib/user-mapper';
-import { whatsappService } from '../services/whatsapp.service';
 
 export async function leaderRoutes(fastify: FastifyInstance) {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -20,6 +19,9 @@ export async function leaderRoutes(fastify: FastifyInstance) {
         where: {
           id: request.user.sub,
           campaignId: request.user.campaignId,
+        },
+        include: {
+          campaign: { select: { slug: true } },
         },
       });
 
@@ -77,7 +79,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
         totalInvalid: statusCounts.find((s) => s.status === SupporterStatus.INVALID)?._count.status || 0,
         recentSupporters,
         leaderSlug: leader.leaderSlug,
-        referralLink: `${frontendUrl}/lider/${leader.leaderSlug}`,
+        referralLink: `${frontendUrl}/campanhas/${leader.campaign.slug}/lider/${leader.leaderSlug}`,
         supporters: supporters.map(toUserPublic),
         supportersMeta: {
           page: 1,
@@ -159,7 +161,10 @@ export async function leaderRoutes(fastify: FastifyInstance) {
     },
   );
 
-  fastify.get('/:slug', async (request, reply) => {
+  fastify.get('/:slug', async (_request, reply) => {
+    return reply.status(404).send({ message: 'Campanha não encontrada' });
+    /*
+    const { slug } = request.params as { slug: string };
     const { slug } = request.params as { slug: string };
 
     if (slug === 'dashboard' || slug === 'supporters') {
@@ -186,11 +191,14 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       lastName: leader.lastName,
       leaderSlug: leader.leaderSlug,
     });
+    */
   });
 
-  fastify.post<{ Params: { slug: string }; Body: CreateSupporterRequest }>(
+  fastify.post(
     '/:slug/supporters',
-    async (request, reply) => {
+    async (_request, reply) => {
+      return reply.status(404).send({ message: 'Campanha não encontrada' });
+      /*
       const { slug } = request.params;
       const body = request.body || ({} as CreateSupporterRequest);
 
@@ -203,7 +211,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ message: 'Líder não encontrado' });
       }
 
-      // Fix state to 'RJ' implicitly since Paula Quintanilha is a local candidate
+      // Código legado desativado: rotas públicas agora exigem campaignSlug.
       body.state = body.state || 'RJ';
 
       const normalized = normalizeSupporterInput(body);
@@ -259,6 +267,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       });
 
       return reply.status(201).send({ success: true, id: supporter.id });
+      */
     },
   );
 

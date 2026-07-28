@@ -35,7 +35,7 @@ export class WhatsappService {
         to,
         type: 'text',
         text: {
-          body: `Olá ${user.firstName}! Confirmamos o seu cadastro na campanha da Paula Quintanilha. Responda SIM para confirmar seu interesse em continuar recebendo atualizações. Responda SAIR a qualquer momento para não receber mais mensagens.`,
+          body: `Olá ${user.firstName}! Confirmamos o seu cadastro na campanha. Responda SIM para confirmar seu interesse em continuar recebendo atualizações. Responda SAIR a qualquer momento para não receber mais mensagens.`,
         },
       };
 

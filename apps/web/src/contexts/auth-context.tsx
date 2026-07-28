@@ -20,7 +20,7 @@ interface AuthContextValue {
   user: AuthenticatedUserPublic | null;
   loading: boolean;
   login: (data: LoginRequest) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
+  register: (campaignSlug: string, data: RegisterRequest) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -60,8 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(response.user);
   }, []);
 
-  const register = useCallback(async (data: RegisterRequest) => {
-    const response = await api.register(data);
+  const register = useCallback(async (campaignSlug: string, data: RegisterRequest) => {
+    const response = await api.register(campaignSlug, data);
     localStorage.setItem('token', response.token);
     setUser(response.user);
   }, []);

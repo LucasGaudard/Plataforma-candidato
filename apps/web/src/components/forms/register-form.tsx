@@ -14,11 +14,12 @@ import {
 import { useAuth } from '@/contexts/auth-context';
 
 interface RegisterFormProps {
+  campaignSlug: string;
   leaderSlug?: string;
   leaderName?: string;
 }
 
-export function RegisterForm({ leaderSlug, leaderName }: RegisterFormProps) {
+export function RegisterForm({ campaignSlug, leaderSlug, leaderName }: RegisterFormProps) {
   const { register } = useAuth();
   const router = useRouter();
 
@@ -128,7 +129,7 @@ export function RegisterForm({ leaderSlug, leaderName }: RegisterFormProps) {
     setLoading(true);
 
     try {
-      await register({
+      await register(campaignSlug, {
         firstName: form.firstName,
         lastName: form.lastName,
         cpf: form.cpf,
