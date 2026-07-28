@@ -12,7 +12,7 @@ import {
 import { prisma } from '../lib/prisma';
 
 // Campos retornados nas listagens de líderes
-const leaderSelect = {
+const leaderSelect = (campaignId: string) => ({
   id: true,
   firstName: true,
   lastName: true,
@@ -23,8 +23,12 @@ const leaderSelect = {
   neighborhood: true,
   leaderSlug: true,
   createdAt: true,
-  _count: { select: { supporters: true } },
-};
+  _count: {
+    select: {
+      supporters: { where: { campaignId } },
+    },
+  },
+});
 
 // Gera slug único para o líder (incrementa sufixo se houver conflito)
 async function generateUniqueLeaderSlug(firstName: string, lastName: string): Promise<string> {
@@ -78,22 +82,25 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate, fastify.authorize(Role.COORDINATOR)] },
     async (request, reply) => {
       const coordinatorId = request.user.sub;
+      const campaignId = request.user.campaignId;
 
       const [totalLeaders, totalSupporters, statusCounts] = await Promise.all([
         prisma.user.count({
-          where: { role: Role.LEADER, coordinatorId },
+          where: { role: Role.LEADER, coordinatorId, campaignId },
         }),
         prisma.user.count({
           where: {
             role: Role.USER,
-            leader: { coordinatorId },
+            campaignId,
+            leader: { coordinatorId, campaignId },
           },
         }),
         prisma.user.groupBy({
           by: ['status'],
           where: {
             role: Role.USER,
-            leader: { coordinatorId },
+            campaignId,
+            leader: { coordinatorId, campaignId },
           },
           _count: { status: true },
         }),
@@ -130,6 +137,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
       const where = {
         role: Role.LEADER,
         coordinatorId,
+        campaignId: request.user.campaignId,
         ...(search
           ? {
               OR: [
@@ -144,7 +152,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
       const [leaders, total] = await Promise.all([
         prisma.user.findMany({
           where,
-          select: leaderSelect,
+          select: leaderSelect(request.user.campaignId),
           orderBy: { createdAt: 'desc' },
           skip,
           take: limit,
@@ -217,8 +225,9 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
           role: Role.LEADER,
           leaderSlug,
           coordinatorId,
+          campaignId: request.user.campaignId,
         },
-        select: leaderSelect,
+        select: leaderSelect(request.user.campaignId),
       });
 
       return reply.status(201).send(toLeaderItem(leader));
@@ -238,7 +247,12 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
 
       // Segurança: garante que o líder pertence ao coordenador autenticado
       const existing = await prisma.user.findFirst({
-        where: { id, role: Role.LEADER, coordinatorId },
+        where: {
+          id,
+          role: Role.LEADER,
+          coordinatorId,
+          campaignId: request.user.campaignId,
+        },
       });
 
       if (!existing) {
@@ -268,7 +282,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
       const leader = await prisma.user.update({
         where: { id },
         data: updateData,
-        select: leaderSelect,
+        select: leaderSelect(request.user.campaignId),
       });
 
       return reply.send(toLeaderItem(leader));
@@ -289,7 +303,12 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
 
       // Segurança: garante que o líder pertence ao coordenador autenticado
       const existing = await prisma.user.findFirst({
-        where: { id, role: Role.LEADER, coordinatorId },
+        where: {
+          id,
+          role: Role.LEADER,
+          coordinatorId,
+          campaignId: request.user.campaignId,
+        },
       });
 
       if (!existing) {
@@ -329,7 +348,11 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
 
       const where = {
         role: Role.USER,
-        leader: { coordinatorId },
+        campaignId: request.user.campaignId,
+        leader: {
+          coordinatorId,
+          campaignId: request.user.campaignId,
+        },
         ...(leaderId ? { leaderId } : {}),
         ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
         ...(state ? { state } : {}),
@@ -349,7 +372,9 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
         prisma.user.findMany({
           where,
           include: {
-            leader: { select: { firstName: true, lastName: true } },
+            leader: {
+              select: { firstName: true, lastName: true, campaignId: true },
+            },
           },
           orderBy: { createdAt: 'desc' },
           skip,
@@ -369,7 +394,10 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
         status: u.status as SupporterStatus,
         whatsappStatus: u.whatsappStatus as WhatsappStatus,
         createdAt: u.createdAt.toISOString(),
-        leaderName: u.leader ? `${u.leader.firstName} ${u.leader.lastName}` : undefined,
+        leaderName:
+          u.leader?.campaignId === request.user.campaignId
+            ? `${u.leader.firstName} ${u.leader.lastName}`
+            : undefined,
       }));
 
       return reply.send({
@@ -395,7 +423,11 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
         where: {
           id,
           role: Role.USER,
-          leader: { coordinatorId },
+          campaignId: request.user.campaignId,
+          leader: {
+            coordinatorId,
+            campaignId: request.user.campaignId,
+          },
         },
       });
 
@@ -430,10 +462,22 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
       const count = await prisma.user.count({
         where: {
           role: Role.USER,
+          campaignId: request.user.campaignId,
           ...(verifiedOnly === 'true' ? { status: SupporterStatus.VERIFIED } : {}),
           ...(leaderId
-            ? { leaderId, leader: { coordinatorId } } // Ensure leader belongs to coordinator
-            : { leader: { coordinatorId } }),
+            ? {
+                leaderId,
+                leader: {
+                  coordinatorId,
+                  campaignId: request.user.campaignId,
+                },
+              }
+            : {
+                leader: {
+                  coordinatorId,
+                  campaignId: request.user.campaignId,
+                },
+              }),
           ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
           ...(state ? { state: state.toUpperCase() } : {}),
           ...(neighborhood ? { neighborhood: { contains: neighborhood, mode: 'insensitive' as const } } : {}),

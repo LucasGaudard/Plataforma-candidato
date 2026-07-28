@@ -13,6 +13,7 @@ export async function notificationRoutes(fastify: FastifyInstance) {
 
       const where = {
         userId: request.user.sub,
+        campaignId: request.user.campaignId,
         ...(unreadOnly ? { read: false } : {}),
       };
 
@@ -25,7 +26,11 @@ export async function notificationRoutes(fastify: FastifyInstance) {
         }),
         prisma.notification.count({ where }),
         prisma.notification.count({
-          where: { userId: request.user.sub, read: false },
+          where: {
+            userId: request.user.sub,
+            campaignId: request.user.campaignId,
+            read: false,
+          },
         }),
       ]);
 
@@ -42,7 +47,11 @@ export async function notificationRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const notification = await prisma.notification.findFirst({
-        where: { id: request.params.id, userId: request.user.sub },
+        where: {
+          id: request.params.id,
+          userId: request.user.sub,
+          campaignId: request.user.campaignId,
+        },
       });
 
       if (!notification) {
@@ -63,7 +72,11 @@ export async function notificationRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       await prisma.notification.updateMany({
-        where: { userId: request.user.sub, read: false },
+        where: {
+          userId: request.user.sub,
+          campaignId: request.user.campaignId,
+          read: false,
+        },
         data: { read: true },
       });
 

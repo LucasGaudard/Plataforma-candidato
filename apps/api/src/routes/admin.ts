@@ -41,7 +41,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.get(
     '/dashboard',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
-    async (_request, reply) => {
+    async (request, reply) => {
+      const campaignId = request.user.campaignId;
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -59,37 +60,37 @@ export async function adminRoutes(fastify: FastifyInstance) {
         growthRaw,
         statusCounts,
       ] = await Promise.all([
-        prisma.user.count({ where: { role: Role.LEADER } }),
-        prisma.user.count({ where: { role: Role.USER } }),
-        prisma.post.count({ where: { published: true } }),
-        prisma.event.count({ where: { published: true } }),
-        prisma.live.count({ where: { published: true } }),
+        prisma.user.count({ where: { role: Role.LEADER, campaignId } }),
+        prisma.user.count({ where: { role: Role.USER, campaignId } }),
+        prisma.post.count({ where: { published: true, campaignId } }),
+        prisma.event.count({ where: { published: true, campaignId } }),
+        prisma.live.count({ where: { published: true, campaignId } }),
         prisma.user.count({
-          where: { role: Role.USER, createdAt: { gte: sevenDaysAgo } },
+          where: { role: Role.USER, campaignId, createdAt: { gte: sevenDaysAgo } },
         }),
         prisma.user.findMany({
-          where: { role: Role.LEADER },
+          where: { role: Role.LEADER, campaignId },
           select: {
             id: true,
             firstName: true,
             lastName: true,
             leaderSlug: true,
-            _count: { select: { supporters: true } },
+            _count: { select: { supporters: { where: { campaignId } } } },
             supporters: {
-              where: { createdAt: { gte: sevenDaysAgo } },
+              where: { campaignId, createdAt: { gte: sevenDaysAgo } },
               select: { id: true },
             },
           },
           orderBy: { firstName: 'asc' },
         }),
         prisma.user.findMany({
-          where: { role: Role.USER, createdAt: { gte: thirtyDaysAgo } },
+          where: { role: Role.USER, campaignId, createdAt: { gte: thirtyDaysAgo } },
           select: { createdAt: true },
           orderBy: { createdAt: 'asc' },
         }),
         prisma.user.groupBy({
           by: ['status'],
-          where: { role: Role.USER },
+          where: { role: Role.USER, campaignId },
           _count: { status: true },
         }),
       ]);
@@ -153,8 +154,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.get(
     '/posts',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
-    async (_request, reply) => {
+    async (request, reply) => {
       const posts = await prisma.post.findMany({
+        where: { campaignId: request.user.campaignId },
         include: { author: { select: authorSelect } },
         orderBy: { publishedAt: 'desc' },
       });
@@ -165,8 +167,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.get(
     '/events',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
-    async (_request, reply) => {
+    async (request, reply) => {
       const events = await prisma.event.findMany({
+        where: { campaignId: request.user.campaignId },
         include: { author: { select: authorSelect } },
         orderBy: { date: 'asc' },
       });
@@ -177,8 +180,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.get(
     '/lives',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
-    async (_request, reply) => {
+    async (request, reply) => {
       const lives = await prisma.live.findMany({
+        where: { campaignId: request.user.campaignId },
         include: { author: { select: authorSelect } },
         orderBy: { scheduledAt: 'desc' },
       });
@@ -210,8 +214,19 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
       const where = {
         role: Role.USER,
-        ...(leaderId ? { leaderId } : {}),
-        ...(coordinatorId ? { coordinatorId } : {}),
+        campaignId: request.user.campaignId,
+        ...(leaderId
+          ? {
+              leaderId,
+              leader: { campaignId: request.user.campaignId },
+            }
+          : {}),
+        ...(coordinatorId
+          ? {
+              coordinatorId,
+              coordinator: { campaignId: request.user.campaignId },
+            }
+          : {}),
         ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
         ...(state ? { state } : {}),
         ...(request.query.neighborhood ? { neighborhood: { contains: request.query.neighborhood.trim(), mode: 'insensitive' as const } } : {}),
@@ -230,8 +245,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
         prisma.user.findMany({
           where,
           include: {
-            leader: { select: { firstName: true, lastName: true } },
-            coordinator: { select: { firstName: true, lastName: true } },
+            leader: { select: { firstName: true, lastName: true, campaignId: true } },
+            coordinator: { select: { firstName: true, lastName: true, campaignId: true } },
           },
           orderBy: { createdAt: 'desc' },
           skip,
@@ -251,8 +266,14 @@ export async function adminRoutes(fastify: FastifyInstance) {
         status: u.status as SupporterStatus,
         whatsappStatus: u.whatsappStatus as WhatsappStatus,
         createdAt: u.createdAt.toISOString(),
-        leaderName: u.leader ? `${u.leader.firstName} ${u.leader.lastName}` : undefined,
-        coordinatorName: u.coordinator ? `${u.coordinator.firstName} ${u.coordinator.lastName}` : undefined,
+        leaderName:
+          u.leader?.campaignId === request.user.campaignId
+            ? `${u.leader.firstName} ${u.leader.lastName}`
+            : undefined,
+        coordinatorName:
+          u.coordinator?.campaignId === request.user.campaignId
+            ? `${u.coordinator.firstName} ${u.coordinator.lastName}`
+            : undefined,
       }));
 
       return reply.send({
@@ -274,7 +295,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       }
 
       const existing = await prisma.user.findFirst({
-        where: { id, role: Role.USER },
+        where: { id, role: Role.USER, campaignId: request.user.campaignId },
       });
 
       if (!existing) {
@@ -308,11 +329,20 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const count = await prisma.user.count({
         where: {
           role: Role.USER,
+          campaignId: request.user.campaignId,
           ...(verifiedOnly === 'true' ? { status: SupporterStatus.VERIFIED } : {}),
           ...(leaderId
-            ? { leaderId }
+            ? {
+                leaderId,
+                leader: { campaignId: request.user.campaignId },
+              }
             : coordinatorId
-              ? { leader: { coordinatorId } }
+              ? {
+                  leader: {
+                    coordinatorId,
+                    campaignId: request.user.campaignId,
+                  },
+                }
               : {}),
           ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
           ...(state ? { state: state.toUpperCase() } : {}),
@@ -338,6 +368,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
       const where = {
         role: Role.COORDINATOR,
+        campaignId: request.user.campaignId,
         ...(search
           ? {
               OR: [
@@ -353,7 +384,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
         prisma.user.findMany({
           where,
           include: {
-            _count: { select: { leaders: true } }, // leaders of this coordinator
+            _count: {
+              select: {
+                leaders: { where: { campaignId: request.user.campaignId } },
+              },
+            },
           },
           orderBy: { createdAt: 'desc' },
           skip,
@@ -366,7 +401,14 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const data: AdminCoordinatorItem[] = await Promise.all(
         users.map(async (u) => {
           const supportersCount = await prisma.user.count({
-            where: { role: Role.USER, leader: { coordinatorId: u.id } },
+            where: {
+              role: Role.USER,
+              campaignId: request.user.campaignId,
+              leader: {
+                coordinatorId: u.id,
+                campaignId: request.user.campaignId,
+              },
+            },
           });
           const isActive = u.status !== SupporterStatus.INVALID;
           return {
@@ -442,6 +484,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
           state: normalized.state,
           neighborhood: normalized.neighborhood,
           role: Role.COORDINATOR,
+          campaignId: request.user.campaignId,
         },
       });
 
@@ -456,7 +499,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const { id } = request.params;
 
       const existing = await prisma.user.findFirst({
-        where: { id, role: Role.COORDINATOR },
+        where: {
+          id,
+          role: Role.COORDINATOR,
+          campaignId: request.user.campaignId,
+        },
       });
 
       if (!existing) return reply.status(404).send({ message: 'Coordenador não encontrado' });
@@ -488,7 +535,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const { id } = request.params;
 
       const existing = await prisma.user.findFirst({
-        where: { id, role: Role.COORDINATOR },
+        where: {
+          id,
+          role: Role.COORDINATOR,
+          campaignId: request.user.campaignId,
+        },
       });
 
       if (!existing) return reply.status(404).send({ message: 'Coordenador não encontrado' });
@@ -521,7 +572,13 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
       const where = {
         role: Role.LEADER,
-        ...(coordinatorId ? { coordinatorId } : {}),
+        campaignId: request.user.campaignId,
+        ...(coordinatorId
+          ? {
+              coordinatorId,
+              coordinator: { campaignId: request.user.campaignId },
+            }
+          : {}),
         ...(search
           ? {
               OR: [
@@ -537,8 +594,14 @@ export async function adminRoutes(fastify: FastifyInstance) {
         prisma.user.findMany({
           where,
           include: {
-            coordinator: { select: { firstName: true, lastName: true } },
-            _count: { select: { supporters: true } },
+            coordinator: {
+              select: { firstName: true, lastName: true, campaignId: true },
+            },
+            _count: {
+              select: {
+                supporters: { where: { campaignId: request.user.campaignId } },
+              },
+            },
           },
           orderBy: { createdAt: 'desc' },
           skip,
@@ -559,7 +622,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
         active: !!u.leaderSlug, // If leaderSlug is null, leader is inactive
         supportersCount: u._count.supporters,
         coordinatorId: u.coordinatorId || '',
-        coordinatorName: u.coordinator ? `${u.coordinator.firstName} ${u.coordinator.lastName}` : '',
+        coordinatorName:
+          u.coordinator?.campaignId === request.user.campaignId
+            ? `${u.coordinator.firstName} ${u.coordinator.lastName}`
+            : '',
         leaderSlug: u.leaderSlug || undefined,
         createdAt: u.createdAt.toISOString(),
       }));
@@ -582,7 +648,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
       }
 
       const coordinator = await prisma.user.findFirst({
-        where: { id: body.coordinatorId, role: Role.COORDINATOR },
+        where: {
+          id: body.coordinatorId,
+          role: Role.COORDINATOR,
+          campaignId: request.user.campaignId,
+        },
       });
 
       if (!coordinator) {
@@ -635,6 +705,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
           role: Role.LEADER,
           leaderSlug,
           coordinatorId: coordinator.id,
+          campaignId: request.user.campaignId,
         },
       });
 
@@ -649,7 +720,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const { id } = request.params;
 
       const existing = await prisma.user.findFirst({
-        where: { id, role: Role.LEADER },
+        where: {
+          id,
+          role: Role.LEADER,
+          campaignId: request.user.campaignId,
+        },
       });
 
       if (!existing) return reply.status(404).send({ message: 'Líder não encontrado' });
@@ -688,7 +763,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const { id } = request.params;
 
       const existing = await prisma.user.findFirst({
-        where: { id, role: Role.LEADER },
+        where: {
+          id,
+          role: Role.LEADER,
+          campaignId: request.user.campaignId,
+        },
       });
 
       if (!existing) return reply.status(404).send({ message: 'Líder não encontrado' });

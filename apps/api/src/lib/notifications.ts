@@ -4,6 +4,7 @@ import { Role } from '@platform/types';
 import { prisma } from './prisma';
 
 interface NotifyAllParams {
+  campaignId: string;
   title: string;
   message: string;
   type: NotificationType;
@@ -12,6 +13,7 @@ interface NotifyAllParams {
 }
 
 export async function notifyAllUsers({
+  campaignId,
   title,
   message,
   type,
@@ -23,7 +25,10 @@ export async function notifyAllUsers({
   );
 
   const users = await prisma.user.findMany({
-    where: { role: { in: dbRoles } },
+    where: {
+      campaignId,
+      role: { in: dbRoles },
+    },
     select: { id: true },
   });
 
@@ -32,6 +37,7 @@ export async function notifyAllUsers({
   await prisma.notification.createMany({
     data: users.map((user) => ({
       userId: user.id,
+      campaignId,
       title,
       message,
       type,
@@ -42,11 +48,19 @@ export async function notifyAllUsers({
 
 export async function notifyUser(
   userId: string,
-  params: Omit<NotifyAllParams, 'roles'>,
+  params: Omit<NotifyAllParams, 'roles' | 'campaignId'>,
 ) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { campaignId: true },
+  });
+
+  if (!user) return;
+
   await prisma.notification.create({
     data: {
       userId,
+      campaignId: user.campaignId,
       title: params.title,
       message: params.message,
       type: params.type,

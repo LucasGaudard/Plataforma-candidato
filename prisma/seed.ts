@@ -75,7 +75,7 @@ async function main() {
     },
   });
 
-  const postCount = await prisma.post.count();
+  const postCount = await prisma.post.count({ where: { campaignId: campaign.id } });
   if (postCount === 0) {
     await prisma.post.createMany({
       data: [
@@ -85,6 +85,7 @@ async function main() {
           category: PostCategory.COMUNICADO,
           imageUrl: 'https://images.unsplash.com/photo-1529107386315-e1a2cc820a8f?w=800',
           authorId: admin.id,
+          campaignId: campaign.id,
         },
         {
           title: 'Propostas para educação',
@@ -92,18 +93,20 @@ async function main() {
           category: PostCategory.VIDEO,
           videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
           authorId: admin.id,
+          campaignId: campaign.id,
         },
         {
           title: 'Comunicado importante',
           description: 'Acompanhe nossas redes sociais para não perder nenhuma novidade da campanha.',
           category: PostCategory.GERAL,
           authorId: admin.id,
+          campaignId: campaign.id,
         },
       ],
     });
   }
 
-  const eventCount = await prisma.event.count();
+  const eventCount = await prisma.event.count({ where: { campaignId: campaign.id } });
   if (eventCount === 0) {
     const nextWeek = new Date();
     nextWeek.setDate(nextWeek.getDate() + 7);
@@ -116,11 +119,12 @@ async function main() {
         date: nextWeek,
         time: '19:00',
         authorId: admin.id,
+        campaignId: campaign.id,
       },
     });
   }
 
-  const liveCount = await prisma.live.count();
+  const liveCount = await prisma.live.count({ where: { campaignId: campaign.id } });
   if (liveCount === 0) {
     await prisma.live.create({
       data: {
@@ -129,6 +133,7 @@ async function main() {
         youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         scheduledAt: new Date(),
         authorId: admin.id,
+        campaignId: campaign.id,
       },
     });
   }

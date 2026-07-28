@@ -84,6 +84,7 @@ export async function postRoutes(fastify: FastifyInstance) {
           publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
           published: body.published ?? true,
           authorId: request.user.sub,
+          campaignId: request.user.campaignId,
         },
         include: { author: { select: authorSelect } },
       });
@@ -94,6 +95,7 @@ export async function postRoutes(fastify: FastifyInstance) {
           message: post.title,
           type: NotificationType.POST,
           link: '/dashboard',
+          campaignId: request.user.campaignId,
         });
       }
 
@@ -105,7 +107,12 @@ export async function postRoutes(fastify: FastifyInstance) {
     '/:id',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
     async (request, reply) => {
-      const existing = await prisma.post.findUnique({ where: { id: request.params.id } });
+      const existing = await prisma.post.findFirst({
+        where: {
+          id: request.params.id,
+          campaignId: request.user.campaignId,
+        },
+      });
       if (!existing) {
         return reply.status(404).send({ message: 'Post não encontrado' });
       }
@@ -145,7 +152,12 @@ export async function postRoutes(fastify: FastifyInstance) {
     '/:id',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
     async (request, reply) => {
-      const existing = await prisma.post.findUnique({ where: { id: request.params.id } });
+      const existing = await prisma.post.findFirst({
+        where: {
+          id: request.params.id,
+          campaignId: request.user.campaignId,
+        },
+      });
       if (!existing) {
         return reply.status(404).send({ message: 'Post não encontrado' });
       }

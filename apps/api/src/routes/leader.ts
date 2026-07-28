@@ -16,8 +16,11 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-      const leader = await prisma.user.findUnique({
-        where: { id: request.user.sub },
+      const leader = await prisma.user.findFirst({
+        where: {
+          id: request.user.sub,
+          campaignId: request.user.campaignId,
+        },
       });
 
       if (!leader || !leader.leaderSlug) {
@@ -25,19 +28,44 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       }
 
       const [totalSupporters, recentSupporters, supporters, total, statusCounts] = await Promise.all([
-        prisma.user.count({ where: { role: Role.USER, leaderId: leader.id } }),
         prisma.user.count({
-          where: { role: Role.USER, leaderId: leader.id, createdAt: { gte: sevenDaysAgo } },
+          where: {
+            role: Role.USER,
+            leaderId: leader.id,
+            campaignId: request.user.campaignId,
+          },
+        }),
+        prisma.user.count({
+          where: {
+            role: Role.USER,
+            leaderId: leader.id,
+            campaignId: request.user.campaignId,
+            createdAt: { gte: sevenDaysAgo },
+          },
         }),
         prisma.user.findMany({
-          where: { role: Role.USER, leaderId: leader.id },
+          where: {
+            role: Role.USER,
+            leaderId: leader.id,
+            campaignId: request.user.campaignId,
+          },
           orderBy: { createdAt: 'desc' },
           take: 10,
         }),
-        prisma.user.count({ where: { role: Role.USER, leaderId: leader.id } }),
+        prisma.user.count({
+          where: {
+            role: Role.USER,
+            leaderId: leader.id,
+            campaignId: request.user.campaignId,
+          },
+        }),
         prisma.user.groupBy({
           by: ['status'],
-          where: { role: Role.USER, leaderId: leader.id },
+          where: {
+            role: Role.USER,
+            leaderId: leader.id,
+            campaignId: request.user.campaignId,
+          },
           _count: { status: true },
         }),
       ]);
@@ -85,6 +113,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       const where = {
         role: Role.USER,
         leaderId: request.user.sub,
+        campaignId: request.user.campaignId,
         ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
         ...(state ? { state } : {}),
         ...(neighborhood ? { neighborhood: { contains: neighborhood, mode: 'insensitive' as const } } : {}),
@@ -167,7 +196,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
 
       const leader = await prisma.user.findFirst({
         where: { leaderSlug: slug, role: Role.LEADER },
-        select: { id: true, coordinatorId: true },
+        select: { id: true, coordinatorId: true, campaignId: true },
       });
 
       if (!leader) {
@@ -186,7 +215,11 @@ export async function leaderRoutes(fastify: FastifyInstance) {
 
       // Prevenir duplicidade do mesmo número na campanha inteira (role: USER)
       const existing = await prisma.user.findFirst({
-        where: { phone: normalized.phone, role: Role.USER },
+        where: {
+          phone: normalized.phone,
+          role: Role.USER,
+          campaignId: leader.campaignId,
+        },
       });
 
       if (existing) {
@@ -213,6 +246,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
           role: Role.USER,
           leaderId: leader.id,
           coordinatorId: leader.coordinatorId,
+          campaignId: leader.campaignId,
           lgpdConsent: true,
           lgpdConsentAt: new Date(),
           lgpdConsentText: LGPD_CONSENT_TEXT,
@@ -241,7 +275,12 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       }
 
       const existing = await prisma.user.findFirst({
-        where: { id, role: Role.USER, leaderId },
+        where: {
+          id,
+          role: Role.USER,
+          leaderId,
+          campaignId: request.user.campaignId,
+        },
       });
 
       if (!existing) {
@@ -275,6 +314,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
         where: {
           role: Role.USER,
           leaderId,
+          campaignId: request.user.campaignId,
           ...(verifiedOnly === 'true' ? { status: SupporterStatus.VERIFIED } : {}),
           ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
           ...(state ? { state: state.toUpperCase() } : {}),

@@ -71,6 +71,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           time: sanitizeString(body.time),
           published: body.published ?? true,
           authorId: request.user.sub,
+          campaignId: request.user.campaignId,
         },
         include: { author: { select: authorSelect } },
       });
@@ -81,6 +82,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           message: event.title,
           type: NotificationType.EVENT,
           link: '/dashboard/eventos',
+          campaignId: request.user.campaignId,
         });
       }
 
@@ -92,7 +94,12 @@ export async function eventRoutes(fastify: FastifyInstance) {
     '/:id',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
     async (request, reply) => {
-      const existing = await prisma.event.findUnique({ where: { id: request.params.id } });
+      const existing = await prisma.event.findFirst({
+        where: {
+          id: request.params.id,
+          campaignId: request.user.campaignId,
+        },
+      });
       if (!existing) {
         return reply.status(404).send({ message: 'Evento não encontrado' });
       }
@@ -131,7 +138,12 @@ export async function eventRoutes(fastify: FastifyInstance) {
     '/:id',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
     async (request, reply) => {
-      const existing = await prisma.event.findUnique({ where: { id: request.params.id } });
+      const existing = await prisma.event.findFirst({
+        where: {
+          id: request.params.id,
+          campaignId: request.user.campaignId,
+        },
+      });
       if (!existing) {
         return reply.status(404).send({ message: 'Evento não encontrado' });
       }

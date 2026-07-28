@@ -63,6 +63,10 @@ model Campaign {
   whatsappNumber String?
   status         CampaignStatus @default(ACTIVE)
   users          User[]
+  posts          Post[]
+  events         Event[]
+  lives          Live[]
+  notifications  Notification[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -128,12 +132,15 @@ model Post {
   published   Boolean      @default(true)
   authorId    String
   author      User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  campaignId  String
+  campaign    Campaign     @relation(fields: [campaignId], references: [id], onDelete: Restrict)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   @@index([published, publishedAt])
   @@index([category])
   @@index([authorId])
+  @@index([campaignId])
 }
 
 model Event {
@@ -146,11 +153,14 @@ model Event {
   published   Boolean  @default(true)
   authorId    String
   author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  campaignId  String
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([published, date])
   @@index([authorId])
+  @@index([campaignId])
 }
 
 model Live {
@@ -163,24 +173,30 @@ model Live {
   scheduledAt  DateTime?
   authorId     String
   author       User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  campaignId   String
+  campaign     Campaign  @relation(fields: [campaignId], references: [id], onDelete: Restrict)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   @@index([published, scheduledAt])
   @@index([authorId])
+  @@index([campaignId])
 }
 
 model Notification {
-  id        String           @id @default(cuid())
-  userId    String
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  message   String
-  read      Boolean          @default(false)
-  type      NotificationType @default(INFO)
-  link      String?
-  createdAt DateTime         @default(now())
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  message    String
+  read       Boolean          @default(false)
+  type       NotificationType @default(INFO)
+  link       String?
+  campaignId String
+  campaign   Campaign         @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  createdAt  DateTime         @default(now())
 
   @@index([userId, read])
   @@index([userId, createdAt])
+  @@index([campaignId])
 }
