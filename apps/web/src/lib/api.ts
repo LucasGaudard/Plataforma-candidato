@@ -49,6 +49,7 @@ import type {
   CreateSuperAdminCampaignRequest,
   UpdateSuperAdminCampaignRequest,
   SuperAdminCampaignAdminInput,
+  CampaignContent,
 } from '@platform/types';
 
 
@@ -119,6 +120,17 @@ class ApiClient {
 
   me() {
     return this.request<AuthenticatedUserPublic>('/auth/me');
+  }
+
+  getCampaignContent() {
+    return this.request<CampaignContent>('/campaign/content');
+  }
+
+  updateCampaignContent(body: Partial<CampaignContent>) {
+    return this.request<CampaignContent>('/campaign/content', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
   }
 
   getSuperAdminDashboard() {

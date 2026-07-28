@@ -58,7 +58,34 @@ export interface CampaignPublic {
   status: CampaignStatus;
 }
 
-export interface PublicCampaignSummary {
+export interface CampaignProposalItem {
+  title: string;
+  description: string;
+}
+
+export interface CampaignContent {
+  heroTitle: string | null;
+  heroSubtitle: string | null;
+  heroDescription: string | null;
+  ctaTitle: string | null;
+  ctaDescription: string | null;
+  ctaButtonText: string | null;
+  aboutTitle: string | null;
+  aboutText: string | null;
+  proposalTitle: string | null;
+  proposalItems: CampaignProposalItem[] | null;
+  areasTitle: string | null;
+  areaItems: string[] | null;
+  bannerImageUrl: string | null;
+  footerText: string | null;
+  showHero: boolean;
+  showAbout: boolean;
+  showProposals: boolean;
+  showAreas: boolean;
+  showContact: boolean;
+}
+
+export interface PublicCampaignSummary extends CampaignContent {
   name: string;
   slug: string;
   candidateName: string;
@@ -559,7 +586,7 @@ export interface SuperAdminCampaignAdminInput {
   phone?: string;
 }
 
-export interface CreateSuperAdminCampaignRequest {
+export interface CreateSuperAdminCampaignRequest extends Partial<CampaignContent> {
   name: string;
   slug?: string;
   candidateName?: string;
@@ -583,7 +610,7 @@ export interface CreateSuperAdminCampaignRequest {
   admin?: SuperAdminCampaignAdminInput;
 }
 
-export interface UpdateSuperAdminCampaignRequest {
+export interface UpdateSuperAdminCampaignRequest extends Partial<CampaignContent> {
   name?: string;
   slug?: string;
   candidateName?: string;
@@ -605,7 +632,7 @@ export interface UpdateSuperAdminCampaignRequest {
   whatsappNumber?: string | null;
 }
 
-export interface SuperAdminCampaignDetail extends CampaignPublic {
+export interface SuperAdminCampaignDetail extends CampaignPublic, CampaignContent {
   createdAt: string;
   updatedAt: string;
   _count: {

@@ -32,7 +32,7 @@ export function RegisterForm({ campaignSlug, leaderSlug, leaderName }: RegisterF
     address: '',
     city: '',
     neighborhood: '',
-    state: 'RJ', // Default to RJ for Paula's campaign
+    state: '',
     password: '',
     confirmPassword: '',
   });

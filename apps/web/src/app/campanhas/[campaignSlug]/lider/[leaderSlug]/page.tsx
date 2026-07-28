@@ -8,6 +8,7 @@ import { SupporterForm } from '@/components/forms/supporter-form';
 import { api } from '@/lib/api';
 import { PublicCampaignTheme } from '@/components/campaign/public-campaign-theme';
 import { CampaignIdentity } from '@/components/campaign/campaign-identity';
+import { CampaignRegistrationCopy } from '@/components/campaign/campaign-registration-copy';
 
 export default function CampaignLeaderRegistrationPage() {
   const params = useParams();
@@ -74,10 +75,7 @@ export default function CampaignLeaderRegistrationPage() {
             </div>
           ) : (
             <>
-              <h1 className="text-2xl font-bold text-brand-900">Cadastro via Líder</h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Você foi indicado por <strong>{leaderName}</strong>
-              </p>
+              <CampaignRegistrationCopy leaderName={leaderName} />
               <div className="mt-6">
                 <SupporterForm
                   campaignSlug={campaignSlug}

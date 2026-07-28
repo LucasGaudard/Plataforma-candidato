@@ -15,6 +15,7 @@ import { liveRoutes } from './routes/lives';
 import { notificationRoutes } from './routes/notifications';
 import { publicRoutes } from './routes/public';
 import { superAdminRoutes } from './routes/super-admin';
+import { campaignRoutes } from './routes/campaign';
 import webhookRoutes from './routes/webhooks';
 import { prisma } from './lib/prisma';
 
@@ -77,6 +78,7 @@ async function bootstrap() {
   await fastify.register(notificationRoutes, { prefix: '/notifications' });
   await fastify.register(publicRoutes, { prefix: '/public' });
   await fastify.register(superAdminRoutes, { prefix: '/super-admin' });
+  await fastify.register(campaignRoutes, { prefix: '/campaign' });
   await fastify.register(webhookRoutes, { prefix: '/webhooks' });
 
   try {

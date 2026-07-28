@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   },
   description:
     'Plataforma de gestão, comunicação e relacionamento para campanhas eleitorais.',
-  keywords: ['Paula Quintanilha', 'Conecta Eleitor', 'campanha política', 'deputada estadual', 'Baixada Fluminense', 'eleições 2026'],
+  keywords: ['Conecta Eleitor', 'campanha política', 'gestão de campanha', 'participação', 'eleições'],
   authors: [{ name: 'Conecta Eleitor' }],
   openGraph: {
     type: 'website',
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     title: 'Conecta Eleitor',
     description:
       'Plataforma de gestão, comunicação e relacionamento para campanhas eleitorais.',
-    images: [{ url: `${siteUrl}/Images/PaulaQuintanilha.jpeg`, width: 1200, height: 630 }],
+    images: [{ url: `${siteUrl}/icons/icon-512x512.png`, width: 512, height: 512 }],
   },
   twitter: {
     card: 'summary_large_image',

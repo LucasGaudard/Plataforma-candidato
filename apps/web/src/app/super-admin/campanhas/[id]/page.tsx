@@ -42,6 +42,13 @@ export default function CampaignDetailPage() {
         publicTitle: campaign.publicTitle, publicDescription: campaign.publicDescription,
         contactEmail: campaign.contactEmail, contactPhone: campaign.contactPhone,
         instagramUrl: campaign.instagramUrl, facebookUrl: campaign.facebookUrl, youtubeUrl: campaign.youtubeUrl,
+        heroTitle: campaign.heroTitle, heroSubtitle: campaign.heroSubtitle, heroDescription: campaign.heroDescription,
+        ctaTitle: campaign.ctaTitle, ctaDescription: campaign.ctaDescription, ctaButtonText: campaign.ctaButtonText,
+        aboutTitle: campaign.aboutTitle, aboutText: campaign.aboutText, proposalTitle: campaign.proposalTitle,
+        proposalItems: campaign.proposalItems, areasTitle: campaign.areasTitle, areaItems: campaign.areaItems,
+        bannerImageUrl: campaign.bannerImageUrl, footerText: campaign.footerText,
+        showHero: campaign.showHero, showAbout: campaign.showAbout, showProposals: campaign.showProposals,
+        showAreas: campaign.showAreas, showContact: campaign.showContact,
       });
       await load();
       setSuccess('Identidade visual salva com sucesso.');
@@ -118,6 +125,22 @@ export default function CampaignDetailPage() {
             </CampaignThemeProvider>
             {contrast !== null && contrast < 4.5 && <p className="mt-3 text-sm font-medium text-amber-700">Aviso: contraste baixo ({contrast.toFixed(2)}:1). Recomendado: pelo menos 4.5:1.</p>}
             <button className="mt-4 rounded-lg bg-cyan-600 px-4 py-2 font-semibold text-white">Salvar identidade visual</button>
+          </form>
+          <form onSubmit={save} className="mt-6 rounded-xl bg-white p-5 shadow-sm">
+            <h3 className="font-bold">Conteúdo da landing page</h3>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {(['heroTitle','heroSubtitle','heroDescription','bannerImageUrl','ctaTitle','ctaDescription','ctaButtonText','aboutTitle','aboutText','proposalTitle','areasTitle','footerText'] as const).map((key) => (
+                <label key={key} className="text-sm">{key}<textarea rows={key.endsWith('Description') || key === 'aboutText' ? 3 : 1} value={campaign[key] || ''} onChange={(e) => setCampaign({ ...campaign, [key]: e.target.value || null })} className="mt-1 w-full rounded-lg border p-2" /></label>
+              ))}
+            </div>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div><h4 className="text-sm font-semibold">Cards de propostas</h4>{(campaign.proposalItems || Array.from({ length: 4 }, () => ({ title: '', description: '' }))).slice(0, 4).map((item, index, items) => <div key={index} className="mt-2 rounded-lg border p-3"><input value={item.title} onChange={(e) => { const next = [...items]; next[index] = { ...item, title: e.target.value }; setCampaign({ ...campaign, proposalItems: next }); }} className="w-full rounded border p-2" placeholder="Título" /><textarea value={item.description} onChange={(e) => { const next = [...items]; next[index] = { ...item, description: e.target.value }; setCampaign({ ...campaign, proposalItems: next }); }} className="mt-2 w-full rounded border p-2" placeholder="Descrição" /></div>)}</div>
+              <label className="text-sm font-semibold">Áreas de atuação<textarea rows={8} value={(campaign.areaItems || []).join('\n')} onChange={(e) => setCampaign({ ...campaign, areaItems: e.target.value.split('\n').slice(0, 6) })} className="mt-2 w-full rounded-lg border p-2" /><span className="text-xs font-normal text-slate-500">Uma por linha, máximo de seis.</span></label>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              {(['showHero','showAbout','showProposals','showAreas','showContact'] as const).map((key) => <label key={key} className="flex gap-2 text-sm"><input type="checkbox" checked={campaign[key]} onChange={(e) => setCampaign({ ...campaign, [key]: e.target.checked })} />{key}</label>)}
+            </div>
+            <button className="mt-4 rounded-lg bg-cyan-600 px-4 py-2 font-semibold text-white">Salvar conteúdo</button>
           </form>
         </>
       )}

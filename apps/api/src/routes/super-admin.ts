@@ -11,6 +11,7 @@ import {
   sanitizeString,
 } from '@platform/utils';
 import { prisma } from '../lib/prisma';
+import { normalizeCampaignContent, type CampaignContentInput } from '../lib/campaign-content';
 
 const reservedSlugs = new Set([
   'admin',
@@ -30,7 +31,7 @@ interface CampaignAdminInput {
   phone?: string;
 }
 
-interface CreateCampaignBody {
+interface CreateCampaignBody extends CampaignContentInput {
   name: string;
   slug?: string;
   candidateName?: string;
@@ -54,7 +55,7 @@ interface CreateCampaignBody {
   admin?: CampaignAdminInput;
 }
 
-interface UpdateCampaignBody {
+interface UpdateCampaignBody extends CampaignContentInput {
   name?: string;
   slug?: string;
   candidateName?: string;
@@ -279,6 +280,7 @@ export async function superAdminRoutes(fastify: FastifyInstance) {
       let branding;
       try {
         branding = normalizeBranding(body);
+        Object.assign(branding, normalizeCampaignContent(body));
       } catch (error) {
         return reply.status(400).send({ message: (error as Error).message });
       }
@@ -347,6 +349,7 @@ export async function superAdminRoutes(fastify: FastifyInstance) {
       let branding;
       try {
         branding = normalizeBranding(body);
+        Object.assign(branding, normalizeCampaignContent(body));
       } catch (error) {
         return reply.status(400).send({ message: (error as Error).message });
       }

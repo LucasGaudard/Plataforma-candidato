@@ -3,6 +3,7 @@ import { Card } from '@platform/ui';
 import { RegisterForm } from '@/components/forms/register-form';
 import { PublicCampaignTheme } from '@/components/campaign/public-campaign-theme';
 import { CampaignIdentity } from '@/components/campaign/campaign-identity';
+import { CampaignRegistrationCopy } from '@/components/campaign/campaign-registration-copy';
 
 export default function CampaignRegistrationPage({
   params,
@@ -18,10 +19,7 @@ export default function CampaignRegistrationPage({
         </div>
 
         <Card padding="lg">
-          <h1 className="text-2xl font-bold text-brand-900">Criar conta</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Preencha seus dados para se cadastrar na campanha
-          </p>
+          <CampaignRegistrationCopy />
 
           <div className="mt-6">
             <RegisterForm campaignSlug={params.campaignSlug} />

@@ -72,6 +72,25 @@ model Campaign {
   instagramUrl      String?
   facebookUrl       String?
   youtubeUrl        String?
+  heroTitle         String?
+  heroSubtitle      String?
+  heroDescription   String?
+  ctaTitle          String?
+  ctaDescription    String?
+  ctaButtonText     String?
+  aboutTitle        String?
+  aboutText         String?
+  proposalTitle     String?
+  proposalItems     Json?
+  areasTitle        String?
+  areaItems         Json?
+  bannerImageUrl    String?
+  footerText        String?
+  showHero          Boolean        @default(true)
+  showAbout         Boolean        @default(true)
+  showProposals     Boolean        @default(true)
+  showAreas         Boolean        @default(true)
+  showContact       Boolean        @default(true)
   whatsappNumber    String?
   status            CampaignStatus @default(ACTIVE)
   users             User[]
