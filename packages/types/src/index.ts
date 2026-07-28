@@ -41,8 +41,19 @@ export interface CampaignPublic {
   candidateName: string;
   party: string | null;
   logoUrl: string | null;
+  faviconUrl: string | null;
   primaryColor: string | null;
   secondaryColor: string | null;
+  accentColor: string | null;
+  backgroundColor: string | null;
+  textColor: string | null;
+  publicTitle: string | null;
+  publicDescription: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  instagramUrl: string | null;
+  facebookUrl: string | null;
+  youtubeUrl: string | null;
   whatsappNumber: string | null;
   status: CampaignStatus;
 }
@@ -53,8 +64,19 @@ export interface PublicCampaignSummary {
   candidateName: string;
   party: string | null;
   logoUrl: string | null;
+  faviconUrl: string | null;
   primaryColor: string | null;
   secondaryColor: string | null;
+  accentColor: string | null;
+  backgroundColor: string | null;
+  textColor: string | null;
+  publicTitle: string | null;
+  publicDescription: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  instagramUrl: string | null;
+  facebookUrl: string | null;
+  youtubeUrl: string | null;
 }
 
 export const LGPD_CONSENT_VERSION = '2026-07-27-v1';
@@ -543,8 +565,19 @@ export interface CreateSuperAdminCampaignRequest {
   candidateName?: string;
   party?: string;
   logoUrl?: string;
+  faviconUrl?: string;
   primaryColor?: string;
   secondaryColor?: string;
+  accentColor?: string;
+  backgroundColor?: string;
+  textColor?: string;
+  publicTitle?: string;
+  publicDescription?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  instagramUrl?: string;
+  facebookUrl?: string;
+  youtubeUrl?: string;
   whatsappNumber?: string;
   status?: CampaignStatus;
   admin?: SuperAdminCampaignAdminInput;
@@ -556,8 +589,19 @@ export interface UpdateSuperAdminCampaignRequest {
   candidateName?: string;
   party?: string | null;
   logoUrl?: string | null;
+  faviconUrl?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  accentColor?: string | null;
+  backgroundColor?: string | null;
+  textColor?: string | null;
+  publicTitle?: string | null;
+  publicDescription?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
+  youtubeUrl?: string | null;
   whatsappNumber?: string | null;
 }
 

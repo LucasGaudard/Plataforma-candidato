@@ -3,7 +3,13 @@ import { randomUUID } from 'crypto';
 import type { FastifyInstance } from 'fastify';
 import { CampaignStatus, Prisma } from '@prisma/client';
 import { Role } from '@platform/types';
-import { generateSlug, parsePagination, sanitizeString } from '@platform/utils';
+import {
+  generateSlug,
+  normalizeHexColor,
+  normalizeHttpUrl,
+  parsePagination,
+  sanitizeString,
+} from '@platform/utils';
 import { prisma } from '../lib/prisma';
 
 const reservedSlugs = new Set([
@@ -30,8 +36,19 @@ interface CreateCampaignBody {
   candidateName?: string;
   party?: string;
   logoUrl?: string;
+  faviconUrl?: string;
   primaryColor?: string;
   secondaryColor?: string;
+  accentColor?: string;
+  backgroundColor?: string;
+  textColor?: string;
+  publicTitle?: string;
+  publicDescription?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  instagramUrl?: string;
+  facebookUrl?: string;
+  youtubeUrl?: string;
   whatsappNumber?: string;
   status?: CampaignStatus;
   admin?: CampaignAdminInput;
@@ -43,13 +60,43 @@ interface UpdateCampaignBody {
   candidateName?: string;
   party?: string | null;
   logoUrl?: string | null;
+  faviconUrl?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  accentColor?: string | null;
+  backgroundColor?: string | null;
+  textColor?: string | null;
+  publicTitle?: string | null;
+  publicDescription?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
+  youtubeUrl?: string | null;
   whatsappNumber?: string | null;
 }
 
 function normalizeSlug(value: string) {
   return generateSlug(value.trim(), '');
+}
+
+function normalizeBranding(body: CreateCampaignBody | UpdateCampaignBody) {
+  return {
+    ...(body.logoUrl !== undefined && { logoUrl: normalizeHttpUrl(body.logoUrl) }),
+    ...(body.faviconUrl !== undefined && { faviconUrl: normalizeHttpUrl(body.faviconUrl) }),
+    ...(body.instagramUrl !== undefined && { instagramUrl: normalizeHttpUrl(body.instagramUrl) }),
+    ...(body.facebookUrl !== undefined && { facebookUrl: normalizeHttpUrl(body.facebookUrl) }),
+    ...(body.youtubeUrl !== undefined && { youtubeUrl: normalizeHttpUrl(body.youtubeUrl) }),
+    ...(body.primaryColor !== undefined && { primaryColor: normalizeHexColor(body.primaryColor) }),
+    ...(body.secondaryColor !== undefined && { secondaryColor: normalizeHexColor(body.secondaryColor) }),
+    ...(body.accentColor !== undefined && { accentColor: normalizeHexColor(body.accentColor) }),
+    ...(body.backgroundColor !== undefined && { backgroundColor: normalizeHexColor(body.backgroundColor) }),
+    ...(body.textColor !== undefined && { textColor: normalizeHexColor(body.textColor) }),
+    ...(body.publicTitle !== undefined && { publicTitle: body.publicTitle?.trim() || null }),
+    ...(body.publicDescription !== undefined && { publicDescription: body.publicDescription?.trim() || null }),
+    ...(body.contactEmail !== undefined && { contactEmail: body.contactEmail?.trim() || null }),
+    ...(body.contactPhone !== undefined && { contactPhone: body.contactPhone?.trim() || null }),
+  };
 }
 
 function validateAdminInput(admin: CampaignAdminInput) {
@@ -229,6 +276,12 @@ export async function superAdminRoutes(fastify: FastifyInstance) {
         const error = validateAdminInput(body.admin);
         if (error) return reply.status(400).send({ message: error });
       }
+      let branding;
+      try {
+        branding = normalizeBranding(body);
+      } catch (error) {
+        return reply.status(400).send({ message: (error as Error).message });
+      }
 
       try {
         const result = await prisma.$transaction(async (tx) => {
@@ -238,9 +291,7 @@ export async function superAdminRoutes(fastify: FastifyInstance) {
               slug,
               candidateName: sanitizeString(body.candidateName || name),
               party: body.party?.trim() || null,
-              logoUrl: body.logoUrl?.trim() || null,
-              primaryColor: body.primaryColor?.trim() || null,
-              secondaryColor: body.secondaryColor?.trim() || null,
+              ...branding,
               whatsappNumber: body.whatsappNumber?.replace(/\D/g, '') || null,
               status: body.status || CampaignStatus.ACTIVE,
             },
@@ -293,6 +344,12 @@ export async function superAdminRoutes(fastify: FastifyInstance) {
       if (slug !== undefined && (!slug || reservedSlugs.has(slug))) {
         return reply.status(400).send({ message: 'Slug inválido ou reservado' });
       }
+      let branding;
+      try {
+        branding = normalizeBranding(body);
+      } catch (error) {
+        return reply.status(400).send({ message: (error as Error).message });
+      }
       try {
         const campaign = await prisma.campaign.update({
           where: { id: existing.id },
@@ -301,9 +358,7 @@ export async function superAdminRoutes(fastify: FastifyInstance) {
             ...(slug !== undefined && { slug }),
             ...(body.candidateName !== undefined && { candidateName: sanitizeString(body.candidateName) }),
             ...(body.party !== undefined && { party: body.party?.trim() || null }),
-            ...(body.logoUrl !== undefined && { logoUrl: body.logoUrl?.trim() || null }),
-            ...(body.primaryColor !== undefined && { primaryColor: body.primaryColor?.trim() || null }),
-            ...(body.secondaryColor !== undefined && { secondaryColor: body.secondaryColor?.trim() || null }),
+            ...branding,
             ...(body.whatsappNumber !== undefined && {
               whatsappNumber: body.whatsappNumber?.replace(/\D/g, '') || null,
             }),

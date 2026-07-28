@@ -53,23 +53,34 @@ enum CampaignStatus {
 }
 
 model Campaign {
-  id             String         @id @default(cuid())
-  name           String
-  slug           String         @unique
-  candidateName  String
-  party          String?
-  logoUrl        String?
-  primaryColor   String?
-  secondaryColor String?
-  whatsappNumber String?
-  status         CampaignStatus @default(ACTIVE)
-  users          User[]
-  posts          Post[]
-  events         Event[]
-  lives          Live[]
-  notifications  Notification[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id                String         @id @default(cuid())
+  name              String
+  slug              String         @unique
+  candidateName     String
+  party             String?
+  logoUrl           String?
+  faviconUrl        String?
+  primaryColor      String?
+  secondaryColor    String?
+  accentColor       String?
+  backgroundColor   String?
+  textColor         String?
+  publicTitle       String?
+  publicDescription String?
+  contactEmail      String?
+  contactPhone      String?
+  instagramUrl      String?
+  facebookUrl       String?
+  youtubeUrl        String?
+  whatsappNumber    String?
+  status            CampaignStatus @default(ACTIVE)
+  users             User[]
+  posts             Post[]
+  events            Event[]
+  lives             Live[]
+  notifications     Notification[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   @@index([status])
   @@index([createdAt])

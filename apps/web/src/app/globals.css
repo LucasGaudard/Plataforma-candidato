@@ -20,6 +20,12 @@
 }
 
 @layer utilities {
+  .campaign-theme { background-color: var(--campaign-background); color: var(--campaign-text); }
+  .campaign-theme .gradient-brand, .campaign-theme .gradient-gold { background: linear-gradient(135deg, var(--campaign-secondary), var(--campaign-primary)); }
+  .campaign-theme .gradient-hero { background: linear-gradient(135deg, var(--campaign-secondary), var(--campaign-primary), var(--campaign-accent)); }
+  .campaign-theme .bg-brand-500, .campaign-theme .bg-brand-600, .campaign-theme .bg-brand-700, .campaign-theme .bg-brand-900 { background-color: var(--campaign-primary) !important; }
+  .campaign-theme .text-brand-600, .campaign-theme .text-brand-700, .campaign-theme .text-brand-800, .campaign-theme .text-brand-900 { color: var(--campaign-primary) !important; }
+  .campaign-theme .border-brand-100, .campaign-theme .border-brand-200 { border-color: var(--campaign-accent) !important; }
   /* Hero principal — Gradiente rosa/magenta diagonal */
   .gradient-hero {
     background: linear-gradient(135deg, #831843 0%, #be185d 35%, #db2777 70%, #ec4899 100%);

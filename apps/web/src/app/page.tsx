@@ -4,6 +4,7 @@ import { Header } from '@/components/layout/header';
 import { PostsFeed } from '@/components/content/posts-feed';
 import { Button } from '@platform/ui';
 import { configuredPublicCampaignSlug } from '@/lib/public-campaign';
+import { PublicCampaignTheme } from '@/components/campaign/public-campaign-theme';
 
 // ─── Dados da campanha atual ──────────────────────────────────────────────────
 // Para trocar de candidato no futuro, altere apenas este bloco.
@@ -73,6 +74,7 @@ const howItWorks = [
 
 export default function HomePage() {
   return (
+    <PublicCampaignTheme campaignSlug={configuredPublicCampaignSlug || ''}>
     <div className="min-h-screen bg-white">
       <Header />
 
@@ -297,5 +299,6 @@ export default function HomePage() {
         </div>
       </footer>
     </div>
+    </PublicCampaignTheme>
   );
 }

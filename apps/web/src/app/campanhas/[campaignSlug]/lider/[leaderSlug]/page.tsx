@@ -6,6 +6,8 @@ import { useParams } from 'next/navigation';
 import { Card } from '@platform/ui';
 import { SupporterForm } from '@/components/forms/supporter-form';
 import { api } from '@/lib/api';
+import { PublicCampaignTheme } from '@/components/campaign/public-campaign-theme';
+import { CampaignIdentity } from '@/components/campaign/campaign-identity';
 
 export default function CampaignLeaderRegistrationPage() {
   const params = useParams();
@@ -52,15 +54,11 @@ export default function CampaignLeaderRegistrationPage() {
   const leaderName = `${leader.firstName} ${leader.lastName}`;
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <PublicCampaignTheme campaignSlug={campaignSlug}>
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-2xl">
         <div className="mb-8 text-center">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-gold font-bold text-brand-900">
-              C
-            </div>
-            <span className="text-xl font-bold text-brand-900">Campanha 2026</span>
-          </Link>
+          <Link href="/"><CampaignIdentity /></Link>
         </div>
 
         <Card padding="lg">
@@ -93,5 +91,6 @@ export default function CampaignLeaderRegistrationPage() {
         </Card>
       </div>
     </div>
+    </PublicCampaignTheme>
   );
 }
