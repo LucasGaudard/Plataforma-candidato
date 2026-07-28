@@ -55,7 +55,7 @@ export async function notifyUser(
     select: { campaignId: true },
   });
 
-  if (!user) return;
+  if (!user?.campaignId) return;
 
   await prisma.notification.create({
     data: {

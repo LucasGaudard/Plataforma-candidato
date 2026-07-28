@@ -42,6 +42,13 @@ import type {
   TestMessageResponse,
   TestWebhookRequest,
   TestWebhookResponse,
+  CampaignStatus,
+  SuperAdminDashboard,
+  SuperAdminCampaignListItem,
+  SuperAdminCampaignDetail,
+  CreateSuperAdminCampaignRequest,
+  UpdateSuperAdminCampaignRequest,
+  SuperAdminCampaignAdminInput,
 } from '@platform/types';
 
 
@@ -112,6 +119,55 @@ class ApiClient {
 
   me() {
     return this.request<AuthenticatedUserPublic>('/auth/me');
+  }
+
+  getSuperAdminDashboard() {
+    return this.request<SuperAdminDashboard>('/super-admin/dashboard');
+  }
+
+  getSuperAdminCampaigns(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: CampaignStatus;
+    sort?: 'createdAt' | 'name';
+    order?: 'asc' | 'desc';
+  } = {}) {
+    return this.request<PaginatedResponse<SuperAdminCampaignListItem>>(
+      `/super-admin/campaigns${this.qs(params)}`,
+    );
+  }
+
+  createSuperAdminCampaign(body: CreateSuperAdminCampaignRequest) {
+    return this.request<{ campaign: SuperAdminCampaignDetail; admin: { id: string; email: string } | null }>(
+      '/super-admin/campaigns',
+      { method: 'POST', body: JSON.stringify(body) },
+    );
+  }
+
+  getSuperAdminCampaign(id: string) {
+    return this.request<SuperAdminCampaignDetail>(`/super-admin/campaigns/${id}`);
+  }
+
+  updateSuperAdminCampaign(id: string, body: UpdateSuperAdminCampaignRequest) {
+    return this.request<SuperAdminCampaignDetail>(`/super-admin/campaigns/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+  }
+
+  updateSuperAdminCampaignStatus(id: string, status: CampaignStatus) {
+    return this.request<{ id: string; status: CampaignStatus }>(
+      `/super-admin/campaigns/${id}/status`,
+      { method: 'PATCH', body: JSON.stringify({ status }) },
+    );
+  }
+
+  createSuperAdminCampaignAdmin(id: string, body: SuperAdminCampaignAdminInput) {
+    return this.request<{ id: string; email: string; firstName: string; lastName: string }>(
+      `/super-admin/campaigns/${id}/admins`,
+      { method: 'POST', body: JSON.stringify(body) },
+    );
   }
 
   // Admin

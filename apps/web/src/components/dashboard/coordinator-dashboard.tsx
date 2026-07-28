@@ -515,7 +515,7 @@ export function CoordinatorDashboardView() {
                     </td>
                     <td className="hidden py-3 text-xs text-slate-400 lg:table-cell">
                       {leader.leaderSlug
-                        ? `/campanhas/${user?.campaign.slug}/lider/${leader.leaderSlug}`
+                        ? `/campanhas/${user?.campaign?.slug}/lider/${leader.leaderSlug}`
                         : '—'}
                     </td>
                     <td className="py-3">

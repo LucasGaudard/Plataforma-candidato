@@ -25,6 +25,7 @@ const navItems: NavItem[] = [
 ];
 
 const roleLabels: Record<Role, string> = {
+  [Role.SUPER_ADMIN]: 'Super Administrador',
   [Role.ADMIN]: 'Administrador',
   [Role.COORDINATOR]: 'Coordenador',
   [Role.LEADER]: 'Líder',

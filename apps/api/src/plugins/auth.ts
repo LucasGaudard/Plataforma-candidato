@@ -27,10 +27,13 @@ export async function registerAuth(fastify: FastifyInstance) {
     try {
       await request.jwtVerify();
 
-      if (
-        typeof request.user.campaignId !== 'string' ||
-        !request.user.campaignId.trim()
-      ) {
+      const isSuperAdmin = request.user.role === Role.SUPER_ADMIN;
+      const tokenCampaignId = (request.user as unknown as { campaignId: string | null }).campaignId;
+      const hasCampaignId =
+        typeof tokenCampaignId === 'string' &&
+        tokenCampaignId.trim().length > 0;
+
+      if ((!isSuperAdmin && !hasCampaignId) || (isSuperAdmin && tokenCampaignId !== null)) {
         return reply.status(401).send({ message: 'Token inválido ou expirado' });
       }
     } catch {

@@ -1,12 +1,17 @@
 import type { FastifyInstance } from 'fastify';
 import { parsePagination } from '@platform/utils';
+import { Role } from '@platform/types';
 import { prisma } from '../lib/prisma';
 import { toNotificationPublic } from '../lib/mappers';
 
 export async function notificationRoutes(fastify: FastifyInstance) {
+  const campaignUserOnly = [
+    fastify.authenticate,
+    fastify.authorize(Role.ADMIN, Role.COORDINATOR, Role.LEADER, Role.USER),
+  ];
   fastify.get<{ Querystring: { page?: string; limit?: string; unreadOnly?: string } }>(
     '/',
-    { preHandler: [fastify.authenticate] },
+    { preHandler: campaignUserOnly },
     async (request, reply) => {
       const { page, limit, skip } = parsePagination(request.query);
       const unreadOnly = request.query.unreadOnly === 'true';
@@ -44,7 +49,7 @@ export async function notificationRoutes(fastify: FastifyInstance) {
 
   fastify.patch<{ Params: { id: string } }>(
     '/:id/read',
-    { preHandler: [fastify.authenticate] },
+    { preHandler: campaignUserOnly },
     async (request, reply) => {
       const notification = await prisma.notification.findFirst({
         where: {
@@ -69,7 +74,7 @@ export async function notificationRoutes(fastify: FastifyInstance) {
 
   fastify.patch(
     '/read-all',
-    { preHandler: [fastify.authenticate] },
+    { preHandler: campaignUserOnly },
     async (request, reply) => {
       await prisma.notification.updateMany({
         where: {

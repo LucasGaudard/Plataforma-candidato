@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Alert, Card } from '@platform/ui';
 import { useAuth } from '@/contexts/auth-context';
+import { Role } from '@platform/types';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -20,8 +21,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login({ email, password });
-      router.push('/dashboard');
+      const user = await login({ email, password });
+      router.push(user.role === Role.SUPER_ADMIN ? '/super-admin' : '/dashboard');
     } catch (err) {
       setError((err as Error).message || 'Erro ao fazer login');
     } finally {

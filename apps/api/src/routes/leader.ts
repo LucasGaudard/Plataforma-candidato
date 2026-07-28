@@ -79,7 +79,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
         totalInvalid: statusCounts.find((s) => s.status === SupporterStatus.INVALID)?._count.status || 0,
         recentSupporters,
         leaderSlug: leader.leaderSlug,
-        referralLink: `${frontendUrl}/campanhas/${leader.campaign.slug}/lider/${leader.leaderSlug}`,
+        referralLink: `${frontendUrl}/campanhas/${leader.campaign?.slug}/lider/${leader.leaderSlug}`,
         supporters: supporters.map(toUserPublic),
         supportersMeta: {
           page: 1,

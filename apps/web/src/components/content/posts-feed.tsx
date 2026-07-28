@@ -15,7 +15,7 @@ interface PostsFeedProps {
 
 export function PostsFeed({ campaignSlug, limit = 6, title = 'Últimas novidades' }: PostsFeedProps) {
   const { user } = useAuth();
-  const resolvedCampaignSlug = campaignSlug || user?.campaign.slug || '';
+  const resolvedCampaignSlug = campaignSlug || user?.campaign?.slug || '';
   const [posts, setPosts] = useState<PostPublic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

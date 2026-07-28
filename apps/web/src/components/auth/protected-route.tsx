@@ -22,6 +22,11 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
       return;
     }
 
+    if (user.role === Role.SUPER_ADMIN && !allowedRoles?.includes(Role.SUPER_ADMIN)) {
+      router.replace('/super-admin');
+      return;
+    }
+
     if (allowedRoles && !allowedRoles.includes(user.role)) {
       router.replace('/dashboard');
     }
@@ -36,6 +41,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   }
 
   if (!user) return null;
+  if (user.role === Role.SUPER_ADMIN && !allowedRoles?.includes(Role.SUPER_ADMIN)) return null;
   if (allowedRoles && !allowedRoles.includes(user.role)) return null;
 
   return <>{children}</>;

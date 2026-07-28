@@ -7,7 +7,7 @@ import type {
   UserPublic,
 } from '@platform/types';
 
-type UserWithCampaign = User & { campaign: Campaign };
+type UserWithCampaign = User & { campaign: Campaign | null };
 
 export function toCampaignPublic(campaign: Campaign): CampaignPublic {
   return {
@@ -50,6 +50,6 @@ export function toAuthenticatedUserPublic(
   return {
     ...toUserPublic(user),
     campaignId: user.campaignId,
-    campaign: toCampaignPublic(user.campaign),
+    campaign: user.campaign ? toCampaignPublic(user.campaign) : null,
   };
 }

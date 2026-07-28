@@ -115,7 +115,7 @@ export function AdminDashboardView() {
                   <td className="py-3 text-slate-400">{leader.rank}</td>
                   <td className="py-3 font-medium text-slate-900">{leader.leaderName}</td>
                   <td className="hidden py-3 text-slate-500 sm:table-cell">
-                    /campanhas/{user?.campaign.slug}/lider/{leader.leaderSlug}
+                    /campanhas/{user?.campaign?.slug}/lider/{leader.leaderSlug}
                   </td>
                   <td className="py-3 text-right font-semibold text-brand-700">{leader.count}</td>
                   <td className="hidden py-3 text-right text-slate-500 md:table-cell">+{leader.recentCount}</td>

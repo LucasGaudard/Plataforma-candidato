@@ -18,7 +18,7 @@ export function UserDashboardView() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.campaign.slug) return;
+    if (!user?.campaign?.slug) return;
 
     Promise.all([
       api.getEvents(user.campaign.slug, { limit: 3 }),
@@ -29,7 +29,7 @@ export function UserDashboardView() {
         setLives(livesRes.data);
       })
       .finally(() => setLoading(false));
-  }, [user?.campaign.slug]);
+  }, [user?.campaign?.slug]);
 
   if (!user) return null;
 

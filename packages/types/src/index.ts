@@ -1,4 +1,5 @@
 export const Role = {
+  SUPER_ADMIN: 'SUPER_ADMIN',
   ADMIN: 'ADMIN',
   COORDINATOR: 'COORDINATOR',
   LEADER: 'LEADER',
@@ -114,8 +115,8 @@ export interface UserPublic {
 }
 
 export interface AuthenticatedUserPublic extends UserPublic {
-  campaignId: string;
-  campaign: CampaignPublic;
+  campaignId: string | null;
+  campaign: CampaignPublic | null;
 }
 
 export interface AuthResponse {
@@ -485,4 +486,96 @@ export interface TestWebhookRequest {
 export interface TestWebhookResponse {
   success: boolean;
   message: string;
+}
+
+export interface SuperAdminDashboard {
+  totalCampaigns: number;
+  activeCampaigns: number;
+  unavailableCampaigns: number;
+  totalUsers: number;
+  totalAdmins: number;
+  totalLeaders: number;
+  totalSupporters: number;
+  totalPosts: number;
+  totalEvents: number;
+  totalLives: number;
+  recentCampaigns: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    status: CampaignStatus;
+    createdAt: string;
+  }>;
+  statusDistribution: Array<{ status: CampaignStatus; _count: { status: number } }>;
+  topCampaignsBySupporters: Array<{
+    campaign?: { id: string; name: string; slug: string };
+    supporters: number;
+  }>;
+}
+
+export interface SuperAdminCampaignListItem {
+  id: string;
+  name: string;
+  slug: string;
+  status: CampaignStatus;
+  createdAt: string;
+  updatedAt: string;
+  users: number;
+  admins: number;
+  leaders: number;
+  supporters: number;
+  posts: number;
+  events: number;
+  lives: number;
+}
+
+export interface SuperAdminCampaignAdminInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phone?: string;
+}
+
+export interface CreateSuperAdminCampaignRequest {
+  name: string;
+  slug?: string;
+  candidateName?: string;
+  party?: string;
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  whatsappNumber?: string;
+  status?: CampaignStatus;
+  admin?: SuperAdminCampaignAdminInput;
+}
+
+export interface UpdateSuperAdminCampaignRequest {
+  name?: string;
+  slug?: string;
+  candidateName?: string;
+  party?: string | null;
+  logoUrl?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  whatsappNumber?: string | null;
+}
+
+export interface SuperAdminCampaignDetail extends CampaignPublic {
+  createdAt: string;
+  updatedAt: string;
+  _count: {
+    users: number;
+    posts: number;
+    events: number;
+    lives: number;
+    notifications: number;
+  };
+  users: Array<{
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    createdAt: string;
+  }>;
 }

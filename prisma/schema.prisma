@@ -8,6 +8,7 @@ datasource db {
 }
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
   COORDINATOR
   LEADER
@@ -104,8 +105,8 @@ model User {
   coordinatorId        String?
   coordinator          User?           @relation("CoordinatorLeaders", fields: [coordinatorId], references: [id], onDelete: SetNull)
   leaders              User[]          @relation("CoordinatorLeaders")
-  campaignId           String          @default("cm5paulaquintanilha000001")
-  campaign             Campaign        @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  campaignId           String?
+  campaign             Campaign?       @relation(fields: [campaignId], references: [id], onDelete: Restrict)
   posts                Post[]
   events               Event[]
   lives                Live[]

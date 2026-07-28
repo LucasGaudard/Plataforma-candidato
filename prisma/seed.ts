@@ -34,6 +34,53 @@ async function main() {
     },
   });
 
+  const superAdminEmail =
+    process.env.SUPER_ADMIN_EMAIL ||
+    (process.env.NODE_ENV !== 'production' ? 'superadmin@conectaeleitor.local' : undefined);
+  const superAdminPassword =
+    process.env.SUPER_ADMIN_PASSWORD ||
+    (process.env.NODE_ENV !== 'production' ? 'SuperAdmin@123' : undefined);
+
+  if (superAdminEmail && superAdminPassword) {
+    const normalizedSuperAdminEmail = superAdminEmail.trim().toLowerCase();
+    const existingSuperAdminEmail = await prisma.user.findUnique({
+      where: { email: normalizedSuperAdminEmail },
+      select: { role: true, campaignId: true },
+    });
+    if (
+      existingSuperAdminEmail &&
+      (existingSuperAdminEmail.role !== Role.SUPER_ADMIN || existingSuperAdminEmail.campaignId !== null)
+    ) {
+      throw new Error(
+        `SUPER_ADMIN_EMAIL já pertence a um usuário de campanha: ${normalizedSuperAdminEmail}`,
+      );
+    }
+    const password = await bcrypt.hash(superAdminPassword, 12);
+    await prisma.user.upsert({
+      where: { email: normalizedSuperAdminEmail },
+      update: {
+        role: Role.SUPER_ADMIN,
+        campaignId: null,
+        password,
+      },
+      create: {
+        email: normalizedSuperAdminEmail,
+        password,
+        firstName: 'Super',
+        lastName: 'Admin',
+        cpf: 'SUPER-ADMIN-GLOBAL',
+        phone: '',
+        address: '',
+        city: '',
+        state: '',
+        role: Role.SUPER_ADMIN,
+        campaignId: null,
+      },
+    });
+  } else if (process.env.NODE_ENV === 'production') {
+    console.warn('SUPER_ADMIN_EMAIL e SUPER_ADMIN_PASSWORD não definidos; Super Admin não criado.');
+  }
+
   const adminPassword = await bcrypt.hash('admin12345', 12);
 
   const admin = await prisma.user.upsert({

@@ -42,7 +42,13 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ message: 'Credenciais inválidas' });
     }
 
-    if (user.campaign.status !== CampaignStatus.ACTIVE) {
+    const isSuperAdmin = user.role === Role.SUPER_ADMIN;
+
+    if (isSuperAdmin && user.campaignId !== null) {
+      return reply.status(403).send({ message: 'Acesso indisponível' });
+    }
+
+    if (!isSuperAdmin && (!user.campaign || user.campaign.status !== CampaignStatus.ACTIVE)) {
       return reply.status(403).send({ message: 'Acesso indisponível' });
     }
 
@@ -50,7 +56,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       sub: user.id,
       email: user.email,
       role: user.role,
-      campaignId: user.campaignId,
+      campaignId: user.campaignId as string,
     });
 
     const response: AuthResponse = {
@@ -166,7 +172,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       fastify.log.error('Erro ao chamar whatsappService:', err);
     });
 
-    if (user.campaign.status !== CampaignStatus.ACTIVE) {
+    if (!user.campaign || user.campaign.status !== CampaignStatus.ACTIVE) {
       return reply.status(403).send({ message: 'Acesso indisponível' });
     }
 
@@ -174,7 +180,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       sub: user.id,
       email: user.email,
       role: user.role,
-      campaignId: user.campaignId,
+      campaignId: user.campaignId as string,
     });
 
     const response: AuthResponse = {
@@ -191,15 +197,22 @@ export async function authRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const user = await prisma.user.findFirst({
-        where: {
-          id: request.user.sub,
-          campaignId: request.user.campaignId,
-        },
+        where:
+          request.user.role === Role.SUPER_ADMIN
+            ? { id: request.user.sub, role: Role.SUPER_ADMIN, campaignId: null }
+            : { id: request.user.sub, campaignId: request.user.campaignId },
         include: { campaign: true },
       });
 
       if (!user) {
         return reply.status(404).send({ message: 'Usuário não encontrado' });
+      }
+
+      if (
+        user.role !== Role.SUPER_ADMIN &&
+        (!user.campaign || user.campaign.status !== CampaignStatus.ACTIVE)
+      ) {
+        return reply.status(403).send({ message: 'Acesso indisponível' });
       }
 
       return reply.send(toAuthenticatedUserPublic(user));
