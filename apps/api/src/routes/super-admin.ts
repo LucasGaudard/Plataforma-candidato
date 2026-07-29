@@ -328,10 +328,49 @@ export async function superAdminRoutes(fastify: FastifyInstance) {
             where: { role: Role.ADMIN },
             select: { id: true, email: true, firstName: true, lastName: true, createdAt: true },
           },
+          whatsappConfig: {
+            select: {
+              phoneNumberId: true,
+              businessAccountId: true,
+              displayPhoneNumber: true,
+              enabled: true,
+              connectionStatus: true,
+              lastConnectionAt: true,
+              lastWebhookAt: true,
+            },
+          },
         },
       });
       if (!campaign) return reply.status(404).send({ message: 'Campanha não encontrada' });
       return reply.send(campaign);
+    },
+  );
+
+  fastify.patch<{ Params: { campaignId: string }; Body: { enabled?: boolean } }>(
+    '/campaigns/:campaignId/whatsapp',
+    { preHandler: onlySuperAdmin },
+    async (request, reply) => {
+      if (request.body?.enabled !== false) {
+        return reply.status(400).send({ message: 'O Super Admin pode apenas desativar a integração' });
+      }
+      const result = await prisma.campaignWhatsAppConfig.updateMany({
+        where: { campaignId: request.params.campaignId },
+        data: { enabled: false },
+      });
+      if (!result.count) return reply.status(404).send({ message: 'Configuração não encontrada' });
+      return reply.send({ success: true });
+    },
+  );
+
+  fastify.delete<{ Params: { campaignId: string } }>(
+    '/campaigns/:campaignId/whatsapp',
+    { preHandler: onlySuperAdmin },
+    async (request, reply) => {
+      const result = await prisma.campaignWhatsAppConfig.deleteMany({
+        where: { campaignId: request.params.campaignId },
+      });
+      if (!result.count) return reply.status(404).send({ message: 'Configuração não encontrada' });
+      return reply.status(204).send();
     },
   );
 

@@ -1,370 +1,154 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { Role } from '@platform/types';
-import type { WhatsappConfigStatus, WhatsappTestState } from '@platform/types';
-import { Card, Button } from '@platform/ui';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { Role, type WhatsappConfigStatus } from '@platform/types';
+import { Button, Card } from '@platform/ui';
 import { api } from '@/lib/api';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useToast } from '@/contexts/toast-context';
 
-const ALLOWED_ROLES: Role[] = [Role.ADMIN];
+const emptyForm = {
+  phoneNumberId: '',
+  businessAccountId: '',
+  displayPhoneNumber: '',
+  accessToken: '',
+  apiVersion: 'v25.0',
+  enabled: false,
+};
 
-function ChecklistItem({ label, checked }: { label: string; checked: boolean }) {
-  return (
-    <div className="flex items-center gap-3 py-1.5">
-      <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${checked ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300 bg-slate-50'}`}>
-        {checked && (
-          <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-          </svg>
-        )}
-      </div>
-      <span className={`text-sm ${checked ? 'text-slate-800 font-medium' : 'text-slate-500'}`}>{label}</span>
-    </div>
-  );
+function formatDate(value: string | null) {
+  return value ? new Date(value).toLocaleString('pt-BR') : 'Nunca';
 }
 
 function WhatsappConfigContent() {
   const { toast } = useToast();
   const [config, setConfig] = useState<WhatsappConfigStatus | null>(null);
-  const [testState, setTestState] = useState<WhatsappTestState | null>(null);
-  const [loading, setLoading] = useState(true);
-  
-  const [testingAll, setTestingAll] = useState(false);
-  const [testingConn, setTestingConn] = useState(false);
-  const [testingMsg, setTestingMsg] = useState(false);
-  const [testingWebhook, setTestingWebhook] = useState(false);
-  
-  const [testPhone, setTestPhone] = useState('');
-  const [copiedUrl, setCopiedUrl] = useState(false);
-  const [copiedToken, setCopiedToken] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [recipient, setRecipient] = useState('');
+  const [messageId, setMessageId] = useState('');
+  const [busy, setBusy] = useState('');
 
-  const fetchStatus = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
-      const [conf, state] = await Promise.all([
-        api.getWhatsappConfigStatus(),
-        api.getWhatsappTestStatus(),
-      ]);
-      setConfig(conf);
-      setTestState(state);
-    } catch (err) {
-      toast((err as Error).message, 'error');
-    } finally {
-      setLoading(false);
+      const value = await api.getWhatsappConfigStatus();
+      setConfig(value);
+      setForm((current) => ({
+        ...current,
+        phoneNumberId: value.phoneNumberId,
+        businessAccountId: value.businessAccountId,
+        displayPhoneNumber: value.displayPhoneNumber || '',
+        accessToken: '',
+        apiVersion: value.apiVersion,
+        enabled: value.enabled,
+      }));
+    } catch (error) {
+      toast((error as Error).message, 'error');
     }
   }, [toast]);
 
-  useEffect(() => {
-    fetchStatus();
-  }, [fetchStatus]);
+  useEffect(() => { void load(); }, [load]);
 
-  async function handleCopy(text: string, setCopied: (v: boolean) => void) {
-    if (!text) return;
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  async function runTestConnection() {
-    setTestingConn(true);
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    setBusy('save');
     try {
-      await api.testWhatsappConnection();
-      toast('Conexão com a Meta realizada com sucesso!', 'success');
-    } catch (err) {
-      toast(`Falha na conexão: ${(err as Error).message}`, 'error');
-    } finally {
-      setTestingConn(false);
-      fetchStatus();
-    }
+      await api.updateWhatsappConfig({
+        phoneNumberId: form.phoneNumberId,
+        businessAccountId: form.businessAccountId,
+        displayPhoneNumber: form.displayPhoneNumber,
+        apiVersion: form.apiVersion,
+        enabled: form.enabled,
+        ...(form.accessToken.trim() ? { accessToken: form.accessToken } : {}),
+      });
+      setForm((current) => ({ ...current, accessToken: '' }));
+      await load();
+      toast('Configuração salva com segurança.', 'success');
+    } catch (error) { toast((error as Error).message, 'error'); }
+    finally { setBusy(''); }
   }
 
-  async function runTestMessage() {
-    if (!testPhone) {
-      toast('Digite um número de telefone para teste', 'error');
-      return;
-    }
-    setTestingMsg(true);
+  async function testConnection() {
+    setBusy('connection');
+    try { const result = await api.testWhatsappConnection(); await load(); toast(result.message || 'Conexão validada.', 'success'); }
+    catch (error) { await load(); toast((error as Error).message, 'error'); }
+    finally { setBusy(''); }
+  }
+
+  async function subscribe() {
+    setBusy('subscribe');
+    try { const result = await api.subscribeWhatsappWebhook(); toast(result.message, 'success'); }
+    catch (error) { toast((error as Error).message, 'error'); }
+    finally { setBusy(''); }
+  }
+
+  async function sendTest(event: FormEvent) {
+    event.preventDefault();
+    setBusy('message'); setMessageId('');
     try {
-      await api.testWhatsappMessage({ phone: testPhone });
-      toast('Mensagem de teste enviada!', 'success');
-    } catch (err) {
-      toast(`Falha no envio: ${(err as Error).message}`, 'error');
-    } finally {
-      setTestingMsg(false);
-      fetchStatus();
-    }
+      const result = await api.testWhatsappMessage({ to: recipient, mode: 'template' });
+      setMessageId(result.messageId);
+      await load();
+      toast('Template hello_world enviado.', 'success');
+    } catch (error) { toast((error as Error).message, 'error'); }
+    finally { setBusy(''); }
   }
 
-  async function runTestWebhook() {
-    if (!testPhone) {
-      toast('Digite um número de telefone (pode ser fictício) para simular o Webhook', 'error');
-      return;
-    }
-    setTestingWebhook(true);
-    try {
-      await api.testWhatsappWebhook({ phone: testPhone });
-      toast('Webhook simulado com sucesso!', 'success');
-    } catch (err) {
-      toast(`Falha no Webhook: ${(err as Error).message}`, 'error');
-    } finally {
-      setTestingWebhook(false);
-      fetchStatus();
-    }
-  }
-
-  async function handleTestAll() {
-    setTestingAll(true);
-    try {
-      await api.testWhatsappConnection();
-      if (testPhone) {
-        await api.testWhatsappMessage({ phone: testPhone });
-        await api.testWhatsappWebhook({ phone: testPhone });
-      }
-      toast('Relatório: Todos os testes concluídos!', 'success');
-    } catch (err) {
-      toast(`Teste interrompido: ${(err as Error).message}`, 'error');
-    } finally {
-      setTestingAll(false);
-      fetchStatus();
-    }
-  }
-
-  if (loading) {
-    return (
-      <DashboardLayout title="Assistente de Ativação" subtitle="WhatsApp Cloud API">
-        <div className="animate-pulse space-y-6 max-w-4xl">
-          <div className="h-32 bg-slate-100 rounded-xl" />
-          <div className="h-64 bg-slate-100 rounded-xl" />
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  const isConnOk = testState?.lastConnectionTest?.success ?? false;
-  const isMsgOk = testState?.lastMessageTest?.success ?? false;
-  const isWebhookOk = testState?.lastWebhookTest?.success ?? false;
-  const isSystemReady = Boolean(isConnOk && isMsgOk && isWebhookOk && config?.enabled);
+  const statusLabel = !config?.configured
+    ? 'Não configurado'
+    : ({ NOT_TESTED: 'Não testado', CONNECTED: 'Conectado', ERROR: 'Erro' } as const)[config.connectionStatus];
 
   return (
-    <DashboardLayout
-      title="Assistente de Ativação"
-      subtitle="Validação e testes da integração WhatsApp Cloud API"
-    >
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl">
-        
-        {/* Coluna Esquerda: Ações de Teste */}
-        <div className="lg:col-span-2 space-y-6">
-          
+    <DashboardLayout title="Config WhatsApp">
+      <div className="space-y-6">
+        <div><h1 className="text-2xl font-bold text-slate-900">Config WhatsApp</h1><p className="text-slate-500">Integração exclusiva desta campanha com a WhatsApp Cloud API.</p></div>
+
+        <Card>
+          <h2 className="text-lg font-bold">Status da integração</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div><p className="text-xs text-slate-500">Status</p><p className="font-semibold">{statusLabel}</p></div>
+            <div><p className="text-xs text-slate-500">Último teste</p><p className="text-sm">{formatDate(config?.lastConnectionAt || null)}</p></div>
+            <div><p className="text-xs text-slate-500">Último webhook</p><p className="text-sm">{formatDate(config?.lastWebhookAt || null)}</p></div>
+            <div><p className="text-xs text-slate-500">Último envio</p><p className="text-sm">{formatDate(config?.lastTestMessageAt || null)}</p></div>
+          </div>
+          {config?.lastConnectionError && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{config.lastConnectionError}</p>}
+        </Card>
+
+        <form onSubmit={save}>
           <Card>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-800">1. Testar Credenciais da Meta</h2>
-              <Button size="sm" onClick={runTestConnection} disabled={testingConn || testingAll}>
-                {testingConn ? 'Testando...' : 'Testar conexão com a Meta'}
-              </Button>
+            <h2 className="text-lg font-bold">Credenciais da Meta</h2>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <label className="text-sm">Phone Number ID<input required inputMode="numeric" value={form.phoneNumberId} onChange={(e) => setForm({ ...form, phoneNumberId: e.target.value })} className="mt-1 w-full rounded-lg border p-2" /></label>
+              <label className="text-sm">WhatsApp Business Account ID<input required inputMode="numeric" value={form.businessAccountId} onChange={(e) => setForm({ ...form, businessAccountId: e.target.value })} className="mt-1 w-full rounded-lg border p-2" /></label>
+              <label className="text-sm">Número de exibição<input placeholder="+5521999999999" value={form.displayPhoneNumber} onChange={(e) => setForm({ ...form, displayPhoneNumber: e.target.value })} className="mt-1 w-full rounded-lg border p-2" /></label>
+              <label className="text-sm">Versão da API<input required value={form.apiVersion} onChange={(e) => setForm({ ...form, apiVersion: e.target.value })} className="mt-1 w-full rounded-lg border p-2" /></label>
+              <label className="text-sm md:col-span-2">Access Token<input type="password" autoComplete="new-password" required={!config?.hasAccessToken} value={form.accessToken} onChange={(e) => setForm({ ...form, accessToken: e.target.value })} placeholder={config?.hasAccessToken ? `Token configurado ••••${config.accessTokenLastFour || ''} — deixe vazio para manter` : 'Cole o token da campanha'} className="mt-1 w-full rounded-lg border p-2" /></label>
+              <label className="flex items-center gap-2 text-sm md:col-span-2"><input type="checkbox" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.target.checked })} />Habilitar integração (exige conexão validada)</label>
             </div>
-            
-            <div className="rounded-lg bg-slate-50 p-4 border border-slate-100">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-sm font-semibold text-slate-700">Status do Access Token:</span>
-                {testState?.lastConnectionTest ? (
-                  isConnOk ? (
-                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                      🟢 Token válido
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">
-                      🔴 Token inválido
-                    </span>
-                  )
-                ) : (
-                  <span className="text-sm text-slate-500">Aguardando teste...</span>
-                )}
-              </div>
-              
-              {isConnOk && testState?.lastConnectionTest?.data && (
-                <div className="grid grid-cols-2 gap-4 text-sm mt-4 border-t pt-4 border-slate-200">
-                  <div>
-                    <span className="block text-xs text-slate-500">Phone Number ID</span>
-                    <span className="font-medium text-slate-800">{config?.hasPhoneNumberId ? 'Válido' : 'Não configurado'}</span>
-                  </div>
-                  <div>
-                    <span className="block text-xs text-slate-500">Business Account ID</span>
-                    <span className="font-medium text-slate-800">{config?.hasBusinessAccountId ? 'Válido' : 'Não configurado'}</span>
-                  </div>
-                  <div>
-                    <span className="block text-xs text-slate-500">API Version</span>
-                    <span className="font-medium text-slate-800">{config?.apiVersion}</span>
-                  </div>
-                </div>
-              )}
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Button type="submit" disabled={Boolean(busy)}>{busy === 'save' ? 'Salvando...' : 'Salvar configuração'}</Button>
+              <Button type="button" onClick={testConnection} disabled={!config?.configured || Boolean(busy)}>{busy === 'connection' ? 'Testando...' : 'Testar conexão'}</Button>
+              <Button type="button" onClick={subscribe} disabled={config?.connectionStatus !== 'CONNECTED' || Boolean(busy)}>{busy === 'subscribe' ? 'Assinando...' : 'Assinar webhook'}</Button>
             </div>
           </Card>
+        </form>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <form onSubmit={sendTest}>
+            <Card>
+              <h2 className="text-lg font-bold">Mensagem de teste</h2>
+              <label className="mt-4 block text-sm">Destinatário com DDI<input required value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="5521999999999" className="mt-1 w-full rounded-lg border p-2" /></label>
+              <label className="mt-4 block text-sm">Template<select disabled className="mt-1 w-full rounded-lg border bg-slate-50 p-2"><option>hello_world · en_US</option></select></label>
+              <Button className="mt-4" disabled={!config?.enabled || Boolean(busy)}>{busy === 'message' ? 'Enviando...' : 'Enviar mensagem de teste'}</Button>
+              {messageId && <p className="mt-3 break-all rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">Message ID: {messageId}</p>}
+            </Card>
+          </form>
 
           <Card>
-            <h2 className="text-lg font-bold text-slate-800 mb-4">2. Teste de Envio & Webhook</h2>
-            
-            <div className="mb-6 bg-blue-50 border border-blue-100 rounded-lg p-4">
-              <label className="block text-sm font-medium text-blue-900 mb-1">
-                Número de telefone para testes
-              </label>
-              <input
-                type="text"
-                placeholder="5511999999999"
-                className="w-full max-w-sm rounded-md border-slate-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm"
-                value={testPhone}
-                onChange={(e) => setTestPhone(e.target.value)}
-              />
-              <p className="mt-1 text-xs text-blue-700">Necessário para os testes abaixo.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="border border-slate-200 rounded-lg p-4 relative">
-                <h3 className="font-semibold text-slate-800 mb-2">Envio de Mensagem</h3>
-                <p className="text-xs text-slate-500 mb-4 h-8">
-                  {config?.enabled 
-                    ? 'Realiza um disparo de verdade usando a API da Meta.' 
-                    : 'Modo simulação ativo. Nenhuma mensagem real será enviada.'}
-                </p>
-                <Button size="sm" variant="secondary" className="w-full" onClick={runTestMessage} disabled={testingMsg || testingAll}>
-                  {testingMsg ? 'Enviando...' : 'Enviar mensagem teste'}
-                </Button>
-                {testState?.lastMessageTest && (
-                  <div className="mt-3 text-center">
-                    {isMsgOk ? (
-                      <span className="text-xs font-bold text-emerald-600">Mensagem enviada com sucesso</span>
-                    ) : (
-                      <span className="text-xs font-bold text-red-600">Erro retornado pela Meta</span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="border border-slate-200 rounded-lg p-4 relative">
-                <h3 className="font-semibold text-slate-800 mb-2">Simular Webhook</h3>
-                <p className="text-xs text-slate-500 mb-4 h-8">
-                  Simula o recebimento de uma resposta &quot;SIM&quot; do telefone informado.
-                </p>
-                <Button size="sm" variant="secondary" className="w-full" onClick={runTestWebhook} disabled={testingWebhook || testingAll}>
-                  {testingWebhook ? 'Processando...' : 'Testar Webhook'}
-                </Button>
-                {testState?.lastWebhookTest && (
-                  <div className="mt-3 text-center">
-                    {isWebhookOk ? (
-                      <span className="text-xs font-bold text-emerald-600">Webhook funcionando</span>
-                    ) : (
-                      <span className="text-xs font-bold text-red-600">Erro no processamento</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </Card>
-
-          <Card>
-            <h2 className="text-lg font-bold text-slate-800 mb-4">3. Dados de Configuração do Webhook</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">URL do Webhook</label>
-                <div className="flex gap-2">
-                  <code className="flex-1 block rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
-                    {config?.webhookUrl}
-                  </code>
-                  <Button size="sm" variant="secondary" onClick={() => handleCopy(config?.webhookUrl || '', setCopiedUrl)}>
-                    {copiedUrl ? 'Copiado!' : 'Copiar URL'}
-                  </Button>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Verify Token</label>
-                <div className="flex gap-2">
-                  <code className="flex-1 block rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
-                    {config?.hasVerifyToken ? '*** (Configurado nas variáveis de ambiente)' : 'Não configurado'}
-                  </code>
-                  <Button size="sm" variant="secondary" onClick={() => handleCopy('AQUI_VAI_O_VALOR_REAL_SE_A_GENTE_EXPUSSE_MAS_A_REGRA_EH_NAO_EXPOR_ENTAO_ISSO_PODE_SER_SO_UM_FEEDBACK_OU_USAR_O_TOKEN_SE_PERMITIDO', setCopiedToken)} disabled={true}>
-                    Protegido
-                  </Button>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">O token real deve ser consultado nas variáveis de ambiente do Render.</p>
-              </div>
-            </div>
-          </Card>
-
-        </div>
-
-        {/* Coluna Direita: Status e Checklist */}
-        <div className="space-y-6">
-          <Card className="bg-slate-800 text-white border-0 shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10">
-              <svg viewBox="0 0 24 24" className="w-24 h-24 fill-current">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
-            </div>
-            
-            <h2 className="text-lg font-bold mb-4 relative z-10">Saúde da Integração</h2>
-            
-            <div className="space-y-3 text-sm relative z-10">
-              <div className="flex justify-between border-b border-slate-700 pb-2">
-                <span className="text-slate-300">Status Geral</span>
-                {config?.mode === 'ready' ? (
-                  <span className="font-bold text-emerald-400">Online</span>
-                ) : config?.mode === 'simulation' ? (
-                  <span className="font-bold text-amber-400">Simulação</span>
-                ) : (
-                  <span className="font-bold text-red-400">Erro / Incompleto</span>
-                )}
-              </div>
-              
-              <div className="flex justify-between border-b border-slate-700 pb-2">
-                <span className="text-slate-300">Testes Executados</span>
-                <span className="font-bold">{testState?.totalTestsRun || 0}</span>
-              </div>
-
-              <div className="flex justify-between border-b border-slate-700 pb-2">
-                <span className="text-slate-300">Última Conexão</span>
-                <span className="text-slate-100">{testState?.lastConnectionTest?.date ? new Date(testState.lastConnectionTest.date).toLocaleTimeString() : 'Nunca'}</span>
-              </div>
-
-              <div className="flex justify-between border-b border-slate-700 pb-2">
-                <span className="text-slate-300">Último Envio</span>
-                <span className="text-slate-100">{testState?.lastMessageTest?.date ? new Date(testState.lastMessageTest.date).toLocaleTimeString() : 'Nunca'}</span>
-              </div>
-              
-              <div className="flex justify-between pb-2">
-                <span className="text-slate-300">Último Webhook</span>
-                <span className="text-slate-100">{testState?.lastWebhookTest?.date ? new Date(testState.lastWebhookTest.date).toLocaleTimeString() : 'Nunca'}</span>
-              </div>
-            </div>
-
-            <Button 
-              className="w-full mt-6 bg-brand-500 hover:bg-brand-600 text-white relative z-10 shadow-md"
-              onClick={handleTestAll}
-              disabled={testingAll}
-            >
-              {testingAll ? 'Executando testes...' : '⚡ Testar integração completa'}
-            </Button>
-          </Card>
-
-          <Card>
-            <h2 className="text-lg font-bold text-slate-800 mb-4">Checklist Inteligente</h2>
-            <div className="space-y-1">
-              <ChecklistItem label="Conta Meta criada" checked={isConnOk} />
-              <ChecklistItem label="Página Facebook criada" checked={isConnOk} />
-              <ChecklistItem label="WhatsApp Business conectado" checked={isConnOk} />
-              <ChecklistItem label="Aplicativo criado" checked={isConnOk} />
-              <ChecklistItem label="Produto WhatsApp adicionado" checked={isConnOk} />
-              <ChecklistItem label="Access Token válido" checked={isConnOk} />
-              <ChecklistItem label="Phone Number ID válido" checked={isConnOk} />
-              <ChecklistItem label="Business Account ID válido" checked={config?.hasBusinessAccountId ?? false} />
-              <ChecklistItem label="Verify Token configurado" checked={config?.hasVerifyToken ?? false} />
-              <ChecklistItem label="Webhook configurado" checked={isWebhookOk} />
-              <ChecklistItem label="Teste de envio realizado" checked={isMsgOk} />
-              <ChecklistItem label="Teste do Webhook realizado" checked={isWebhookOk} />
-              <div className="my-2 border-t border-slate-200"></div>
-              <ChecklistItem label="Sistema pronto para produção" checked={isSystemReady} />
-            </div>
+            <h2 className="text-lg font-bold">Webhook</h2>
+            <p className="mt-3 text-sm text-slate-600">Cole esta URL de callback no painel da Meta. O token de verificação permanece somente no ambiente da API.</p>
+            <code className="mt-3 block break-all rounded-lg bg-slate-100 p-3 text-sm">{config?.webhookUrl || 'Configure API_PUBLIC_URL na API'}</code>
+            <p className="mt-3 text-sm text-slate-500">Depois que a Meta validar o callback, use “Assinar webhook” para inscrever esta WABA.</p>
           </Card>
         </div>
       </div>
@@ -372,10 +156,6 @@ function WhatsappConfigContent() {
   );
 }
 
-export default function WhatsappWizardPage() {
-  return (
-    <ProtectedRoute allowedRoles={ALLOWED_ROLES}>
-      <WhatsappConfigContent />
-    </ProtectedRoute>
-  );
+export default function WhatsappConfigPage() {
+  return <ProtectedRoute allowedRoles={[Role.ADMIN]}><WhatsappConfigContent /></ProtectedRoute>;
 }

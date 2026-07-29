@@ -39,7 +39,7 @@ async function main() {
     (process.env.NODE_ENV !== 'production' ? 'superadmin@conectaeleitor.local' : undefined);
   const superAdminPassword =
     process.env.SUPER_ADMIN_PASSWORD ||
-    (process.env.NODE_ENV !== 'production' ? 'SuperAdmin@123' : undefined);
+    (process.env.NODE_ENV !== 'production' ? 'Superadmin12345' : undefined);
 
   if (superAdminEmail && superAdminPassword) {
     const normalizedSuperAdminEmail = superAdminEmail.trim().toLowerCase();

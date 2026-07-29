@@ -17,7 +17,9 @@ import { publicRoutes } from './routes/public';
 import { superAdminRoutes } from './routes/super-admin';
 import { campaignRoutes } from './routes/campaign';
 import webhookRoutes from './routes/webhooks';
+import { campaignWhatsAppRoutes } from './routes/campaign-whatsapp';
 import { prisma } from './lib/prisma';
+import { assertWhatsAppEncryptionConfigured } from './services/whatsapp/crypto';
 
 const PORT =
   Number(process.env.PORT) ||
@@ -79,10 +81,16 @@ async function bootstrap() {
   await fastify.register(publicRoutes, { prefix: '/public' });
   await fastify.register(superAdminRoutes, { prefix: '/super-admin' });
   await fastify.register(campaignRoutes, { prefix: '/campaign' });
+  await fastify.register(campaignWhatsAppRoutes, { prefix: '/campaign/whatsapp' });
   await fastify.register(webhookRoutes, { prefix: '/webhooks' });
 
   try {
     await prisma.$connect();
+    const whatsappConfigs = await prisma.campaignWhatsAppConfig.count();
+    if (whatsappConfigs > 0) assertWhatsAppEncryptionConfigured();
+    if (process.env.NODE_ENV === 'production' && !process.env.META_APP_SECRET) {
+      fastify.log.warn('Webhook do WhatsApp desabilitado: assinatura da Meta não configurada');
+    }
     await fastify.listen({ port: PORT, host: HOST });
     console.log(`API rodando em http://localhost:${PORT}`);
   } catch (err) {

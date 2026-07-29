@@ -69,6 +69,17 @@ export default function CampaignDetailPage() {
     } catch (err) { setError((err as Error).message); }
   }
 
+  async function disableWhatsapp() {
+    try { await api.disableSuperAdminCampaignWhatsapp(id); await load(); setSuccess('WhatsApp desativado.'); }
+    catch (err) { setError((err as Error).message); }
+  }
+
+  async function clearWhatsapp() {
+    if (!window.confirm('Remover as credenciais e a configuração do WhatsApp desta campanha? Os logs de mensagens serão preservados.')) return;
+    try { await api.clearSuperAdminCampaignWhatsapp(id); await load(); setSuccess('Configuração do WhatsApp removida.'); }
+    catch (err) { setError((err as Error).message); }
+  }
+
   return (
     <SuperAdminLayout>
       {!campaign && !error && <p>Carregando...</p>}
@@ -106,6 +117,25 @@ export default function CampaignDetailPage() {
               </form>
             </section>
           </div>
+          <section className="mt-6 rounded-xl bg-white p-5 shadow-sm">
+            <h3 className="font-bold">WhatsApp Cloud API</h3>
+            {!campaign.whatsappConfig ? <p className="mt-2 text-sm text-slate-500">Não configurado.</p> : (
+              <>
+                <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                  <p><span className="text-slate-500">Status:</span> {campaign.whatsappConfig.connectionStatus}{campaign.whatsappConfig.enabled ? ' · habilitado' : ' · desabilitado'}</p>
+                  <p><span className="text-slate-500">Número:</span> {campaign.whatsappConfig.displayPhoneNumber || '—'}</p>
+                  <p><span className="text-slate-500">Phone ID:</span> {campaign.whatsappConfig.phoneNumberId}</p>
+                  <p><span className="text-slate-500">WABA:</span> {campaign.whatsappConfig.businessAccountId}</p>
+                  <p><span className="text-slate-500">Último teste:</span> {campaign.whatsappConfig.lastConnectionAt ? new Date(campaign.whatsappConfig.lastConnectionAt).toLocaleString('pt-BR') : 'Nunca'}</p>
+                  <p><span className="text-slate-500">Último webhook:</span> {campaign.whatsappConfig.lastWebhookAt ? new Date(campaign.whatsappConfig.lastWebhookAt).toLocaleString('pt-BR') : 'Nunca'}</p>
+                </div>
+                <div className="mt-4 flex gap-3">
+                  <button type="button" onClick={disableWhatsapp} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white">Desativar</button>
+                  <button type="button" onClick={clearWhatsapp} className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white">Limpar configuração</button>
+                </div>
+              </>
+            )}
+          </section>
           <form onSubmit={save} className="mt-6 rounded-xl bg-white p-5 shadow-sm">
             <h3 className="font-bold">Identidade visual</h3>
             <p className="mt-1 text-sm text-slate-500">Cores em hexadecimal e URLs apenas HTTP/HTTPS.</p>

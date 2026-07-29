@@ -36,12 +36,9 @@ import type {
   UpdatePostRequest,
   AuthenticatedUserPublic,
   WhatsappConfigStatus,
-  WhatsappTestState,
   TestConnectionResponse,
   TestMessageRequest,
   TestMessageResponse,
-  TestWebhookRequest,
-  TestWebhookResponse,
   CampaignStatus,
   SuperAdminDashboard,
   SuperAdminCampaignListItem,
@@ -455,29 +452,47 @@ class ApiClient {
   }
 
   getWhatsappConfigStatus() {
-    return this.request<WhatsappConfigStatus>('/admin/whatsapp/config-status');
+    return this.request<WhatsappConfigStatus>('/campaign/whatsapp/config');
   }
 
-  getWhatsappTestStatus() {
-    return this.request<WhatsappTestState>('/admin/whatsapp/test-status');
+  disableSuperAdminCampaignWhatsapp(id: string) {
+    return this.request<{ success: boolean }>(`/super-admin/campaigns/${id}/whatsapp`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled: false }),
+    });
+  }
+
+  clearSuperAdminCampaignWhatsapp(id: string) {
+    return this.request<void>(`/super-admin/campaigns/${id}/whatsapp`, { method: 'DELETE' });
+  }
+
+  updateWhatsappConfig(data: {
+    phoneNumberId: string;
+    businessAccountId: string;
+    displayPhoneNumber: string;
+    accessToken?: string;
+    apiVersion: string;
+    enabled: boolean;
+  }) {
+    return this.request<WhatsappConfigStatus>('/campaign/whatsapp/config', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
   }
 
   testWhatsappConnection() {
-    return this.request<TestConnectionResponse>('/admin/whatsapp/test-connection', { method: 'POST' });
+    return this.request<TestConnectionResponse>('/campaign/whatsapp/test-connection', { method: 'POST' });
   }
 
   testWhatsappMessage(data: TestMessageRequest) {
-    return this.request<TestMessageResponse>('/admin/whatsapp/test-message', {
+    return this.request<TestMessageResponse>('/campaign/whatsapp/test-message', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  testWhatsappWebhook(data: TestWebhookRequest) {
-    return this.request<TestWebhookResponse>('/admin/whatsapp/test-webhook', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+  subscribeWhatsappWebhook() {
+    return this.request<{ success: boolean; message: string }>('/campaign/whatsapp/subscribe-webhook', { method: 'POST' });
   }
 }
 

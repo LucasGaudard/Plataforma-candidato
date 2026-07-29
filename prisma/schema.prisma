@@ -52,10 +52,30 @@ enum CampaignStatus {
   SUSPENDED
 }
 
+enum WhatsAppConnectionStatus {
+  NOT_TESTED
+  CONNECTED
+  ERROR
+}
+
+enum WhatsAppMessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum WhatsAppMessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  RECEIVED
+}
+
 model Campaign {
-  id                String         @id @default(cuid())
+  id                String                  @id @default(cuid())
   name              String
-  slug              String         @unique
+  slug              String                  @unique
   candidateName     String
   party             String?
   logoUrl           String?
@@ -86,23 +106,64 @@ model Campaign {
   areaItems         Json?
   bannerImageUrl    String?
   footerText        String?
-  showHero          Boolean        @default(true)
-  showAbout         Boolean        @default(true)
-  showProposals     Boolean        @default(true)
-  showAreas         Boolean        @default(true)
-  showContact       Boolean        @default(true)
+  showHero          Boolean                 @default(true)
+  showAbout         Boolean                 @default(true)
+  showProposals     Boolean                 @default(true)
+  showAreas         Boolean                 @default(true)
+  showContact       Boolean                 @default(true)
   whatsappNumber    String?
-  status            CampaignStatus @default(ACTIVE)
+  status            CampaignStatus          @default(ACTIVE)
   users             User[]
   posts             Post[]
   events            Event[]
   lives             Live[]
   notifications     Notification[]
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  whatsappConfig    CampaignWhatsAppConfig?
+  whatsappMessages  WhatsAppMessage[]
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
 
   @@index([status])
   @@index([createdAt])
+}
+
+model CampaignWhatsAppConfig {
+  id                   String                   @id @default(cuid())
+  campaignId           String                   @unique
+  campaign             Campaign                 @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  phoneNumberId        String                   @unique
+  businessAccountId    String
+  displayPhoneNumber   String?
+  accessTokenEncrypted String
+  apiVersion           String                   @default("v25.0")
+  enabled              Boolean                  @default(false)
+  connectionStatus     WhatsAppConnectionStatus @default(NOT_TESTED)
+  lastConnectionAt     DateTime?
+  lastConnectionError  String?
+  lastTestMessageAt    DateTime?
+  lastWebhookAt        DateTime?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+}
+
+model WhatsAppMessage {
+  id            String                   @id @default(cuid())
+  campaignId    String
+  campaign      Campaign                 @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  metaMessageId String?                  @unique
+  recipient     String
+  direction     WhatsAppMessageDirection
+  type          String
+  status        WhatsAppMessageStatus
+  templateName  String?
+  errorCode     String?
+  errorMessage  String?
+  sentByUserId  String?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  @@index([campaignId, createdAt])
+  @@index([campaignId, recipient])
 }
 
 model User {

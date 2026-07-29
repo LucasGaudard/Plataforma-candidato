@@ -38,6 +38,14 @@ async function generateUniqueLeaderSlug(firstName: string, lastName: string): Pr
 }
 
 export async function adminRoutes(fastify: FastifyInstance) {
+  fastify.addHook('preHandler', async (request, reply) => {
+    if (request.url.split('?')[0].startsWith('/admin/whatsapp/')) {
+      return reply.status(410).send({
+        message: 'Endpoint legado removido; use /campaign/whatsapp',
+      });
+    }
+  });
+
   fastify.get(
     '/dashboard',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },

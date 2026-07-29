@@ -496,18 +496,25 @@ export interface AdminCreateLeaderRequest extends CreateLeaderRequest {
 }
 
 export interface WhatsappConfigStatus {
+  configured: boolean;
   enabled: boolean;
   hasAccessToken: boolean;
-  hasPhoneNumberId: boolean;
-  hasBusinessAccountId: boolean;
-  hasVerifyToken: boolean;
+  accessTokenLastFour: string | null;
+  phoneNumberId: string;
+  businessAccountId: string;
+  displayPhoneNumber: string | null;
   apiVersion: string;
   webhookUrl: string;
-  mode: 'simulation' | 'ready' | 'incomplete';
+  connectionStatus: 'NOT_TESTED' | 'CONNECTED' | 'ERROR';
+  lastConnectionAt: string | null;
+  lastConnectionError: string | null;
+  lastTestMessageAt: string | null;
+  lastWebhookAt: string | null;
 }
 
+/** @deprecated Estado do antigo diagnóstico simulado; mantido apenas para compatibilidade interna. */
 export interface WhatsappTestState {
-  lastConnectionTest: { success: boolean; date: string; data?: any } | null;
+  lastConnectionTest: { success: boolean; date: string; data?: unknown } | null;
   lastMessageTest: { success: boolean; date: string; phone?: string } | null;
   lastWebhookTest: { success: boolean; date: string } | null;
   totalTestsRun: number;
@@ -516,25 +523,20 @@ export interface WhatsappTestState {
 export interface TestConnectionResponse {
   success: boolean;
   message?: string;
-  data?: any;
+  testedAt?: string;
 }
 
 export interface TestMessageRequest {
-  phone: string;
+  to: string;
+  mode: 'template';
+  message?: string;
 }
 
 export interface TestMessageResponse {
   success: boolean;
-  message: string;
-}
-
-export interface TestWebhookRequest {
-  phone: string;
-}
-
-export interface TestWebhookResponse {
-  success: boolean;
-  message: string;
+  messageId: string;
+  recipient: string;
+  sentAt: string;
 }
 
 export interface SuperAdminDashboard {
@@ -649,4 +651,13 @@ export interface SuperAdminCampaignDetail extends CampaignPublic, CampaignConten
     lastName: string;
     createdAt: string;
   }>;
+  whatsappConfig: null | {
+    phoneNumberId: string;
+    businessAccountId: string;
+    displayPhoneNumber: string | null;
+    enabled: boolean;
+    connectionStatus: 'NOT_TESTED' | 'CONNECTED' | 'ERROR';
+    lastConnectionAt: string | null;
+    lastWebhookAt: string | null;
+  };
 }
