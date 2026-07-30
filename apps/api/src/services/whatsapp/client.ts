@@ -1,21 +1,73 @@
 const GRAPH_BASE_URL = 'https://graph.facebook.com';
 const DEFAULT_TIMEOUT_MS = 12_000;
 
+export interface MetaErrorDetails {
+  message?: string;
+  type?: string;
+  code?: number;
+  subcode?: number;
+  errorUserTitle?: string;
+  errorUserMessage?: string;
+  fbtraceId?: string;
+}
+
 export class WhatsAppApiError extends Error {
-  constructor(message: string, public readonly code?: string, public readonly status = 502) {
+  constructor(
+    message: string,
+    public readonly code?: string,
+    public readonly status = 502,
+    public readonly metaHttpStatus?: number,
+    public readonly metaDetails?: MetaErrorDetails,
+  ) {
     super(message);
   }
 }
 
-type MetaError = { error?: { code?: number; error_subcode?: number; type?: string } };
+type MetaError = {
+  error?: {
+    message?: unknown;
+    type?: unknown;
+    code?: unknown;
+    error_subcode?: unknown;
+    error_user_title?: unknown;
+    error_user_msg?: unknown;
+    fbtrace_id?: unknown;
+  };
+};
 
-function safeError(status: number, data: MetaError | null): WhatsAppApiError {
-  const code = data?.error?.code;
-  if (code === 190) return new WhatsAppApiError('Token da Meta inválido ou expirado', String(code), 400);
-  if (code === 10 || code === 200) return new WhatsAppApiError('Token sem permissão para este recurso', String(code), 403);
-  if (status === 404) return new WhatsAppApiError('Phone Number ID ou WABA não encontrado', String(code || 404), 400);
-  if (status === 429) return new WhatsAppApiError('Limite de requisições da Meta atingido', String(code || 429), 429);
-  return new WhatsAppApiError(status >= 500 ? 'Meta temporariamente indisponível' : 'A Meta rejeitou a solicitação', String(code || status), status >= 500 ? 503 : 400);
+function sanitizedString(value: unknown, accessToken: string): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const withoutToken = accessToken ? value.split(accessToken).join('[REDACTED]') : value;
+  return withoutToken.replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]').slice(0, 1_000);
+}
+
+function sanitizedNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function safeError(status: number, data: MetaError | null, accessToken: string): WhatsAppApiError {
+  const source = data?.error;
+  const details: MetaErrorDetails = {
+    message: sanitizedString(source?.message, accessToken),
+    type: sanitizedString(source?.type, accessToken),
+    code: sanitizedNumber(source?.code),
+    subcode: sanitizedNumber(source?.error_subcode),
+    errorUserTitle: sanitizedString(source?.error_user_title, accessToken),
+    errorUserMessage: sanitizedString(source?.error_user_msg, accessToken),
+    fbtraceId: sanitizedString(source?.fbtrace_id, accessToken),
+  };
+  const code = details.code;
+  if (code === 190) return new WhatsAppApiError('Token da Meta inválido ou expirado', String(code), 400, status, details);
+  if (code === 10 || code === 200) return new WhatsAppApiError('Token sem permissão para este recurso', String(code), 403, status, details);
+  if (status === 404) return new WhatsAppApiError('Phone Number ID ou WABA não encontrado', String(code || 404), 400, status, details);
+  if (status === 429) return new WhatsAppApiError('Limite de requisições da Meta atingido', String(code || 429), 429, status, details);
+  return new WhatsAppApiError(
+    status >= 500 ? 'Meta temporariamente indisponível' : 'A Meta rejeitou a solicitação',
+    String(code || status),
+    status >= 500 ? 503 : 400,
+    status,
+    details,
+  );
 }
 
 export class WhatsAppClient {
@@ -43,7 +95,7 @@ export class WhatsAppClient {
       const text = await response.text();
       let data: unknown = null;
       try { data = text ? JSON.parse(text) : null; } catch { /* resposta não JSON é tratada abaixo */ }
-      if (!response.ok) throw safeError(response.status, data as MetaError | null);
+      if (!response.ok) throw safeError(response.status, data as MetaError | null, this.accessToken);
       if (data === null) throw new WhatsAppApiError('Resposta inválida da Meta');
       return data as T;
     } catch (error) {

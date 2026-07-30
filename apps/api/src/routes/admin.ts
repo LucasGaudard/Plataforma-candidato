@@ -21,6 +21,7 @@ import {
 import { prisma } from '../lib/prisma';
 import { toEventPublic, toLivePublic, toPostPublic } from '../lib/mappers';
 import { whatsappLogStore } from '../lib/whatsapp-log';
+import { generateUniqueCoordinatorSlug } from '../lib/coordinator-slug';
 
 const authorSelect = { firstName: true, lastName: true };
 
@@ -346,10 +347,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
               }
             : coordinatorId
               ? {
-                  leader: {
-                    coordinatorId,
-                    campaignId: request.user.campaignId,
-                  },
+                  coordinatorId,
+                  coordinator: { campaignId: request.user.campaignId },
                 }
               : {}),
           ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
@@ -412,10 +411,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
             where: {
               role: Role.USER,
               campaignId: request.user.campaignId,
-              leader: {
-                coordinatorId: u.id,
-                campaignId: request.user.campaignId,
-              },
+              coordinatorId: u.id,
             },
           });
           const isActive = u.status !== SupporterStatus.INVALID;
@@ -478,6 +474,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       if (existingCpf) return reply.status(409).send({ message: 'CPF já cadastrado' });
 
       const hashedPassword = await bcrypt.hash(normalized.password, 12);
+      const coordinatorSlug = await generateUniqueCoordinatorSlug(normalized.firstName, normalized.lastName);
 
       const user = await prisma.user.create({
         data: {
@@ -493,6 +490,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
           neighborhood: normalized.neighborhood,
           role: Role.COORDINATOR,
           campaignId: request.user.campaignId,
+          coordinatorSlug,
         },
       });
 
@@ -555,10 +553,13 @@ export async function adminRoutes(fastify: FastifyInstance) {
       // Desativar coordenador: muda o status para INVALID e bloqueia acesso
       const isActive = existing.status !== SupporterStatus.INVALID;
       const newStatus = isActive ? SupporterStatus.INVALID : SupporterStatus.VERIFIED;
+      const coordinatorSlug = isActive
+        ? null
+        : await generateUniqueCoordinatorSlug(existing.firstName, existing.lastName);
 
       await prisma.user.update({
         where: { id },
-        data: { status: newStatus },
+        data: { status: newStatus, coordinatorSlug },
       });
 
       return reply.send({ success: true, message: `Coordenador ${isActive ? 'desativado' : 'ativado'}` });

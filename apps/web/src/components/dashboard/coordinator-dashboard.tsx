@@ -58,6 +58,7 @@ export function CoordinatorDashboardView() {
   const [createForm, setCreateForm] = useState<CreateLeaderRequest>(emptyCreate);
   const [editForm, setEditForm] = useState<UpdateLeaderRequest>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [copied, setCopied] = useState(false);
 
   const [createCustomNeighborhood, setCreateCustomNeighborhood] = useState('');
   const [editCustomNeighborhood, setEditCustomNeighborhood] = useState('');
@@ -119,6 +120,14 @@ export function CoordinatorDashboardView() {
     setFormMode(null);
     setEditingLeader(null);
     setFormErrors({});
+  }
+
+  async function copyReferralLink() {
+    if (!stats?.referralLink) return;
+    await navigator.clipboard.writeText(stats.referralLink);
+    setCopied(true);
+    toast('Link copiado!', 'success');
+    setTimeout(() => setCopied(false), 2000);
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -252,6 +261,16 @@ export function CoordinatorDashboardView() {
         <StatCard title="Pendentes" value={stats?.totalPending ?? 0} icon={<span>⏳</span>} />
         <StatCard title="Verificados" value={stats?.totalVerified ?? 0} icon={<span>✅</span>} />
         <StatCard title="Inválidos" value={stats?.totalInvalid ?? 0} icon={<span>❌</span>} />
+      </div>
+
+      <div className="mt-8 grid gap-4">
+        <Card>
+          <h3 className="text-sm font-medium text-slate-500">Link personalizado</h3>
+          <p className="mt-2 break-all font-mono text-xs text-brand-700">{stats?.referralLink}</p>
+          <Button onClick={copyReferralLink} variant="outline" size="sm" className="mt-3">
+            {copied ? 'Copiado!' : 'Copiar link'}
+          </Button>
+        </Card>
       </div>
 
       {/* Formulário de criação/edição */}

@@ -89,9 +89,22 @@ async function findConfig(campaignId: string) {
   return { ...config, accessTokenEncryptedLastFour };
 }
 
-function apiError(reply: FastifyReply, error: unknown) {
+function apiError(reply: FastifyReply, error: unknown, includeDevelopmentDetails = false) {
   if (error instanceof WhatsAppApiError) {
-    return reply.status(error.status).send({ success: false, message: error.message });
+    return reply.status(error.status).send({
+      success: false,
+      message: error.message,
+      ...(includeDevelopmentDetails && process.env.NODE_ENV !== 'production' && error.metaDetails
+        ? {
+            details: {
+              code: error.metaDetails.code,
+              subcode: error.metaDetails.subcode,
+              type: error.metaDetails.type,
+              message: error.metaDetails.message,
+            },
+          }
+        : {}),
+    });
   }
   return reply.status(500).send({ success: false, message: 'Não foi possível concluir a operação' });
 }
@@ -230,6 +243,23 @@ export async function campaignWhatsAppRoutes(fastify: FastifyInstance) {
         return reply.send({ success: true, messageId, recipient, sentAt });
       } catch (error) {
         const safe = error instanceof WhatsAppApiError ? error : new WhatsAppApiError('Falha no envio');
+        request.log.error(
+          {
+            metaHttpStatus: safe.metaHttpStatus,
+            metaError: safe.metaDetails
+              ? {
+                  message: safe.metaDetails.message,
+                  type: safe.metaDetails.type,
+                  code: safe.metaDetails.code,
+                  error_subcode: safe.metaDetails.subcode,
+                  error_user_title: safe.metaDetails.errorUserTitle,
+                  error_user_msg: safe.metaDetails.errorUserMessage,
+                  fbtrace_id: safe.metaDetails.fbtraceId,
+                }
+              : undefined,
+          },
+          'Falha no envio da mensagem de teste pela WhatsApp Cloud API',
+        );
         await prisma.whatsAppMessage.create({
           data: {
             campaignId, recipient, direction: WhatsAppMessageDirection.OUTBOUND,
@@ -238,7 +268,7 @@ export async function campaignWhatsAppRoutes(fastify: FastifyInstance) {
             sentByUserId: request.user.sub,
           },
         });
-        return apiError(reply, safe);
+        return apiError(reply, safe, true);
       }
     },
   );

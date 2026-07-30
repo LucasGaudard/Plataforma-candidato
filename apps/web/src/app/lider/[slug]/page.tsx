@@ -94,8 +94,9 @@ export default function LiderCadastroPage() {
               <div className="mt-6">
                 <SupporterForm
                   campaignSlug={configuredPublicCampaignSlug || ''}
-                  leaderSlug={slug}
-                  leaderName={leaderName}
+                  referrerSlug={slug}
+                  referrerName={leaderName}
+                  referrerType="leader"
                   onSuccess={() => setSuccess(true)}
                 />
               </div>

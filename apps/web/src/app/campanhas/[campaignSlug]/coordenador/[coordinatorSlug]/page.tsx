@@ -3,13 +3,13 @@
 import { useParams } from 'next/navigation';
 import { ReferralRegistrationPage } from '@/components/campaign/referral-registration-page';
 
-export default function CampaignLeaderRegistrationPage() {
-  const params = useParams<{ campaignSlug: string; leaderSlug: string }>();
+export default function CampaignCoordinatorRegistrationPage() {
+  const params = useParams<{ campaignSlug: string; coordinatorSlug: string }>();
   return (
     <ReferralRegistrationPage
       campaignSlug={params.campaignSlug}
-      referrerSlug={params.leaderSlug}
-      referrerType="leader"
+      referrerSlug={params.coordinatorSlug}
+      referrerType="coordinator"
     />
   );
 }

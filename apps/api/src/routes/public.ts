@@ -25,6 +25,50 @@ async function resolveCampaignOr404(
   return campaign;
 }
 
+async function createAttributedSupporter(
+  campaignId: string,
+  body: CreateSupporterRequest,
+  attribution: { leaderId?: string; coordinatorId?: string },
+  reply: FastifyReply,
+) {
+  const normalized = normalizeSupporterInput(body || ({} as CreateSupporterRequest));
+  const validation = validateSupporterInput(normalized);
+  if (!validation.valid) {
+    reply.status(400).send({ message: 'Dados inválidos', errors: validation.errors });
+    return null;
+  }
+  const existing = await prisma.user.findFirst({
+    where: { phone: normalized.phone, role: Role.USER, campaignId },
+  });
+  if (existing) {
+    reply.status(409).send({ message: 'Este WhatsApp já está cadastrado como apoiador.' });
+    return null;
+  }
+  const cuid = Date.now().toString(36) + Math.random().toString(36).substring(2);
+  return prisma.user.create({
+    data: {
+      firstName: normalized.firstName,
+      lastName: normalized.lastName,
+      phone: normalized.phone,
+      city: normalized.city,
+      state: normalized.state,
+      neighborhood: normalized.neighborhood,
+      email: `supporter-${cuid}@whatsapp.local`,
+      cpf: `SUPP-${cuid}`.substring(0, 14),
+      password: cuid,
+      address: 'Cadastro via WhatsApp',
+      role: Role.USER,
+      leaderId: attribution.leaderId,
+      coordinatorId: attribution.coordinatorId,
+      campaignId,
+      lgpdConsent: true,
+      lgpdConsentAt: new Date(),
+      lgpdConsentText: LGPD_CONSENT_TEXT,
+      lgpdConsentVersion: LGPD_CONSENT_VERSION,
+    },
+  });
+}
+
 export async function publicRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { campaignSlug: string } }>(
     '/campaigns/:campaignSlug',
@@ -211,49 +255,64 @@ export async function publicRoutes(fastify: FastifyInstance) {
     });
     if (!leader) return reply.status(404).send({ message: 'Líder não encontrado' });
 
-    const normalized = normalizeSupporterInput(request.body || ({} as CreateSupporterRequest));
-    const validation = validateSupporterInput(normalized);
-    if (!validation.valid) {
-      return reply.status(400).send({ message: 'Dados inválidos', errors: validation.errors });
-    }
-
-    const existing = await prisma.user.findFirst({
-      where: { phone: normalized.phone, role: Role.USER, campaignId: campaign.id },
-    });
-    if (existing) {
-      return reply.status(409).send({
-        message: 'Este WhatsApp já está cadastrado como apoiador.',
-      });
-    }
-
-    const cuid = Date.now().toString(36) + Math.random().toString(36).substring(2);
-    const supporter = await prisma.user.create({
-      data: {
-        firstName: normalized.firstName,
-        lastName: normalized.lastName,
-        phone: normalized.phone,
-        city: normalized.city,
-        state: normalized.state,
-        neighborhood: normalized.neighborhood,
-        email: `supporter-${cuid}@whatsapp.local`,
-        cpf: `SUPP-${cuid}`.substring(0, 14),
-        password: cuid,
-        address: 'Cadastro via WhatsApp',
-        role: Role.USER,
-        leaderId: leader.id,
-        coordinatorId: leader.coordinatorId,
-        campaignId: campaign.id,
-        lgpdConsent: true,
-        lgpdConsentAt: new Date(),
-        lgpdConsentText: LGPD_CONSENT_TEXT,
-        lgpdConsentVersion: LGPD_CONSENT_VERSION,
-      },
-    });
+    const supporter = await createAttributedSupporter(
+      campaign.id,
+      request.body,
+      { leaderId: leader.id, coordinatorId: leader.coordinatorId ?? undefined },
+      reply,
+    );
+    if (!supporter) return;
 
     whatsappService.sendConfirmationMessage(supporter).catch((error) => {
       fastify.log.error(error, 'Erro ao chamar whatsappService');
     });
 
+    return reply.status(201).send({ success: true, id: supporter.id });
+  });
+
+  fastify.get<{ Params: { campaignSlug: string; coordinatorSlug: string } }>(
+    '/campaigns/:campaignSlug/coordinators/:coordinatorSlug',
+    async (request, reply) => {
+      const campaign = await resolveCampaignOr404(request.params.campaignSlug, reply);
+      if (!campaign) return;
+      const coordinator = await prisma.user.findFirst({
+        where: {
+          coordinatorSlug: request.params.coordinatorSlug,
+          role: Role.COORDINATOR,
+          campaignId: campaign.id,
+        },
+        select: { id: true, firstName: true, lastName: true, coordinatorSlug: true },
+      });
+      if (!coordinator) return reply.status(404).send({ message: 'Coordenador não encontrado' });
+      return reply.send(coordinator);
+    },
+  );
+
+  fastify.post<{
+    Params: { campaignSlug: string; coordinatorSlug: string };
+    Body: CreateSupporterRequest;
+  }>('/campaigns/:campaignSlug/coordinators/:coordinatorSlug/supporters', async (request, reply) => {
+    const campaign = await resolveCampaignOr404(request.params.campaignSlug, reply);
+    if (!campaign) return;
+    const coordinator = await prisma.user.findFirst({
+      where: {
+        coordinatorSlug: request.params.coordinatorSlug,
+        role: Role.COORDINATOR,
+        campaignId: campaign.id,
+      },
+      select: { id: true },
+    });
+    if (!coordinator) return reply.status(404).send({ message: 'Coordenador não encontrado' });
+    const supporter = await createAttributedSupporter(
+      campaign.id,
+      request.body,
+      { coordinatorId: coordinator.id },
+      reply,
+    );
+    if (!supporter) return;
+    whatsappService.sendConfirmationMessage(supporter).catch((error) => {
+      fastify.log.error(error, 'Erro ao chamar whatsappService');
+    });
     return reply.status(201).send({ success: true, id: supporter.id });
   });
 }

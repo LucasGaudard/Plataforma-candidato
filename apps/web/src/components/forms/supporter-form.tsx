@@ -7,12 +7,13 @@ import { api } from '@/lib/api';
 
 interface SupporterFormProps {
   campaignSlug: string;
-  leaderSlug: string;
-  leaderName: string;
+  referrerSlug: string;
+  referrerName: string;
+  referrerType: 'leader' | 'coordinator';
   onSuccess: () => void;
 }
 
-export function SupporterForm({ campaignSlug, leaderSlug, leaderName, onSuccess }: SupporterFormProps) {
+export function SupporterForm({ campaignSlug, referrerSlug, referrerName, referrerType, onSuccess }: SupporterFormProps) {
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -91,10 +92,12 @@ export function SupporterForm({ campaignSlug, leaderSlug, leaderName, onSuccess 
     }
 
     try {
-      await api.createSupporter(campaignSlug, leaderSlug, {
-        ...form,
-        neighborhood: finalNeighborhood,
-      });
+      const payload = { ...form, neighborhood: finalNeighborhood };
+      if (referrerType === 'leader') {
+        await api.createSupporter(campaignSlug, referrerSlug, payload);
+      } else {
+        await api.createCoordinatorSupporter(campaignSlug, referrerSlug, payload);
+      }
       onSuccess();
     } catch (err) {
       const error = err as Error & { errors?: Record<string, string> };
@@ -109,9 +112,9 @@ export function SupporterForm({ campaignSlug, leaderSlug, leaderName, onSuccess 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {leaderName && (
+      {referrerName && (
         <Alert variant="info">
-          Você foi indicado por <strong>{leaderName}</strong>
+          Você foi indicado por <strong>{referrerName}</strong>
         </Alert>
       )}
 

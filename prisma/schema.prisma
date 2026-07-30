@@ -190,6 +190,7 @@ model User {
   lgpdConsentText      String?
   lgpdConsentVersion   String?
   leaderSlug           String?         @unique
+  coordinatorSlug      String?         @unique
   leaderId             String?
   leader               User?           @relation("LeaderSupporters", fields: [leaderId], references: [id], onDelete: SetNull)
   supporters           User[]          @relation("LeaderSupporters")
@@ -210,6 +211,7 @@ model User {
   @@index([campaignId])
   @@index([role])
   @@index([leaderSlug])
+  @@index([coordinatorSlug])
   @@index([createdAt])
 }
 

@@ -355,6 +355,8 @@ export interface CoordinatorDashboard {
   totalVerified: number;
   totalInvalid: number;
   averageSupportersPerLeader: number;
+  coordinatorSlug: string;
+  referralLink: string;
 }
 
 export interface CreateLeaderRequest {

@@ -73,6 +73,7 @@ function toLeaderItem(leader: {
 }
 
 export async function coordinatorRoutes(fastify: FastifyInstance) {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   // ─────────────────────────────────────────────────────────
   // GET /coordinator/dashboard
   // Retorna estatísticas agregadas do coordenador autenticado
@@ -84,7 +85,18 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
       const coordinatorId = request.user.sub;
       const campaignId = request.user.campaignId;
 
-      const [totalLeaders, totalSupporters, statusCounts] = await Promise.all([
+      const coordinator = await prisma.user.findFirst({
+        where: { id: coordinatorId, role: Role.COORDINATOR, campaignId },
+        select: {
+          coordinatorSlug: true,
+          campaign: { select: { slug: true } },
+        },
+      });
+      if (!coordinator?.coordinatorSlug || !coordinator.campaign) {
+        return reply.status(404).send({ message: 'Coordenador não encontrado' });
+      }
+
+      const [totalLeaders, totalSupporters, leaderSupporters, statusCounts] = await Promise.all([
         prisma.user.count({
           where: { role: Role.LEADER, coordinatorId, campaignId },
         }),
@@ -92,7 +104,15 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
           where: {
             role: Role.USER,
             campaignId,
-            leader: { coordinatorId, campaignId },
+            coordinatorId,
+          },
+        }),
+        prisma.user.count({
+          where: {
+            role: Role.USER,
+            campaignId,
+            coordinatorId,
+            leaderId: { not: null },
           },
         }),
         prisma.user.groupBy({
@@ -100,14 +120,14 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
           where: {
             role: Role.USER,
             campaignId,
-            leader: { coordinatorId, campaignId },
+            coordinatorId,
           },
           _count: { status: true },
         }),
       ]);
 
       const averageSupportersPerLeader =
-        totalLeaders > 0 ? Math.round(totalSupporters / totalLeaders) : 0;
+        totalLeaders > 0 ? Math.round(leaderSupporters / totalLeaders) : 0;
 
       return reply.send({
         totalLeaders,
@@ -116,6 +136,8 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
         totalVerified: statusCounts.find((s) => s.status === SupporterStatus.VERIFIED)?._count.status || 0,
         totalInvalid: statusCounts.find((s) => s.status === SupporterStatus.INVALID)?._count.status || 0,
         averageSupportersPerLeader,
+        coordinatorSlug: coordinator.coordinatorSlug,
+        referralLink: `${frontendUrl}/campanhas/${coordinator.campaign.slug}/coordenador/${coordinator.coordinatorSlug}`,
       });
     },
   );
@@ -330,7 +352,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
 
   // ─────────────────────────────────────────────────────────
   // GET /coordinator/supporters
-  // Lista paginada dos apoiadores vinculados aos líderes deste coordenador
+  // Lista paginada de todos os apoiadores da coordenação, com ou sem líder
   // ─────────────────────────────────────────────────────────
   fastify.get<{
     Querystring: { page?: string; limit?: string; search?: string; city?: string; state?: string; neighborhood?: string; leaderId?: string };
@@ -349,10 +371,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
       const where = {
         role: Role.USER,
         campaignId: request.user.campaignId,
-        leader: {
-          coordinatorId,
-          campaignId: request.user.campaignId,
-        },
+        coordinatorId,
         ...(leaderId ? { leaderId } : {}),
         ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
         ...(state ? { state } : {}),
@@ -424,10 +443,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
           id,
           role: Role.USER,
           campaignId: request.user.campaignId,
-          leader: {
-            coordinatorId,
-            campaignId: request.user.campaignId,
-          },
+          coordinatorId,
         },
       });
 
@@ -473,10 +489,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
                 },
               }
             : {
-                leader: {
-                  coordinatorId,
-                  campaignId: request.user.campaignId,
-                },
+                coordinatorId,
               }),
           ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
           ...(state ? { state: state.toUpperCase() } : {}),

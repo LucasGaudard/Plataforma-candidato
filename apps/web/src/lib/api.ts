@@ -455,6 +455,19 @@ class ApiClient {
     return this.request<WhatsappConfigStatus>('/campaign/whatsapp/config');
   }
 
+  getCoordinatorBySlug(campaignSlug: string, coordinatorSlug: string) {
+    return this.request<{ id: string; firstName: string; lastName: string; coordinatorSlug: string }>(
+      `/public/campaigns/${encodeURIComponent(campaignSlug)}/coordinators/${encodeURIComponent(coordinatorSlug)}`,
+    );
+  }
+
+  createCoordinatorSupporter(campaignSlug: string, coordinatorSlug: string, body: CreateSupporterRequest) {
+    return this.request<{ success: boolean; id: string }>(
+      `/public/campaigns/${encodeURIComponent(campaignSlug)}/coordinators/${encodeURIComponent(coordinatorSlug)}/supporters`,
+      { method: 'POST', body: JSON.stringify(body) },
+    );
+  }
+
   disableSuperAdminCampaignWhatsapp(id: string) {
     return this.request<{ success: boolean }>(`/super-admin/campaigns/${id}/whatsapp`, {
       method: 'PATCH',
