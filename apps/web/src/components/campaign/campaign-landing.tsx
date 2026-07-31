@@ -31,7 +31,7 @@ export function CampaignLanding({ campaignSlug }: { campaignSlug: string }) {
               width={1536}
               height={1024}
               priority
-              className="h-20 w-32 object-contain sm:h-24 sm:w-40"
+              className="h-12 w-auto object-contain sm:h-16"
             />
           )}
           <Link href={`/login?campaign=${campaign.slug}`} className="font-semibold text-brand-700">Entrar</Link>
