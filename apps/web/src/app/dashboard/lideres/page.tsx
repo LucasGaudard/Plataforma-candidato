@@ -10,6 +10,8 @@ import { api } from '@/lib/api';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useToast } from '@/contexts/toast-context';
+import { useAuth } from '@/contexts/auth-context';
+import { CoordinatorLeadersView } from '@/components/dashboard/coordinator-dashboard';
 
 type FormMode = 'create' | 'edit' | null;
 
@@ -429,14 +431,22 @@ function LeadersContent() {
 
 export default function LeadersPage() {
   return (
-    <ProtectedRoute allowedRoles={[Role.ADMIN]}>
-      <Suspense fallback={
-        <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-600 border-t-transparent" />
-        </div>
-      }>
-        <LeadersContent />
-      </Suspense>
+    <ProtectedRoute allowedRoles={[Role.ADMIN, Role.COORDINATOR]}>
+      <LeadersRouteContent />
     </ProtectedRoute>
+  );
+}
+
+function LeadersRouteContent() {
+  const { user } = useAuth();
+  if (user?.role === Role.COORDINATOR) return <CoordinatorLeadersView />;
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-600 border-t-transparent" />
+      </div>
+    }>
+      <LeadersContent />
+    </Suspense>
   );
 }

@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { PublicCampaignSummary } from '@platform/types';
@@ -6,8 +7,10 @@ import { api } from '@/lib/api';
 import { CampaignThemeProvider } from './campaign-theme-provider';
 import { CampaignLogo } from './campaign-logo';
 import { resolveCampaignContent } from '@/lib/campaign-content-defaults';
+import { useAuth } from '@/contexts/auth-context';
 
 export function CampaignLanding({ campaignSlug }: { campaignSlug: string }) {
+  const { user } = useAuth();
   const [campaign, setCampaign] = useState<PublicCampaignSummary | null>(null);
   const [error, setError] = useState('');
   useEffect(() => { api.getPublicCampaign(campaignSlug).then(setCampaign).catch((e: Error) => setError(e.message)); }, [campaignSlug]);
@@ -19,7 +22,18 @@ export function CampaignLanding({ campaignSlug }: { campaignSlug: string }) {
     <CampaignThemeProvider campaign={campaign}>
       <header className="border-b bg-white/95">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-          <span className="flex items-center gap-3"><CampaignLogo logoUrl={campaign.logoUrl} name={title} /><strong className="text-brand-700">{title}</strong></span>
+          {user ? (
+            <span className="flex items-center gap-3"><CampaignLogo logoUrl={campaign.logoUrl} name={title} /><strong className="text-brand-700">{title}</strong></span>
+          ) : (
+            <Image
+              src="/Images/conecta-eleitor.jpeg"
+              alt="Logo do Conecta Eleitor"
+              width={1024}
+              height={1024}
+              priority
+              className="h-12 w-12 object-contain sm:h-14 sm:w-14"
+            />
+          )}
           <Link href={`/login?campaign=${campaign.slug}`} className="font-semibold text-brand-700">Entrar</Link>
         </div>
       </header>

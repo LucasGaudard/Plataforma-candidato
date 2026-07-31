@@ -24,6 +24,7 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { useToast } from '@/contexts/toast-context';
 
 type FormMode = 'create' | 'edit' | null;
+type CoordinatorViewMode = 'dashboard' | 'leaders';
 
 const emptyCreate: CreateLeaderRequest = {
   firstName: '',
@@ -38,7 +39,7 @@ const emptyCreate: CreateLeaderRequest = {
   neighborhood: '',
 };
 
-export function CoordinatorDashboardView() {
+function CoordinatorView({ mode }: { mode: CoordinatorViewMode }) {
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -86,11 +87,12 @@ export function CoordinatorDashboardView() {
   }, [page, search, toast]);
 
   useEffect(() => {
-    Promise.all([loadStats(), loadLeaders()]).finally(() => setLoading(false));
+    const load = mode === 'dashboard' ? loadStats() : loadLeaders();
+    Promise.resolve(load).finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!loading) loadLeaders();
+    if (mode === 'leaders' && !loading) loadLeaders();
   }, [page, search]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openCreate() {
@@ -147,7 +149,7 @@ export function CoordinatorDashboardView() {
       await api.createCoordinatorLeader(payload);
       toast('Líder criado com sucesso!', 'success');
       closeForm();
-      await Promise.all([loadStats(), loadLeaders()]);
+      await loadLeaders();
     } catch (err: unknown) {
       const error = err as Error & { errors?: Record<string, string> };
       if (error.errors) setFormErrors(error.errors);
@@ -193,7 +195,7 @@ export function CoordinatorDashboardView() {
     try {
       await api.deactivateCoordinatorLeader(leader.id);
       toast('Líder desativado com sucesso.', 'success');
-      await Promise.all([loadStats(), loadLeaders()]);
+      await loadLeaders();
     } catch (err) {
       toast((err as Error).message, 'error');
     }
@@ -207,7 +209,7 @@ export function CoordinatorDashboardView() {
 
   if (loading) {
     return (
-      <DashboardLayout title="Dashboard Coordenador">
+      <DashboardLayout title={mode === 'dashboard' ? 'Dashboard Coordenador' : 'Líderes'}>
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-600 border-t-transparent" />
         </div>
@@ -252,7 +254,12 @@ export function CoordinatorDashboardView() {
   })();
 
   return (
-    <DashboardLayout title="Dashboard Coordenador" subtitle="Gerencie seus líderes">
+    <DashboardLayout
+      title={mode === 'dashboard' ? 'Dashboard Coordenador' : 'Líderes'}
+      subtitle={mode === 'dashboard' ? undefined : 'Gerencie seus líderes'}
+    >
+      {mode === 'dashboard' && (
+      <>
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard title="Líderes vinculados" value={stats?.totalLeaders ?? 0} icon={<span>👥</span>} />
@@ -272,7 +279,11 @@ export function CoordinatorDashboardView() {
           </Button>
         </Card>
       </div>
+      </>
+      )}
 
+      {mode === 'leaders' && (
+      <>
       {/* Formulário de criação/edição */}
       {formMode && (
         <Card className="mt-6">
@@ -448,8 +459,7 @@ export function CoordinatorDashboardView() {
       )}
 
       {/* Tabela de líderes */}
-      <div id="meus-lideres" className="scroll-mt-6">
-        <Card className="mt-6">
+      <Card>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-brand-900">Meus Líderes</h2>
           {formMode === null && (
@@ -574,8 +584,17 @@ export function CoordinatorDashboardView() {
         </div>
 
         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} className="mt-4" />
-        </Card>
-      </div>
+      </Card>
+      </>
+      )}
     </DashboardLayout>
   );
+}
+
+export function CoordinatorDashboardView() {
+  return <CoordinatorView mode="dashboard" />;
+}
+
+export function CoordinatorLeadersView() {
+  return <CoordinatorView mode="leaders" />;
 }
