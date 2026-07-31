@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Alert, Card } from '@platform/ui';
@@ -11,7 +12,7 @@ import { CampaignThemeProvider } from '@/components/campaign/campaign-theme-prov
 import { CampaignIdentity } from '@/components/campaign/campaign-identity';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const router = useRouter();
   const [campaignSlug, setCampaignSlug] = useState<string | null>(null);
   useEffect(() => {
@@ -42,8 +43,21 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="mb-8 text-center">
-          {campaignSlug && <Link href="/"><CampaignIdentity /></Link>}
-          <Link href="/" className={`${campaignSlug ? 'hidden' : 'inline-flex'} items-center gap-2.5`}>
+          {!user ? (
+            <Link href="/" className="inline-block">
+              <Image
+                src="/Images/conecta-eleitor-horizontal.png"
+                alt="Logo do Conecta Eleitor"
+                width={1536}
+                height={1024}
+                priority
+                className="mx-auto h-28 w-44 object-contain sm:h-32 sm:w-52"
+              />
+            </Link>
+          ) : campaignSlug ? (
+            <Link href="/"><CampaignIdentity /></Link>
+          ) : (
+          <Link href="/" className="inline-flex items-center gap-2.5">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-brand shadow-brand">
               <svg viewBox="0 0 24 24" className="h-5 w-5 fill-white" xmlns="http://www.w3.org/2000/svg">
                 <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
@@ -54,6 +68,7 @@ export default function LoginPage() {
               <span className="text-[10px] text-slate-400 font-medium">Plataforma Política</span>
             </div>
           </Link>
+          )}
         </div>
 
         <Card padding="lg">

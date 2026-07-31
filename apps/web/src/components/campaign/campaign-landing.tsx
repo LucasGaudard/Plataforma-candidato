@@ -26,12 +26,12 @@ export function CampaignLanding({ campaignSlug }: { campaignSlug: string }) {
             <span className="flex items-center gap-3"><CampaignLogo logoUrl={campaign.logoUrl} name={title} /><strong className="text-brand-700">{title}</strong></span>
           ) : (
             <Image
-              src="/Images/conecta-eleitor.jpeg"
+              src="/Images/conecta-eleitor-horizontal.png"
               alt="Logo do Conecta Eleitor"
-              width={1024}
+              width={1536}
               height={1024}
               priority
-              className="h-12 w-12 object-contain sm:h-14 sm:w-14"
+              className="h-20 w-32 object-contain sm:h-24 sm:w-40"
             />
           )}
           <Link href={`/login?campaign=${campaign.slug}`} className="font-semibold text-brand-700">Entrar</Link>

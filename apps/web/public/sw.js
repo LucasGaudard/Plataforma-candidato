@@ -1,8 +1,8 @@
-const CACHE_VERSION = 'conecta-eleitor-v1';
+const CACHE_VERSION = 'conecta-eleitor-v2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PRECACHE_URLS = [
   '/offline.html',
-  '/favicon.svg',
+  '/icons/favicon.png',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
   '/icons/icon-maskable-512x512.png',
@@ -37,7 +37,7 @@ function isSafeStaticAsset(url) {
     url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/icons/') ||
     url.pathname.startsWith('/Images/') ||
-    url.pathname === '/favicon.svg'
+    url.pathname === '/icons/favicon.png'
   );
 }
 
