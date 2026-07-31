@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: '📊', roles: [Role.ADMIN, Role.COORDINATOR, Role.LEADER, Role.USER] },
   { href: '/dashboard/coordenadores', label: 'Coordenadores', icon: '👔', roles: [Role.ADMIN] },
   { href: '/dashboard/lideres', label: 'Líderes', icon: '👥', roles: [Role.ADMIN] },
+  { href: '/dashboard#meus-lideres', label: 'Líderes', icon: '👥', roles: [Role.COORDINATOR] },
   { href: '/dashboard/apoiadores', label: 'Apoiadores', icon: '🤝', roles: [Role.ADMIN, Role.COORDINATOR, Role.LEADER] },
   { href: '/dashboard/eventos', label: 'Eventos', icon: '📅', roles: [Role.ADMIN, Role.LEADER, Role.USER] },
   { href: '/dashboard/lives', label: 'Lives', icon: '📺', roles: [Role.ADMIN, Role.LEADER, Role.USER] },

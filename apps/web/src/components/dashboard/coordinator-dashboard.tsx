@@ -448,7 +448,8 @@ export function CoordinatorDashboardView() {
       )}
 
       {/* Tabela de líderes */}
-      <Card className="mt-6">
+      <div id="meus-lideres" className="scroll-mt-6">
+        <Card className="mt-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-brand-900">Meus Líderes</h2>
           {formMode === null && (
@@ -573,7 +574,8 @@ export function CoordinatorDashboardView() {
         </div>
 
         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} className="mt-4" />
-      </Card>
+        </Card>
+      </div>
     </DashboardLayout>
   );
 }
