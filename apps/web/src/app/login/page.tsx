@@ -51,7 +51,7 @@ export default function LoginPage() {
                 width={1536}
                 height={1024}
                 priority
-                className="mx-auto h-28 w-44 object-contain sm:h-32 sm:w-52"
+                className="mx-auto h-[56px] w-auto object-contain sm:h-[72px]"
               />
             </Link>
           ) : campaignSlug ? (

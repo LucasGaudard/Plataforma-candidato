@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     title: 'Conecta Eleitor',
     description:
       'Plataforma de gestão, comunicação e relacionamento para campanhas eleitorais.',
-    images: [{ url: `${siteUrl}/icons/icon-512x512.png`, width: 512, height: 512 }],
+    images: [{ url: `${siteUrl}/icons/icon-512x512.png?v=3`, width: 512, height: 512 }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -41,12 +41,12 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: '/icons/favicon.png', sizes: '48x48', type: 'image/png' },
-      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/favicon.png?v=3', sizes: '48x48', type: 'image/png' },
+      { url: '/icons/icon-192x192.png?v=3', sizes: '192x192', type: 'image/png' },
     ],
     apple: [
       {
-        url: '/icons/apple-touch-icon.png',
+        url: '/icons/apple-touch-icon.png?v=3',
         sizes: '180x180',
         type: 'image/png',
       },

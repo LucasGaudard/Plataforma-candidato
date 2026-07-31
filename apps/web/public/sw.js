@@ -1,12 +1,12 @@
-const CACHE_VERSION = 'conecta-eleitor-v2';
+const CACHE_VERSION = 'conecta-eleitor-v3';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PRECACHE_URLS = [
   '/offline.html',
-  '/icons/favicon.png',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
-  '/icons/icon-maskable-512x512.png',
-  '/icons/apple-touch-icon.png',
+  '/icons/favicon.png?v=3',
+  '/icons/icon-192x192.png?v=3',
+  '/icons/icon-512x512.png?v=3',
+  '/icons/icon-maskable-512x512.png?v=3',
+  '/icons/apple-touch-icon.png?v=3',
 ];
 
 self.addEventListener('install', (event) => {
