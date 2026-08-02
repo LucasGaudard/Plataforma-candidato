@@ -53,6 +53,7 @@ async function createAttributedSupporter(
       city: normalized.city,
       state: normalized.state,
       neighborhood: normalized.neighborhood,
+      zone: normalized.zone,
       email: `supporter-${cuid}@whatsapp.local`,
       cpf: `SUPP-${cuid}`.substring(0, 14),
       password: cuid,

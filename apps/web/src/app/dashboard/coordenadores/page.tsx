@@ -10,6 +10,7 @@ import { api } from '@/lib/api';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useToast } from '@/contexts/toast-context';
+import { CityZoneSelect } from '@/components/forms/city-zone-select';
 
 type FormMode = 'create' | 'edit' | null;
 
@@ -50,6 +51,7 @@ function CoordinatorsContent() {
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [coordinatorToDeactivate, setCoordinatorToDeactivate] = useState<AdminCoordinatorItem | null>(null);
+  const [coordinatorToDelete, setCoordinatorToDelete] = useState<AdminCoordinatorItem | null>(null);
 
   const loadCoordinators = useCallback(async () => {
     setTableLoading(true);
@@ -84,6 +86,7 @@ function CoordinatorsContent() {
       city: coord.city,
       state: coord.state,
       neighborhood: coord.neighborhood || '',
+      zone: coord.zone || null,
     });
     setFormErrors({});
     setEditCustomNeighborhood('');
@@ -172,6 +175,21 @@ function CoordinatorsContent() {
     }
   }
 
+  async function handleConfirmDelete() {
+    if (!coordinatorToDelete || formLoading) return;
+    setFormLoading(true);
+    try {
+      await api.deleteAdminCoordinator(coordinatorToDelete.id);
+      toast('Coordenador excluído permanentemente com sucesso.', 'success');
+      setCoordinatorToDelete(null);
+      await loadCoordinators();
+    } catch (err) {
+      toast((err as Error).message, 'error');
+    } finally {
+      setFormLoading(false);
+    }
+  }
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setSearch(searchInput);
@@ -248,6 +266,7 @@ function CoordinatorsContent() {
               </div>
               <Select label="Estado *" options={[{ value: '', label: 'Selecione o estado' }, ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s }))]} value={createForm.state} onChange={(e) => setCreateForm({ ...createForm, state: e.target.value, city: '', neighborhood: '' })} />
               <Select label="Cidade *" value={createForm.city} error={formErrors.city} onChange={(e) => setCreateForm({ ...createForm, city: e.target.value, neighborhood: '' })} options={createCityOptions} disabled={!createForm.state} />
+              <CityZoneSelect value={createForm.zone} onChange={(zone) => setCreateForm({ ...createForm, zone })} error={formErrors.zone} />
               <div className="space-y-4">
                 {createForm.city && NEIGHBORHOODS_BY_CITY[createForm.city] ? (
                   <Select label="Bairro/Região" name="neighborhood" value={createForm.neighborhood || ''} onChange={(e) => setCreateForm({ ...createForm, neighborhood: e.target.value })} error={formErrors.neighborhood} options={createNeighborhoodOptions} />
@@ -270,6 +289,7 @@ function CoordinatorsContent() {
               <Input label="Telefone" value={editForm.phone ?? ''} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
               <Select label="Estado" options={[{ value: '', label: 'Selecione o estado' }, ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s }))]} value={editForm.state ?? ''} onChange={(e) => setEditForm({ ...editForm, state: e.target.value, city: '', neighborhood: '' })} />
               <Select label="Cidade" value={editForm.city ?? ''} onChange={(e) => setEditForm({ ...editForm, city: e.target.value, neighborhood: '' })} options={editCityOptions} disabled={!editForm.state} />
+              <CityZoneSelect value={editForm.zone} onChange={(zone) => setEditForm({ ...editForm, zone: zone || null })} error={formErrors.zone} />
               <div className="space-y-4">
                 {editForm.city && NEIGHBORHOODS_BY_CITY[editForm.city] ? (
                   <Select label="Bairro/Região" name="neighborhood" value={editForm.neighborhood || ''} onChange={(e) => setEditForm({ ...editForm, neighborhood: e.target.value })} error={formErrors.neighborhood} options={editNeighborhoodOptions} />
@@ -357,6 +377,9 @@ function CoordinatorsContent() {
                       >
                         {coord.active ? 'Desativar' : 'Ativar'}
                       </Button>
+                      <Button variant="danger" size="xs" onClick={() => setCoordinatorToDelete(coord)}>
+                        Excluir permanentemente
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -376,6 +399,16 @@ function CoordinatorsContent() {
         confirmVariant={coordinatorToDeactivate?.active ? 'danger' : 'success'}
         onConfirm={handleConfirmDeactivate}
         onCancel={() => setConfirmModalOpen(false)}
+        isLoading={formLoading}
+      />
+      <ConfirmModal
+        isOpen={!!coordinatorToDelete}
+        title="Excluir Coordenador permanentemente"
+        message={<>Esta ação é permanente. Deseja excluir o usuário <strong>{coordinatorToDelete?.firstName} {coordinatorToDelete?.lastName}</strong>, perfil <strong>Coordenador</strong>? Registros importantes vinculados impedirão a exclusão.</>}
+        confirmLabel="Excluir permanentemente"
+        confirmVariant="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setCoordinatorToDelete(null)}
         isLoading={formLoading}
       />
     </DashboardLayout>

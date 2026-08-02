@@ -8,6 +8,16 @@ export const Role = {
 
 export type Role = (typeof Role)[keyof typeof Role];
 
+export const CityZone = {
+  WEST: 'WEST',
+  NORTH: 'NORTH',
+  SOUTH: 'SOUTH',
+  EAST: 'EAST',
+  OTHER: 'OTHER',
+} as const;
+
+export type CityZone = (typeof CityZone)[keyof typeof CityZone];
+
 export const SupporterStatus = {
   PENDING: 'PENDING',
   VERIFIED: 'VERIFIED',
@@ -189,6 +199,7 @@ export interface RegisterRequest {
   city: string;
   state: string;
   neighborhood?: string;
+  zone?: CityZone;
   leaderSlug?: string;
   lgpdConsent?: boolean;
 }
@@ -343,6 +354,7 @@ export interface CoordinatorLeaderItem {
   city: string;
   state: string;
   neighborhood?: string | null;
+  zone?: CityZone | null;
   leaderSlug: string | null;
   supporterCount: number;
   createdAt: string;
@@ -370,6 +382,7 @@ export interface CreateLeaderRequest {
   city: string;
   state: string;
   neighborhood?: string;
+  zone?: CityZone;
 }
 
 export interface UpdateLeaderRequest {
@@ -380,6 +393,7 @@ export interface UpdateLeaderRequest {
   city?: string;
   state?: string;
   neighborhood?: string;
+  zone?: CityZone | null;
 }
 
 export interface CoordinatorLeadersQuery {
@@ -395,6 +409,7 @@ export interface CreateSupporterRequest {
   city: string;
   state: string;
   neighborhood?: string;
+  zone?: CityZone;
   lgpdConsent: boolean;
 }
 
@@ -405,6 +420,7 @@ export interface SupportersQuery {
   city?: string;
   state?: string;
   neighborhood?: string;
+  zone?: CityZone;
   leaderId?: string;
   coordinatorId?: string;
 }
@@ -416,6 +432,7 @@ export interface CommunicationFilters {
   city?: string;
   state?: string;
   neighborhood?: string;
+  zone?: CityZone;
 }
 
 export interface RecipientCountResponse {
@@ -430,6 +447,7 @@ export interface SupporterListItem {
   city: string;
   state: string;
   neighborhood?: string | null;
+  zone?: CityZone | null;
   status: SupporterStatus;
   whatsappStatus: WhatsappStatus;
   createdAt: string;
@@ -446,6 +464,7 @@ export interface AdminCoordinatorItem {
   city: string;
   state: string;
   neighborhood?: string | null;
+  zone?: CityZone | null;
   active: boolean;
   leadersCount: number;
   supportersCount: number;
@@ -463,6 +482,7 @@ export interface CreateCoordinatorRequest {
   city: string;
   state: string;
   neighborhood?: string;
+  zone?: CityZone;
 }
 
 export interface UpdateCoordinatorRequest {
@@ -474,6 +494,7 @@ export interface UpdateCoordinatorRequest {
   city?: string;
   state?: string;
   neighborhood?: string;
+  zone?: CityZone | null;
 }
 
 export interface AdminLeaderItem {
@@ -485,16 +506,52 @@ export interface AdminLeaderItem {
   city: string;
   state: string;
   neighborhood?: string | null;
+  zone?: CityZone | null;
   active: boolean;
   supportersCount: number;
-  coordinatorId: string;
-  coordinatorName: string;
+  coordinatorId?: string;
+  coordinatorName?: string;
   leaderSlug?: string;
   createdAt: string;
 }
 
 export interface AdminCreateLeaderRequest extends CreateLeaderRequest {
-  coordinatorId: string;
+  coordinatorId?: string;
+}
+
+export type CoordinatorSupporterOrigin = 'COORDINATOR' | 'LEADER';
+
+export interface CoordinatorSupporterItem extends SupporterListItem {
+  email?: string;
+  origin: CoordinatorSupporterOrigin;
+  leader: { id: string; name: string } | null;
+}
+
+export interface CoordinatorSupportersQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  origin?: CoordinatorSupporterOrigin;
+  leaderId?: string;
+  order?: 'asc' | 'desc';
+}
+
+export interface CoordinatorSupportersResponse {
+  data: CoordinatorSupporterItem[];
+  summary: { total: number; direct: number; fromLeaders: number };
+  meta: PaginationMeta;
+}
+
+export interface UserDeletionDependency {
+  type: 'posts' | 'events' | 'lives' | 'notifications';
+  label: string;
+  count: number;
+}
+
+export interface DeleteManagedUserResponse {
+  success: true;
+  message: string;
+  unlinked: { leaders: number; supporters: number };
 }
 
 export interface WhatsappConfigStatus {

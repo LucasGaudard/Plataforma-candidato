@@ -1,7 +1,7 @@
 import { isValidCpf, stripCpf } from './cpf.js';
 import { isValidEmail, normalizeEmail } from './email.js';
 import { isValidPhone, stripPhone } from './phone.js';
-import { BRAZILIAN_STATES, BrazilianState } from './locations.js';
+import { BRAZILIAN_STATES, BrazilianState, CityZoneValue, isValidCityZone } from './locations.js';
 
 export interface RegisterValidationInput {
   email: string;
@@ -14,6 +14,7 @@ export interface RegisterValidationInput {
   city: string;
   state: string;
   neighborhood?: string;
+  zone?: CityZoneValue;
 }
 
 export interface ValidationResult {
@@ -63,6 +64,9 @@ export function validateRegisterInput(input: RegisterValidationInput): Validatio
     errors.password = 'Senha deve ter pelo menos 8 caracteres';
   }
 
+  if (input.zone && !isValidCityZone(input.zone)) errors.zone = 'Zona inválida';
+  if (input.neighborhood && input.neighborhood.trim().length > 100) errors.neighborhood = 'Bairro deve ter no máximo 100 caracteres';
+
   return {
     valid: Object.keys(errors).length === 0,
     errors,
@@ -80,7 +84,7 @@ export function normalizeRegisterInput(input: RegisterValidationInput): Register
     address: input.address.trim(),
     city: input.city.trim(),
     state: input.state.trim().toUpperCase(),
-    neighborhood: input.neighborhood?.trim(),
+    neighborhood: input.neighborhood?.trim().replace(/[<>]/g, ''),
   };
 }
 
@@ -91,6 +95,7 @@ export interface SupporterValidationInput {
   city: string;
   state: string;
   neighborhood?: string;
+  zone?: CityZoneValue;
   lgpdConsent?: boolean;
 }
 
@@ -122,6 +127,9 @@ export function validateSupporterInput(input: SupporterValidationInput): Validat
     errors.lgpdConsent = 'É necessário autorizar o tratamento dos dados para concluir o cadastro.';
   }
 
+  if (input.zone && !isValidCityZone(input.zone)) errors.zone = 'Zona inválida';
+  if (input.neighborhood && input.neighborhood.trim().length > 100) errors.neighborhood = 'Bairro deve ter no máximo 100 caracteres';
+
   return {
     valid: Object.keys(errors).length === 0,
     errors,
@@ -136,7 +144,7 @@ export function normalizeSupporterInput(input: SupporterValidationInput): Suppor
     lastName: input.lastName.trim(),
     city: input.city.trim(),
     state: input.state.trim().toUpperCase(),
-    neighborhood: input.neighborhood?.trim(),
+    neighborhood: input.neighborhood?.trim().replace(/[<>]/g, ''),
     lgpdConsent: input.lgpdConsent,
   };
 }

@@ -4,11 +4,14 @@ import { useCallback, useEffect, useState } from 'react';
 import type {
   CoordinatorDashboard,
   CoordinatorLeaderItem,
+  CoordinatorSupporterItem,
+  CoordinatorSupporterOrigin,
   CreateLeaderRequest,
   UpdateLeaderRequest,
 } from '@platform/types';
 import { BRAZILIAN_STATES, CITIES_BY_STATE, NEIGHBORHOODS_BY_CITY, formatPhone } from '@platform/utils';
 import {
+  Badge,
   Button,
   Card,
   EmptyState,
@@ -22,6 +25,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { useToast } from '@/contexts/toast-context';
+import { CityZoneSelect } from '@/components/forms/city-zone-select';
 
 type FormMode = 'create' | 'edit' | null;
 type CoordinatorViewMode = 'dashboard' | 'leaders';
@@ -60,6 +64,17 @@ function CoordinatorView({ mode }: { mode: CoordinatorViewMode }) {
   const [editForm, setEditForm] = useState<UpdateLeaderRequest>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
+  const [structureSupporters, setStructureSupporters] = useState<CoordinatorSupporterItem[]>([]);
+  const [structureLeaders, setStructureLeaders] = useState<CoordinatorLeaderItem[]>([]);
+  const [supporterSummary, setSupporterSummary] = useState({ total: 0, direct: 0, fromLeaders: 0 });
+  const [supporterPage, setSupporterPage] = useState(1);
+  const [supporterTotalPages, setSupporterTotalPages] = useState(1);
+  const [supporterSearchInput, setSupporterSearchInput] = useState('');
+  const [supporterSearch, setSupporterSearch] = useState('');
+  const [supporterOrigin, setSupporterOrigin] = useState<CoordinatorSupporterOrigin | ''>('');
+  const [supporterLeaderId, setSupporterLeaderId] = useState('');
+  const [supportersLoading, setSupportersLoading] = useState(false);
+  const [supportersError, setSupportersError] = useState('');
 
   const [createCustomNeighborhood, setCreateCustomNeighborhood] = useState('');
   const [editCustomNeighborhood, setEditCustomNeighborhood] = useState('');
@@ -86,14 +101,51 @@ function CoordinatorView({ mode }: { mode: CoordinatorViewMode }) {
     }
   }, [page, search, toast]);
 
+  const loadStructureSupporters = useCallback(async () => {
+    setSupportersLoading(true);
+    setSupportersError('');
+    try {
+      const result = await api.getCoordinatorSupporters({
+        page: supporterPage,
+        limit: 10,
+        search: supporterSearch || undefined,
+        origin: supporterOrigin || undefined,
+        leaderId: supporterLeaderId || undefined,
+        order: 'desc',
+      });
+      setStructureSupporters(result.data);
+      setSupporterSummary(result.summary);
+      setSupporterTotalPages(result.meta.totalPages);
+    } catch (err) {
+      setSupportersError((err as Error).message);
+    } finally {
+      setSupportersLoading(false);
+    }
+  }, [supporterPage, supporterSearch, supporterOrigin, supporterLeaderId]);
+
+  const loadStructureLeaders = useCallback(async () => {
+    try {
+      const result = await api.getCoordinatorLeaders({ page: 1, limit: 100 });
+      setStructureLeaders(result.data);
+    } catch (err) {
+      setSupportersError((err as Error).message);
+    }
+  }, []);
+
   useEffect(() => {
-    const load = mode === 'dashboard' ? loadStats() : loadLeaders();
+    const load = mode === 'dashboard'
+      ? Promise.all([loadStats(), loadStructureSupporters(), loadStructureLeaders()])
+      : loadLeaders();
     Promise.resolve(load).finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (mode === 'leaders' && !loading) loadLeaders();
   }, [page, search]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (mode === 'dashboard' && !loading) loadStructureSupporters();
+  }, [supporterPage, supporterSearch, supporterOrigin, supporterLeaderId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openCreate() {
     setCreateForm(emptyCreate);
@@ -111,6 +163,7 @@ function CoordinatorView({ mode }: { mode: CoordinatorViewMode }) {
       city: leader.city,
       state: leader.state,
       neighborhood: leader.neighborhood || '',
+      zone: leader.zone || null,
     });
     setFormErrors({});
     setEditCustomNeighborhood('');
@@ -207,6 +260,12 @@ function CoordinatorView({ mode }: { mode: CoordinatorViewMode }) {
     setPage(1);
   }
 
+  function handleSupporterSearch(e: React.FormEvent) {
+    e.preventDefault();
+    setSupporterSearch(supporterSearchInput.trim());
+    setSupporterPage(1);
+  }
+
   if (loading) {
     return (
       <DashboardLayout title={mode === 'dashboard' ? 'Dashboard Coordenador' : 'Líderes'}>
@@ -279,6 +338,101 @@ function CoordinatorView({ mode }: { mode: CoordinatorViewMode }) {
           </Button>
         </Card>
       </div>
+
+      <section className="mt-8" aria-labelledby="structure-supporters-title">
+        <div className="mb-4">
+          <h2 id="structure-supporters-title" className="text-xl font-semibold text-brand-900">Apoiadores da minha estrutura</h2>
+          <p className="mt-1 text-sm text-slate-500">Cadastros diretos do seu link e dos líderes atualmente vinculados a você.</p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <StatCard title="Total da estrutura" value={supporterSummary.total} icon={<span>🤝</span>} />
+          <StatCard title="Diretos do coordenador" value={supporterSummary.direct} icon={<span>🔗</span>} />
+          <StatCard title="Provenientes dos líderes" value={supporterSummary.fromLeaders} icon={<span>👥</span>} />
+        </div>
+
+        <Card className="mt-4">
+          <form onSubmit={handleSupporterSearch} className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_220px_auto]">
+            <Input
+              placeholder="Buscar por nome, telefone ou e-mail"
+              value={supporterSearchInput}
+              onChange={(event) => setSupporterSearchInput(event.target.value)}
+            />
+            <Select
+              aria-label="Filtrar por origem"
+              value={supporterOrigin}
+              options={[
+                { value: '', label: 'Todas as origens' },
+                { value: 'COORDINATOR', label: 'Diretos do coordenador' },
+                { value: 'LEADER', label: 'Provenientes dos líderes' },
+              ]}
+              onChange={(event) => {
+                setSupporterOrigin(event.target.value as CoordinatorSupporterOrigin | '');
+                setSupporterPage(1);
+                if (event.target.value === 'COORDINATOR') setSupporterLeaderId('');
+              }}
+            />
+            <Select
+              aria-label="Filtrar por líder"
+              value={supporterLeaderId}
+              disabled={supporterOrigin === 'COORDINATOR'}
+              options={[
+                { value: '', label: 'Todos os líderes' },
+                ...structureLeaders.map((leader) => ({ value: leader.id, label: `${leader.firstName} ${leader.lastName}` })),
+              ]}
+              onChange={(event) => {
+                setSupporterLeaderId(event.target.value);
+                if (event.target.value) setSupporterOrigin('LEADER');
+                setSupporterPage(1);
+              }}
+            />
+            <Button type="submit" variant="outline">Buscar</Button>
+          </form>
+
+          {supportersError ? (
+            <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              {supportersError}
+              <Button type="button" variant="outline" size="sm" className="ml-3" onClick={loadStructureSupporters}>Tentar novamente</Button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-600">
+                    <th className="pb-3 font-semibold">Apoiador</th>
+                    <th className="pb-3 font-semibold">Contato</th>
+                    <th className="pb-3 font-semibold">Origem</th>
+                    <th className="pb-3 font-semibold">Cadastro</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {supportersLoading ? (
+                    Array.from({ length: 4 }).map((_, index) => <TableRowSkeleton key={index} cols={4} />)
+                  ) : structureSupporters.length === 0 ? (
+                    <tr><td colSpan={4} className="py-8"><EmptyState title="Nenhum apoiador encontrado" description="Sua estrutura ainda não possui apoiadores para os filtros selecionados." /></td></tr>
+                  ) : structureSupporters.map((supporter) => (
+                    <tr key={supporter.id} className="border-b border-slate-100 last:border-0">
+                      <td className="py-3 pr-4 font-medium text-slate-900">{supporter.firstName} {supporter.lastName}</td>
+                      <td className="py-3 pr-4">
+                        <a className="text-brand-700 hover:underline" href={`tel:${supporter.phone}`}>{formatPhone(supporter.phone)}</a>
+                        {supporter.email && <div className="text-xs text-slate-500">{supporter.email}</div>}
+                      </td>
+                      <td className="py-3 pr-4">
+                        {supporter.origin === 'COORDINATOR'
+                          ? <Badge variant="info">Direto do coordenador</Badge>
+                          : <><Badge variant="default">Via líder</Badge><div className="mt-1 text-xs text-slate-500">{supporter.leader?.name}</div></>}
+                      </td>
+                      <td className="whitespace-nowrap py-3 text-slate-500">{new Intl.DateTimeFormat('pt-BR').format(new Date(supporter.createdAt))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <Pagination page={supporterPage} totalPages={supporterTotalPages} onPageChange={setSupporterPage} className="mt-4" />
+        </Card>
+      </section>
       </>
       )}
 
@@ -374,6 +528,7 @@ function CoordinatorView({ mode }: { mode: CoordinatorViewMode }) {
                 options={createCityOptions}
                 disabled={!createForm.state}
               />
+              <CityZoneSelect value={createForm.zone} onChange={(zone) => setCreateForm({ ...createForm, zone })} error={formErrors.zone} />
               <div className="space-y-4">
                 {createForm.city && NEIGHBORHOODS_BY_CITY[createForm.city] ? (
                   <Select label="Bairro/Região" name="neighborhood" value={createForm.neighborhood || ''} onChange={(e) => setCreateForm({ ...createForm, neighborhood: e.target.value })} error={formErrors.neighborhood} options={createNeighborhoodOptions} />
@@ -429,6 +584,7 @@ function CoordinatorView({ mode }: { mode: CoordinatorViewMode }) {
                 options={editCityOptions}
                 disabled={!editForm.state}
               />
+              <CityZoneSelect value={editForm.zone} onChange={(zone) => setEditForm({ ...editForm, zone: zone || null })} error={formErrors.zone} />
               <div className="space-y-4">
                 {editForm.city && NEIGHBORHOODS_BY_CITY[editForm.city] ? (
                   <Select label="Bairro/Região" name="neighborhood" value={editForm.neighborhood || ''} onChange={(e) => setEditForm({ ...editForm, neighborhood: e.target.value })} error={formErrors.neighborhood} options={editNeighborhoodOptions} />

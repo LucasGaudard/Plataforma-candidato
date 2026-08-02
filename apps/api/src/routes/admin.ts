@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
-import type { FastifyInstance } from 'fastify';
+import { CityZone as PrismaCityZone } from '@prisma/client';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { 
   AdminDashboard, 
   SupporterListItem,
@@ -17,6 +18,7 @@ import {
   normalizeRegisterInput,
   sanitizeString,
   validateRegisterInput,
+  isValidCityZone,
 } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toEventPublic, toLivePublic, toPostPublic } from '../lib/mappers';
@@ -35,6 +37,67 @@ async function generateUniqueLeaderSlug(firstName: string, lastName: string): Pr
     if (!existing) return slug;
     slug = `${base}-${attempt}`;
     attempt++;
+  }
+}
+
+const managedUserIdPattern = /^[A-Za-z0-9_-]{10,64}$/;
+
+async function deleteManagedUser(
+  fastify: FastifyInstance,
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply,
+  role: typeof Role.LEADER | typeof Role.COORDINATOR,
+) {
+  const { id } = request.params;
+  const roleLabel = role === Role.LEADER ? 'Líder' : 'Coordenador';
+
+  if (!managedUserIdPattern.test(id)) {
+    return reply.status(400).send({ message: 'ID de usuário inválido.' });
+  }
+  if (id === request.user.sub) {
+    return reply.status(403).send({ message: 'Você não pode excluir sua própria conta.' });
+  }
+
+  const user = await prisma.user.findFirst({
+    where: { id, role, campaignId: request.user.campaignId },
+    select: {
+      id: true,
+      _count: { select: { posts: true, events: true, lives: true, notifications: true } },
+    },
+  });
+  if (!user) return reply.status(404).send({ message: `${roleLabel} não encontrado.` });
+
+  const dependencyDefinitions = [
+    { type: 'posts', label: 'publicações', count: user._count.posts },
+    { type: 'events', label: 'eventos', count: user._count.events },
+    { type: 'lives', label: 'lives', count: user._count.lives },
+    { type: 'notifications', label: 'notificações', count: user._count.notifications },
+  ] as const;
+  const dependencies = dependencyDefinitions.filter((dependency) => dependency.count > 0);
+
+  if (dependencies.length > 0) {
+    return reply.status(409).send({
+      message: `Não foi possível excluir o ${roleLabel.toLowerCase()}. Transfira ou remova os registros vinculados antes de tentar novamente.`,
+      dependencies,
+    });
+  }
+
+  try {
+    const unlinked = await prisma.$transaction(async (tx) => {
+      const leaders = role === Role.COORDINATOR
+        ? await tx.user.updateMany({ where: { coordinatorId: id }, data: { coordinatorId: null } })
+        : { count: 0 };
+      const supporters = role === Role.LEADER
+        ? await tx.user.updateMany({ where: { leaderId: id }, data: { leaderId: null } })
+        : { count: 0 };
+      await tx.user.delete({ where: { id } });
+      return { leaders: leaders.count, supporters: supporters.count };
+    });
+
+    return reply.send({ success: true, message: `${roleLabel} excluído permanentemente.`, unlinked });
+  } catch (error) {
+    fastify.log.error({ err: error, userId: id, role }, 'Falha ao excluir usuário gerenciado');
+    return reply.status(500).send({ message: 'Não foi possível concluir a exclusão. Tente novamente.' });
   }
 }
 
@@ -207,6 +270,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       city?: string;
       state?: string;
       neighborhood?: string;
+      zone?: string;
       leaderId?: string;
       coordinatorId?: string;
     };
@@ -220,6 +284,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const state = request.query.state?.trim().toUpperCase();
       const leaderId = request.query.leaderId;
       const coordinatorId = request.query.coordinatorId;
+      const zone = request.query.zone?.trim();
+      if (zone && !isValidCityZone(zone)) return reply.status(400).send({ message: 'Zona inválida.' });
 
       const where = {
         role: Role.USER,
@@ -239,6 +305,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
         ...(state ? { state } : {}),
         ...(request.query.neighborhood ? { neighborhood: { contains: request.query.neighborhood.trim(), mode: 'insensitive' as const } } : {}),
+        ...(zone ? { zone: zone as PrismaCityZone } : {}),
         ...(search
           ? {
               OR: [
@@ -272,6 +339,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         city: u.city,
         state: u.state,
         neighborhood: u.neighborhood,
+        zone: u.zone,
         status: u.status as SupporterStatus,
         whatsappStatus: u.whatsappStatus as WhatsappStatus,
         createdAt: u.createdAt.toISOString(),
@@ -328,12 +396,14 @@ export async function adminRoutes(fastify: FastifyInstance) {
       city?: string;
       state?: string;
       neighborhood?: string;
+      zone?: string;
     };
   }>(
     '/communication/recipients/count',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
     async (request, reply) => {
-      const { verifiedOnly, coordinatorId, leaderId, city, state, neighborhood } = request.query;
+      const { verifiedOnly, coordinatorId, leaderId, city, state, neighborhood, zone } = request.query;
+      if (zone && !isValidCityZone(zone)) return reply.status(400).send({ message: 'Zona inválida.' });
 
       const count = await prisma.user.count({
         where: {
@@ -354,6 +424,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
           ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
           ...(state ? { state: state.toUpperCase() } : {}),
           ...(neighborhood ? { neighborhood: { contains: neighborhood, mode: 'insensitive' as const } } : {}),
+          ...(zone ? { zone: zone as PrismaCityZone } : {}),
         },
       });
 
@@ -424,6 +495,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
             city: u.city,
             state: u.state,
             neighborhood: u.neighborhood,
+            zone: u.zone,
             active: isActive,
             leadersCount: u._count.leaders,
             supportersCount,
@@ -453,6 +525,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         city: sanitizeString(body.city || ''),
         state: sanitizeString(body.state || ''),
         neighborhood: sanitizeString(body.neighborhood || ''),
+        zone: body.zone,
         cpf: body.cpf || '',
         phone: body.phone || '',
         password: body.password || '',
@@ -488,6 +561,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
           city: normalized.city,
           state: normalized.state,
           neighborhood: normalized.neighborhood,
+          zone: normalized.zone,
           role: Role.COORDINATOR,
           campaignId: request.user.campaignId,
           coordinatorSlug,
@@ -523,7 +597,15 @@ export async function adminRoutes(fastify: FastifyInstance) {
       if (body.address !== undefined) updateData.address = sanitizeString(body.address);
       if (body.city !== undefined) updateData.city = sanitizeString(body.city);
       if (body.state !== undefined) updateData.state = body.state.trim().toUpperCase();
-      if (body.neighborhood !== undefined) updateData.neighborhood = sanitizeString(body.neighborhood);
+      if (body.neighborhood !== undefined) {
+        const neighborhood = sanitizeString(body.neighborhood);
+        if (neighborhood.length > 100) return reply.status(400).send({ message: 'Bairro deve ter no máximo 100 caracteres.' });
+        updateData.neighborhood = neighborhood;
+      }
+      if (body.zone !== undefined) {
+        if (body.zone !== null && !isValidCityZone(body.zone)) return reply.status(400).send({ message: 'Zona inválida.' });
+        updateData.zone = body.zone;
+      }
 
       await prisma.user.update({
         where: { id },
@@ -567,6 +649,12 @@ export async function adminRoutes(fastify: FastifyInstance) {
   );
 
   // ─────────────────────────────────────────────────────────
+  fastify.delete<{ Params: { id: string } }>(
+    '/coordinators/:id',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => deleteManagedUser(fastify, request, reply, Role.COORDINATOR),
+  );
+
   // LEADERS CRUD (ADMIN)
   // ─────────────────────────────────────────────────────────
   fastify.get<{
@@ -628,6 +716,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         city: u.city,
         state: u.state,
         neighborhood: u.neighborhood,
+        zone: u.zone,
         active: !!u.leaderSlug, // If leaderSlug is null, leader is inactive
         supportersCount: u._count.supporters,
         coordinatorId: u.coordinatorId || '',
@@ -652,20 +741,13 @@ export async function adminRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const body = request.body || ({} as AdminCreateLeaderRequest);
 
-      if (!body.coordinatorId) {
-        return reply.status(400).send({ message: 'O ID do coordenador é obrigatório.' });
-      }
-
-      const coordinator = await prisma.user.findFirst({
-        where: {
-          id: body.coordinatorId,
-          role: Role.COORDINATOR,
-          campaignId: request.user.campaignId,
-        },
-      });
-
-      if (!coordinator) {
-        return reply.status(404).send({ message: 'Coordenador não encontrado.' });
+      const coordinatorId = body.coordinatorId?.trim() || null;
+      if (coordinatorId) {
+        const coordinator = await prisma.user.findFirst({
+          where: { id: coordinatorId, role: Role.COORDINATOR, campaignId: request.user.campaignId },
+          select: { id: true },
+        });
+        if (!coordinator) return reply.status(404).send({ message: 'Coordenador não encontrado.' });
       }
 
       const sanitized = {
@@ -676,6 +758,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         city: sanitizeString(body.city || ''),
         state: sanitizeString(body.state || ''),
         neighborhood: sanitizeString(body.neighborhood || ''),
+        zone: body.zone,
         cpf: body.cpf || '',
         phone: body.phone || '',
         password: body.password || '',
@@ -711,9 +794,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
           city: normalized.city,
           state: normalized.state,
           neighborhood: normalized.neighborhood,
+          zone: normalized.zone,
           role: Role.LEADER,
           leaderSlug,
-          coordinatorId: coordinator.id,
+          coordinatorId,
           campaignId: request.user.campaignId,
         },
       });
@@ -747,7 +831,15 @@ export async function adminRoutes(fastify: FastifyInstance) {
       if (body.address !== undefined) updateData.address = sanitizeString(body.address);
       if (body.city !== undefined) updateData.city = sanitizeString(body.city);
       if (body.state !== undefined) updateData.state = body.state.trim().toUpperCase();
-      if (body.neighborhood !== undefined) updateData.neighborhood = sanitizeString(body.neighborhood);
+      if (body.neighborhood !== undefined) {
+        const neighborhood = sanitizeString(body.neighborhood);
+        if (neighborhood.length > 100) return reply.status(400).send({ message: 'Bairro deve ter no máximo 100 caracteres.' });
+        updateData.neighborhood = neighborhood;
+      }
+      if (body.zone !== undefined) {
+        if (body.zone !== null && !isValidCityZone(body.zone)) return reply.status(400).send({ message: 'Zona inválida.' });
+        updateData.zone = body.zone;
+      }
 
       if (body.firstName !== undefined || body.lastName !== undefined) {
         const newFirst = (updateData.firstName as string) ?? existing.firstName;
@@ -798,6 +890,12 @@ export async function adminRoutes(fastify: FastifyInstance) {
         return reply.send({ success: true, message: 'Líder ativado com sucesso' });
       }
     },
+  );
+
+  fastify.delete<{ Params: { id: string } }>(
+    '/leaders/:id',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => deleteManagedUser(fastify, request, reply, Role.LEADER),
   );
 
   // WhatsApp config status — nunca expõe valores de tokens

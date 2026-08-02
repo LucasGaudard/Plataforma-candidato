@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
-import type { CreateLeaderRequest, SupporterListItem, UpdateLeaderRequest } from '@platform/types';
+import { CityZone as PrismaCityZone } from '@prisma/client';
+import type { CoordinatorSupporterItem, CreateLeaderRequest, UpdateLeaderRequest } from '@platform/types';
 import { Role, SupporterStatus, WhatsappStatus } from '@platform/types';
 import {
   generateSlug,
@@ -8,6 +9,7 @@ import {
   parsePagination,
   sanitizeString,
   validateRegisterInput,
+  isValidCityZone,
 } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 
@@ -21,6 +23,7 @@ const leaderSelect = (campaignId: string) => ({
   city: true,
   state: true,
   neighborhood: true,
+  zone: true,
   leaderSlug: true,
   createdAt: true,
   _count: {
@@ -53,6 +56,7 @@ function toLeaderItem(leader: {
   city: string;
   state: string;
   neighborhood: string | null;
+  zone: import('@prisma/client').CityZone | null;
   leaderSlug: string | null;
   createdAt: Date;
   _count: { supporters: number };
@@ -66,6 +70,7 @@ function toLeaderItem(leader: {
     city: leader.city,
     state: leader.state,
     neighborhood: leader.neighborhood,
+    zone: leader.zone,
     leaderSlug: leader.leaderSlug,
     supporterCount: leader._count.supporters,
     createdAt: leader.createdAt.toISOString(),
@@ -96,32 +101,33 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ message: 'Coordenador não encontrado' });
       }
 
+      const structureWhere = {
+        role: Role.USER,
+        campaignId,
+        OR: [
+          { leaderId: null, coordinatorId },
+          { leaderId: { not: null }, leader: { coordinatorId, campaignId, role: Role.LEADER } },
+        ],
+      };
+
       const [totalLeaders, totalSupporters, leaderSupporters, statusCounts] = await Promise.all([
         prisma.user.count({
           where: { role: Role.LEADER, coordinatorId, campaignId },
         }),
         prisma.user.count({
-          where: {
-            role: Role.USER,
-            campaignId,
-            coordinatorId,
-          },
+          where: structureWhere,
         }),
         prisma.user.count({
           where: {
             role: Role.USER,
             campaignId,
-            coordinatorId,
             leaderId: { not: null },
+            leader: { coordinatorId, campaignId, role: Role.LEADER },
           },
         }),
         prisma.user.groupBy({
           by: ['status'],
-          where: {
-            role: Role.USER,
-            campaignId,
-            coordinatorId,
-          },
+          where: structureWhere,
           _count: { status: true },
         }),
       ]);
@@ -209,6 +215,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
         city: sanitizeString(body.city || ''),
         state: sanitizeString(body.state || ''),
         neighborhood: sanitizeString(body.neighborhood || ''),
+        zone: body.zone,
         cpf: body.cpf || '',
         phone: body.phone || '',
         password: body.password || '',
@@ -244,6 +251,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
           city: normalized.city,
           state: normalized.state,
           neighborhood: normalized.neighborhood,
+          zone: normalized.zone,
           role: Role.LEADER,
           leaderSlug,
           coordinatorId,
@@ -290,7 +298,15 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
       if (body.address !== undefined) updateData.address = sanitizeString(body.address);
       if (body.city !== undefined) updateData.city = sanitizeString(body.city);
       if (body.state !== undefined) updateData.state = body.state.trim().toUpperCase();
-      if (body.neighborhood !== undefined) updateData.neighborhood = sanitizeString(body.neighborhood);
+      if (body.neighborhood !== undefined) {
+        const neighborhood = sanitizeString(body.neighborhood);
+        if (neighborhood.length > 100) return reply.status(400).send({ message: 'Bairro deve ter no máximo 100 caracteres.' });
+        updateData.neighborhood = neighborhood;
+      }
+      if (body.zone !== undefined) {
+        if (body.zone !== null && !isValidCityZone(body.zone)) return reply.status(400).send({ message: 'Zona inválida.' });
+        updateData.zone = body.zone;
+      }
 
       // Regenera slug se o nome foi alterado
       if (body.firstName !== undefined || body.lastName !== undefined) {
@@ -352,10 +368,21 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
 
   // ─────────────────────────────────────────────────────────
   // GET /coordinator/supporters
-  // Lista paginada de todos os apoiadores da coordenação, com ou sem líder
+  // Lista paginada dos apoiadores diretos e dos líderes atualmente vinculados.
   // ─────────────────────────────────────────────────────────
   fastify.get<{
-    Querystring: { page?: string; limit?: string; search?: string; city?: string; state?: string; neighborhood?: string; leaderId?: string };
+    Querystring: {
+      page?: string;
+      limit?: string;
+      search?: string;
+      city?: string;
+      state?: string;
+      neighborhood?: string;
+      zone?: string;
+      origin?: string;
+      leaderId?: string;
+      order?: string;
+    };
   }>(
     '/supporters',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.COORDINATOR)] },
@@ -366,61 +393,105 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
       const city = request.query.city?.trim();
       const state = request.query.state?.trim().toUpperCase();
       const neighborhood = request.query.neighborhood?.trim();
-      const leaderId = request.query.leaderId;
+      const zone = request.query.zone?.trim();
+      const campaignId = request.user.campaignId;
+      const origin = request.query.origin?.trim().toUpperCase();
+      const leaderId = request.query.leaderId?.trim();
+      const order = request.query.order?.trim().toLowerCase() || 'desc';
+
+      if (origin && origin !== 'COORDINATOR' && origin !== 'LEADER') {
+        return reply.status(400).send({ message: 'Filtro de origem inválido.' });
+      }
+      if (order !== 'asc' && order !== 'desc') {
+        return reply.status(400).send({ message: 'Ordenação inválida.' });
+      }
+      if (zone && !isValidCityZone(zone)) return reply.status(400).send({ message: 'Zona inválida.' });
+
+      const directScope = { leaderId: null, coordinatorId };
+      const leaderScope = {
+        leaderId: { not: null },
+        leader: { coordinatorId, campaignId, role: Role.LEADER },
+      };
+      const structureScope = origin === 'COORDINATOR'
+        ? directScope
+        : origin === 'LEADER'
+          ? leaderScope
+          : { OR: [directScope, leaderScope] };
 
       const where = {
         role: Role.USER,
-        campaignId: request.user.campaignId,
-        coordinatorId,
-        ...(leaderId ? { leaderId } : {}),
+        campaignId,
         ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
         ...(state ? { state } : {}),
         ...(neighborhood ? { neighborhood: { contains: neighborhood, mode: 'insensitive' as const } } : {}),
-        ...(search
-          ? {
+        ...(zone ? { zone: zone as PrismaCityZone } : {}),
+        AND: [
+          structureScope,
+          ...(leaderId ? [{ leaderId, leader: { coordinatorId, campaignId, role: Role.LEADER } }] : []),
+          ...(search ? [{
               OR: [
                 { firstName: { contains: search, mode: 'insensitive' as const } },
                 { lastName: { contains: search, mode: 'insensitive' as const } },
                 { phone: { contains: search.replace(/\D/g, '') } },
+                { email: { contains: search, mode: 'insensitive' as const } },
               ],
-            }
-          : {}),
+            }] : []),
+        ],
       };
 
-      const [users, total] = await Promise.all([
+      const [users, total, direct, fromLeaders] = await Promise.all([
         prisma.user.findMany({
           where,
-          include: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            email: true,
+            city: true,
+            state: true,
+            neighborhood: true,
+            zone: true,
+            status: true,
+            whatsappStatus: true,
+            leaderId: true,
+            createdAt: true,
             leader: {
-              select: { firstName: true, lastName: true, campaignId: true },
+              select: { id: true, firstName: true, lastName: true },
             },
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: order as 'asc' | 'desc' },
           skip,
           take: limit,
         }),
         prisma.user.count({ where }),
+        prisma.user.count({ where: { role: Role.USER, campaignId, ...directScope } }),
+        prisma.user.count({ where: { role: Role.USER, campaignId, ...leaderScope } }),
       ]);
 
-      const data: SupporterListItem[] = users.map((u) => ({
+      const data: CoordinatorSupporterItem[] = users.map((u) => ({
         id: u.id,
         firstName: u.firstName,
         lastName: u.lastName,
         phone: u.phone,
+        email: u.email.endsWith('@whatsapp.local') ? undefined : u.email,
         city: u.city,
         state: u.state,
         neighborhood: u.neighborhood,
+        zone: u.zone,
         status: u.status as SupporterStatus,
         whatsappStatus: u.whatsappStatus as WhatsappStatus,
         createdAt: u.createdAt.toISOString(),
-        leaderName:
-          u.leader?.campaignId === request.user.campaignId
-            ? `${u.leader.firstName} ${u.leader.lastName}`
-            : undefined,
+        origin: u.leaderId ? 'LEADER' : 'COORDINATOR',
+        leaderName: u.leader ? `${u.leader.firstName} ${u.leader.lastName}` : undefined,
+        leader: u.leader
+          ? { id: u.leader.id, name: `${u.leader.firstName} ${u.leader.lastName}` }
+          : null,
       }));
 
       return reply.send({
         data,
+        summary: { total: direct + fromLeaders, direct, fromLeaders },
         meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
       });
     },
@@ -443,7 +514,13 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
           id,
           role: Role.USER,
           campaignId: request.user.campaignId,
-          coordinatorId,
+          OR: [
+            { leaderId: null, coordinatorId },
+            {
+              leaderId: { not: null },
+              leader: { coordinatorId, campaignId: request.user.campaignId, role: Role.LEADER },
+            },
+          ],
         },
       });
 
@@ -467,13 +544,15 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
       city?: string;
       state?: string;
       neighborhood?: string;
+      zone?: string;
     };
   }>(
     '/communication/recipients/count',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.COORDINATOR)] },
     async (request, reply) => {
       const coordinatorId = request.user.sub;
-      const { verifiedOnly, leaderId, city, state, neighborhood } = request.query;
+      const { verifiedOnly, leaderId, city, state, neighborhood, zone } = request.query;
+      if (zone && !isValidCityZone(zone)) return reply.status(400).send({ message: 'Zona inválida.' });
 
       const count = await prisma.user.count({
         where: {
@@ -489,11 +568,18 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
                 },
               }
             : {
-                coordinatorId,
+                OR: [
+                  { leaderId: null, coordinatorId },
+                  {
+                    leaderId: { not: null },
+                    leader: { coordinatorId, campaignId: request.user.campaignId, role: Role.LEADER },
+                  },
+                ],
               }),
           ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
           ...(state ? { state: state.toUpperCase() } : {}),
           ...(neighborhood ? { neighborhood: { contains: neighborhood, mode: 'insensitive' as const } } : {}),
+          ...(zone ? { zone: zone as PrismaCityZone } : {}),
         },
       });
 

@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
+import { CityZone as PrismaCityZone } from '@prisma/client';
 import type { LeaderDashboard, SupporterListItem } from '@platform/types';
 import { Role, SupporterStatus, WhatsappStatus } from '@platform/types';
-import { parsePagination } from '@platform/utils';
+import { isValidCityZone, parsePagination } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toUserPublic } from '../lib/user-mapper';
 
@@ -101,6 +102,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       city?: string;
       state?: string;
       neighborhood?: string;
+      zone?: string;
     };
   }>(
     '/supporters',
@@ -111,6 +113,8 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       const city = request.query.city?.trim();
       const state = request.query.state?.trim().toUpperCase();
       const neighborhood = request.query.neighborhood?.trim();
+      const zone = request.query.zone?.trim();
+      if (zone && !isValidCityZone(zone)) return reply.status(400).send({ message: 'Zona inválida.' });
 
       const where = {
         role: Role.USER,
@@ -119,6 +123,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
         ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
         ...(state ? { state } : {}),
         ...(neighborhood ? { neighborhood: { contains: neighborhood, mode: 'insensitive' as const } } : {}),
+        ...(zone ? { zone: zone as PrismaCityZone } : {}),
         ...(search
           ? {
               OR: [
@@ -149,6 +154,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
         city: s.city,
         state: s.state,
         neighborhood: s.neighborhood,
+        zone: s.zone,
         status: s.status as SupporterStatus,
         whatsappStatus: s.whatsappStatus as WhatsappStatus,
         createdAt: s.createdAt.toISOString(),
@@ -311,13 +317,15 @@ export async function leaderRoutes(fastify: FastifyInstance) {
       city?: string;
       state?: string;
       neighborhood?: string;
+      zone?: string;
     };
   }>(
     '/communication/recipients/count',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.LEADER)] },
     async (request, reply) => {
       const leaderId = request.user.sub;
-      const { verifiedOnly, city, state, neighborhood } = request.query;
+      const { verifiedOnly, city, state, neighborhood, zone } = request.query;
+      if (zone && !isValidCityZone(zone)) return reply.status(400).send({ message: 'Zona inválida.' });
 
       const count = await prisma.user.count({
         where: {
@@ -328,6 +336,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
           ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
           ...(state ? { state: state.toUpperCase() } : {}),
           ...(neighborhood ? { neighborhood: { contains: neighborhood, mode: 'insensitive' as const } } : {}),
+          ...(zone ? { zone: zone as PrismaCityZone } : {}),
         },
       });
 

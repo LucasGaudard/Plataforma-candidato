@@ -12,6 +12,7 @@ import {
   validateRegisterInput,
 } from '@platform/utils';
 import { useAuth } from '@/contexts/auth-context';
+import { CityZoneSelect } from './city-zone-select';
 
 interface RegisterFormProps {
   campaignSlug: string;
@@ -32,6 +33,7 @@ export function RegisterForm({ campaignSlug, leaderSlug, leaderName }: RegisterF
     address: '',
     city: '',
     neighborhood: '',
+    zone: undefined as import('@platform/types').CityZone | undefined,
     state: '',
     password: '',
     confirmPassword: '',
@@ -242,6 +244,8 @@ export function RegisterForm({ campaignSlug, leaderSlug, leaderName }: RegisterF
           disabled={!form.state}
         />
       </div>
+
+      <CityZoneSelect value={form.zone} onChange={(zone) => setForm((prev) => ({ ...prev, zone }))} error={errors.zone} />
 
       <div className="space-y-4">
         {form.city && NEIGHBORHOODS_BY_CITY[form.city] ? (

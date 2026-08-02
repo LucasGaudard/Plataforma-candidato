@@ -6,6 +6,24 @@ export const BRAZILIAN_STATES = [
 
 export type BrazilianState = typeof BRAZILIAN_STATES[number];
 
+export const CITY_ZONES = ['WEST', 'NORTH', 'SOUTH', 'EAST', 'OTHER'] as const;
+export type CityZoneValue = typeof CITY_ZONES[number];
+export const CITY_ZONE_OPTIONS: Array<{ value: CityZoneValue; label: string }> = [
+  { value: 'WEST', label: 'Zona Oeste' },
+  { value: 'NORTH', label: 'Zona Norte' },
+  { value: 'SOUTH', label: 'Zona Sul' },
+  { value: 'EAST', label: 'Zona Leste' },
+  { value: 'OTHER', label: 'Outros' },
+];
+
+export function isValidCityZone(value: unknown): value is CityZoneValue {
+  return typeof value === 'string' && CITY_ZONES.includes(value as CityZoneValue);
+}
+
+export function getCityZoneLabel(value?: string | null): string {
+  return CITY_ZONE_OPTIONS.find((option) => option.value === value)?.label || 'Zona não informada';
+}
+
 export const CITIES_BY_STATE: Record<string, string[]> = {
   'AC': [], 'AL': [], 'AP': [], 'AM': [], 'BA': [], 'CE': [], 'DF': [], 'ES': [], 'GO': [], 'MA': [],
   'MT': [], 'MS': [], 'MG': [], 'PA': [], 'PB': [], 'PR': [], 'PE': [], 'PI': [],

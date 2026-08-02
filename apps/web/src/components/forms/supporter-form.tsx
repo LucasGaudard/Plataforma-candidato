@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button, Input, Select, Alert } from '@platform/ui';
 import { CITIES_BY_STATE, NEIGHBORHOODS_BY_CITY, formatPhone } from '@platform/utils';
 import { api } from '@/lib/api';
+import { CityZoneSelect } from './city-zone-select';
 
 interface SupporterFormProps {
   campaignSlug: string;
@@ -20,6 +21,7 @@ export function SupporterForm({ campaignSlug, referrerSlug, referrerName, referr
     phone: '',
     city: '',
     neighborhood: '',
+    zone: undefined as import('@platform/types').CityZone | undefined,
     state: 'RJ', // State is implicitly RJ for the public registration
     lgpdConsent: false,
   });
@@ -153,7 +155,7 @@ export function SupporterForm({ campaignSlug, referrerSlug, referrerName, referr
         disabled={loading}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <Select
           label="Cidade *"
           name="city"
@@ -163,6 +165,7 @@ export function SupporterForm({ campaignSlug, referrerSlug, referrerName, referr
           options={cityOptions}
           disabled={loading}
         />
+        <CityZoneSelect value={form.zone} onChange={(zone) => setForm((prev) => ({ ...prev, zone }))} error={errors.zone} disabled={loading} />
         <div className="space-y-4">
           <Select
             label="Bairro/Região *"

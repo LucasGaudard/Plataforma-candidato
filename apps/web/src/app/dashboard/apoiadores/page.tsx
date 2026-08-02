@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Role, SupporterStatus, WhatsappStatus } from '@platform/types';
 import type { SupporterListItem, SupportersQuery } from '@platform/types';
-import { BRAZILIAN_STATES, CITIES_BY_STATE, NEIGHBORHOODS_BY_CITY, formatPhone } from '@platform/utils';
+import { BRAZILIAN_STATES, CITIES_BY_STATE, CITY_ZONE_OPTIONS, NEIGHBORHOODS_BY_CITY, formatPhone, getCityZoneLabel } from '@platform/utils';
 import {
   Badge,
   Button,
@@ -39,12 +39,14 @@ function SupportersContent() {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [neighborhood, setNeighborhood] = useState('');
+  const [zone, setZone] = useState('');
 
   // Filtros pendentes (aplicados apenas ao submeter)
   const [pendingSearch, setPendingSearch] = useState('');
   const [pendingCity, setPendingCity] = useState('');
   const [pendingState, setPendingState] = useState('');
   const [pendingNeighborhood, setPendingNeighborhood] = useState('');
+  const [pendingZone, setPendingZone] = useState('');
 
   const isAdmin = user?.role === Role.ADMIN;
   const isCoordinator = user?.role === Role.COORDINATOR;
@@ -60,6 +62,7 @@ function SupportersContent() {
         city: city || undefined,
         state: state || undefined,
         neighborhood: neighborhood || undefined,
+        zone: (zone || undefined) as SupportersQuery['zone'],
       };
 
       let result;
@@ -79,7 +82,7 @@ function SupportersContent() {
     } finally {
       setLoading(false);
     }
-  }, [user, page, search, city, state, neighborhood, isAdmin, isCoordinator, toast]);
+  }, [user, page, search, city, state, neighborhood, zone, isAdmin, isCoordinator, toast]);
 
   useEffect(() => {
     loadSupporters();
@@ -91,6 +94,7 @@ function SupportersContent() {
     setCity(pendingCity);
     setState(pendingState);
     setNeighborhood(pendingNeighborhood);
+    setZone(pendingZone);
     setPage(1);
   }
 
@@ -99,10 +103,12 @@ function SupportersContent() {
     setPendingCity('');
     setPendingState('');
     setPendingNeighborhood('');
+    setPendingZone('');
     setSearch('');
     setCity('');
     setState('');
     setNeighborhood('');
+    setZone('');
     setPage(1);
   }
 
@@ -179,7 +185,7 @@ function SupportersContent() {
     <DashboardLayout title="Apoiadores" subtitle={subtitle}>
       <Card>
         {/* Filtros */}
-        <form onSubmit={handleSearch} className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <form onSubmit={handleSearch} className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Input
             id="apoiadores-search"
             placeholder="Buscar nome ou WhatsApp"
@@ -212,7 +218,13 @@ function SupportersContent() {
             options={neighborhoodFilterOptions}
             disabled={!pendingCity}
           />
-          <div className="flex gap-2 lg:col-span-4">
+          <Select
+            id="apoiadores-zone"
+            value={pendingZone}
+            onChange={(e) => setPendingZone(e.target.value)}
+            options={[{ value: '', label: 'Todas as zonas' }, ...CITY_ZONE_OPTIONS]}
+          />
+          <div className="flex gap-2 lg:col-span-5">
             <Button type="submit" className="flex-1">
               Filtrar
             </Button>
@@ -285,6 +297,7 @@ function SupportersContent() {
                       <td className="hidden py-3 text-slate-500 md:table-cell px-4">
                         {s.city}
                         {s.state ? ` / ${s.state}` : ''}
+                        <div className="mt-1 text-xs text-slate-400">{getCityZoneLabel(s.zone)}</div>
                         {s.neighborhood && <div className="text-xs text-slate-400 mt-1">{s.neighborhood}</div>}
                       </td>
                       {showLeaderCol && (

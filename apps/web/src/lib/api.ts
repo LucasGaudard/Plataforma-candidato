@@ -3,6 +3,8 @@ import type {
   AuthResponse,
   CommunicationFilters,
   CoordinatorDashboard,
+  CoordinatorSupportersQuery,
+  CoordinatorSupportersResponse,
   CoordinatorLeaderItem,
   CoordinatorLeadersQuery,
   CreateEventRequest,
@@ -47,6 +49,7 @@ import type {
   UpdateSuperAdminCampaignRequest,
   SuperAdminCampaignAdminInput,
   CampaignContent,
+  DeleteManagedUserResponse,
 } from '@platform/types';
 
 
@@ -85,7 +88,12 @@ class ApiClient {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      const error = new Error(data.message || 'Erro na requisição') as Error & {
+      const dependencySummary = Array.isArray(data.dependencies)
+        ? data.dependencies.map((item: { label: string; count: number }) => `${item.count} ${item.label}`).join(', ')
+        : '';
+      const error = new Error(
+        `${data.message || 'Erro na requisição'}${dependencySummary ? ` Vínculos: ${dependencySummary}.` : ''}`,
+      ) as Error & {
         errors?: Record<string, string>;
         status?: number;
       };
@@ -242,6 +250,10 @@ class ApiClient {
     });
   }
 
+  deleteAdminCoordinator(id: string) {
+    return this.request<DeleteManagedUserResponse>(`/admin/coordinators/${id}`, { method: 'DELETE' });
+  }
+
   // Admin: Leaders
   getAdminLeaders(query?: { page?: number; limit?: number; search?: string; coordinatorId?: string }) {
     return this.request<{ data: AdminLeaderItem[]; meta: { totalPages: number; total: number } }>(
@@ -267,6 +279,10 @@ class ApiClient {
     return this.request<{ success: boolean; message: string }>(`/admin/leaders/${id}/deactivate`, {
       method: 'PATCH',
     });
+  }
+
+  deleteAdminLeader(id: string) {
+    return this.request<DeleteManagedUserResponse>(`/admin/leaders/${id}`, { method: 'DELETE' });
   }
 
   // Leader
@@ -432,8 +448,8 @@ class ApiClient {
     });
   }
 
-  getCoordinatorSupporters(query: SupportersQuery = {}) {
-    return this.request<PaginatedResponse<SupporterListItem>>(
+  getCoordinatorSupporters(query: CoordinatorSupportersQuery & SupportersQuery = {}) {
+    return this.request<CoordinatorSupportersResponse>(
       `/coordinator/supporters${this.qs(query as Record<string, string | number | undefined>)}`,
     );
   }

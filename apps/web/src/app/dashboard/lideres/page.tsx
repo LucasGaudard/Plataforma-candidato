@@ -12,6 +12,7 @@ import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useToast } from '@/contexts/toast-context';
 import { useAuth } from '@/contexts/auth-context';
 import { CoordinatorLeadersView } from '@/components/dashboard/coordinator-dashboard';
+import { CityZoneSelect } from '@/components/forms/city-zone-select';
 
 type FormMode = 'create' | 'edit' | null;
 
@@ -58,6 +59,7 @@ function LeadersContent() {
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [leaderToDeactivate, setLeaderToDeactivate] = useState<AdminLeaderItem | null>(null);
+  const [leaderToDelete, setLeaderToDelete] = useState<AdminLeaderItem | null>(null);
 
   const loadLeaders = useCallback(async () => {
     setTableLoading(true);
@@ -112,6 +114,7 @@ function LeadersContent() {
       city: leader.city,
       state: leader.state,
       neighborhood: leader.neighborhood || '',
+      zone: leader.zone || null,
     });
     setFormErrors({});
     setEditCustomNeighborhood('');
@@ -200,6 +203,21 @@ function LeadersContent() {
     }
   }
 
+  async function handleConfirmDelete() {
+    if (!leaderToDelete || formLoading) return;
+    setFormLoading(true);
+    try {
+      await api.deleteAdminLeader(leaderToDelete.id);
+      toast('Líder excluído permanentemente com sucesso.', 'success');
+      setLeaderToDelete(null);
+      await loadLeaders();
+    } catch (err) {
+      toast((err as Error).message, 'error');
+    } finally {
+      setFormLoading(false);
+    }
+  }
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setFilterSearch(searchInput);
@@ -267,8 +285,8 @@ function LeadersContent() {
             <form onSubmit={handleCreate} className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <Select 
-                  label="Vincular ao Coordenador *" 
-                  options={[{ value: '', label: 'Selecione um coordenador' }, ...coordinators.map(c => ({ value: c.id, label: `${c.firstName} ${c.lastName}` }))]} 
+                  label="Vincular a um Coordenador (opcional)"
+                  options={[{ value: '', label: 'Sem coordenador' }, ...coordinators.map(c => ({ value: c.id, label: `${c.firstName} ${c.lastName}` }))]}
                   value={createForm.coordinatorId} 
                   onChange={(e) => setCreateForm({ ...createForm, coordinatorId: e.target.value })} 
                 />
@@ -284,6 +302,7 @@ function LeadersContent() {
               </div>
               <Select label="Estado *" options={[{ value: '', label: 'Selecione o estado' }, ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s }))]} value={createForm.state} onChange={(e) => setCreateForm({ ...createForm, state: e.target.value, city: '', neighborhood: '' })} />
               <Select label="Cidade *" value={createForm.city} error={formErrors.city} onChange={(e) => setCreateForm({ ...createForm, city: e.target.value, neighborhood: '' })} options={createCityOptions} disabled={!createForm.state} />
+              <CityZoneSelect value={createForm.zone} onChange={(zone) => setCreateForm({ ...createForm, zone })} error={formErrors.zone} />
               <div className="space-y-4">
                 {createForm.city && NEIGHBORHOODS_BY_CITY[createForm.city] ? (
                   <Select label="Bairro/Região" name="neighborhood" value={createForm.neighborhood || ''} onChange={(e) => setCreateForm({ ...createForm, neighborhood: e.target.value })} error={formErrors.neighborhood} options={createNeighborhoodOptions} />
@@ -296,7 +315,7 @@ function LeadersContent() {
               </div>
               <div className="flex justify-end gap-3 sm:col-span-2">
                 <Button type="button" variant="outline" onClick={closeForm}>Cancelar</Button>
-                <Button type="submit" loading={formLoading} disabled={!createForm.coordinatorId}>Criar Líder</Button>
+                <Button type="submit" loading={formLoading}>Criar Líder</Button>
               </div>
             </form>
           ) : (
@@ -306,6 +325,7 @@ function LeadersContent() {
               <Input label="Telefone" value={editForm.phone ?? ''} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
               <Select label="Estado" options={[{ value: '', label: 'Selecione o estado' }, ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s }))]} value={editForm.state ?? ''} onChange={(e) => setEditForm({ ...editForm, state: e.target.value, city: '', neighborhood: '' })} />
               <Select label="Cidade" value={editForm.city ?? ''} onChange={(e) => setEditForm({ ...editForm, city: e.target.value, neighborhood: '' })} options={editCityOptions} disabled={!editForm.state} />
+              <CityZoneSelect value={editForm.zone} onChange={(zone) => setEditForm({ ...editForm, zone: zone || null })} error={formErrors.zone} />
               <div className="space-y-4">
                 {editForm.city && NEIGHBORHOODS_BY_CITY[editForm.city] ? (
                   <Select label="Bairro/Região" name="neighborhood" value={editForm.neighborhood || ''} onChange={(e) => setEditForm({ ...editForm, neighborhood: e.target.value })} error={formErrors.neighborhood} options={editNeighborhoodOptions} />
@@ -384,7 +404,7 @@ function LeadersContent() {
                   </td>
                   <td className="hidden py-3 text-slate-500 md:table-cell px-4">
                     <span className="inline-block rounded-md bg-slate-100 px-2 py-1 text-xs font-medium">
-                      {leader.coordinatorName}
+                      {leader.coordinatorName || 'Sem coordenador'}
                     </span>
                   </td>
                   <td className="hidden py-3 text-slate-500 sm:table-cell px-4">{leader.city}/{leader.state}</td>
@@ -403,6 +423,9 @@ function LeadersContent() {
                         onClick={() => openDeactivateConfirm(leader)}
                       >
                         {leader.active ? 'Desativar' : 'Ativar'}
+                      </Button>
+                      <Button variant="danger" size="xs" onClick={() => setLeaderToDelete(leader)}>
+                        Excluir permanentemente
                       </Button>
                     </div>
                   </td>
@@ -423,6 +446,16 @@ function LeadersContent() {
         confirmVariant={leaderToDeactivate?.active ? 'danger' : 'success'}
         onConfirm={handleConfirmDeactivate}
         onCancel={() => setConfirmModalOpen(false)}
+        isLoading={formLoading}
+      />
+      <ConfirmModal
+        isOpen={!!leaderToDelete}
+        title="Excluir Líder permanentemente"
+        message={<>Esta ação é permanente. Deseja excluir o usuário <strong>{leaderToDelete?.firstName} {leaderToDelete?.lastName}</strong>, perfil <strong>Líder</strong>? Registros importantes vinculados impedirão a exclusão.</>}
+        confirmLabel="Excluir permanentemente"
+        confirmVariant="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setLeaderToDelete(null)}
         isLoading={formLoading}
       />
     </DashboardLayout>

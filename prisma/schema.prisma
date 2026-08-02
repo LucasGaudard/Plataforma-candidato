@@ -52,6 +52,14 @@ enum CampaignStatus {
   SUSPENDED
 }
 
+enum CityZone {
+  WEST
+  NORTH
+  SOUTH
+  EAST
+  OTHER
+}
+
 enum WhatsAppConnectionStatus {
   NOT_TESTED
   CONNECTED
@@ -178,6 +186,7 @@ model User {
   city                 String
   state                String
   neighborhood         String?
+  zone                 CityZone?
   role                 Role            @default(USER)
   status               SupporterStatus @default(PENDING)
   whatsappStatus       WhatsappStatus  @default(PENDING)
@@ -210,6 +219,7 @@ model User {
   @@index([coordinatorId])
   @@index([campaignId])
   @@index([role])
+  @@index([zone])
   @@index([leaderSlug])
   @@index([coordinatorSlug])
   @@index([createdAt])

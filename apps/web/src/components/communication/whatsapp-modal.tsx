@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { CommunicationFilters } from '@platform/types';
-import { BRAZILIAN_STATES, CITIES_BY_STATE, NEIGHBORHOODS_BY_CITY } from '@platform/utils';
+import { BRAZILIAN_STATES, CITIES_BY_STATE, CITY_ZONE_OPTIONS, NEIGHBORHOODS_BY_CITY } from '@platform/utils';
 import { Button, Input, Select } from '@platform/ui';
 import { api } from '@/lib/api';
 import { useToast } from '@/contexts/toast-context';
@@ -25,6 +25,7 @@ export function WhatsappModal({ isOpen, onClose, content }: WhatsappModalProps) 
     city: '',
     state: '',
     neighborhood: '',
+    zone: undefined,
   });
 
   const [testPhone, setTestPhone] = useState('');
@@ -141,6 +142,13 @@ Acompanhe as novidades.`;
                     onChange={(e) => setFilters({ ...filters, city: e.target.value, neighborhood: '' })}
                     options={cityFilterOptions}
                     disabled={!filters.state}
+                  />
+
+                  <Select
+                    label="Por Zona"
+                    value={filters.zone || ''}
+                    onChange={(e) => setFilters({ ...filters, zone: (e.target.value || undefined) as CommunicationFilters['zone'] })}
+                    options={[{ value: '', label: 'Todas as zonas' }, ...CITY_ZONE_OPTIONS]}
                   />
 
                   <Select
