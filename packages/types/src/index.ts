@@ -588,7 +588,26 @@ export interface TestConnectionResponse {
 export interface TestMessageRequest {
   to: string;
   mode: 'template';
-  message?: string;
+  templateName: string;
+  language: string;
+  bodyParameters?: string[];
+}
+
+export interface WhatsappTemplateVariableSummary {
+  component: 'HEADER' | 'BODY' | 'BUTTON';
+  count: number;
+}
+
+export interface WhatsappTemplateSummary {
+  name: string;
+  language: string;
+  status: string;
+  category: string;
+  variables: WhatsappTemplateVariableSummary[];
+}
+
+export interface WhatsappTemplatesResponse {
+  templates: WhatsappTemplateSummary[];
 }
 
 export interface TestMessageResponse {

@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { WhatsappTemplateSummary } from '@platform/types';
 import { CampaignStatus, Prisma, Role, WhatsAppConnectionStatus, WhatsAppMessageDirection, WhatsAppMessageStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { decryptSecret, encryptSecret } from '../services/whatsapp/crypto';
@@ -6,6 +7,8 @@ import { WhatsAppApiError, WhatsAppClient } from '../services/whatsapp/client';
 
 const API_VERSION_PATTERN = /^v\d{1,2}\.0$/;
 const ID_PATTERN = /^\d{5,30}$/;
+const TEMPLATE_NAME_PATTERN = /^[a-z0-9_]{1,512}$/;
+const LANGUAGE_PATTERN = /^[a-z]{2}_[A-Z]{2}$/;
 const ALLOWED_PATCH_FIELDS = new Set([
   'phoneNumberId', 'businessAccountId', 'displayPhoneNumber', 'accessToken', 'apiVersion', 'enabled',
 ]);
@@ -109,6 +112,68 @@ function apiError(reply: FastifyReply, error: unknown, includeDevelopmentDetails
   return reply.status(500).send({ success: false, message: 'Não foi possível concluir a operação' });
 }
 
+function variableCount(value: unknown): number {
+  if (typeof value !== 'string') return 0;
+  return new Set(Array.from(value.matchAll(/\{\{(\d+)\}\}/g), (match) => match[1])).size;
+}
+
+function summarizeTemplate(template: Awaited<ReturnType<WhatsAppClient['getMessageTemplates']>>[number]): WhatsappTemplateSummary | null {
+  if (!template.name || !template.language || !template.status || !template.category) return null;
+  const variables: WhatsappTemplateSummary['variables'] = [];
+  for (const component of template.components || []) {
+    const type = component.type?.toUpperCase();
+    if (type === 'HEADER' || type === 'BODY') {
+      const count = variableCount(component.text);
+      if (count > 0) variables.push({ component: type, count });
+    }
+    if (type === 'BUTTONS') {
+      const count = (component.buttons || []).reduce((total, button) => total + variableCount(button.url), 0);
+      if (count > 0) variables.push({ component: 'BUTTON', count });
+    }
+  }
+  return {
+    name: template.name,
+    language: template.language,
+    status: template.status,
+    category: template.category,
+    variables,
+  };
+}
+
+async function approvedTemplates(config: {
+  accessTokenEncrypted: string;
+  apiVersion: string;
+  businessAccountId: string;
+}): Promise<WhatsappTemplateSummary[]> {
+  const templates = await new WhatsAppClient(decryptSecret(config.accessTokenEncrypted), config.apiVersion)
+    .getMessageTemplates(config.businessAccountId);
+  return templates
+    .filter((template) => template.status?.toUpperCase() === 'APPROVED')
+    .map(summarizeTemplate)
+    .filter((template): template is WhatsappTemplateSummary => template !== null)
+    .sort((left, right) => left.name.localeCompare(right.name) || left.language.localeCompare(right.language));
+}
+
+function logMetaFailure(request: FastifyRequest, error: WhatsAppApiError, operation: string) {
+  request.log.error(
+    {
+      metaHttpStatus: error.metaHttpStatus,
+      metaError: error.metaDetails
+        ? {
+            message: error.metaDetails.message,
+            type: error.metaDetails.type,
+            code: error.metaDetails.code,
+            error_subcode: error.metaDetails.subcode,
+            error_user_title: error.metaDetails.errorUserTitle,
+            error_user_msg: error.metaDetails.errorUserMessage,
+            fbtrace_id: error.metaDetails.fbtraceId,
+          }
+        : undefined,
+    },
+    operation,
+  );
+}
+
 export async function campaignWhatsAppRoutes(fastify: FastifyInstance) {
   const adminOnly = [fastify.authenticate, fastify.authorize(Role.ADMIN)];
 
@@ -209,13 +274,46 @@ export async function campaignWhatsAppRoutes(fastify: FastifyInstance) {
     }
   });
 
-  fastify.post<{ Body: { to?: unknown; mode?: unknown; message?: unknown } }>(
+  fastify.get('/templates', { preHandler: adminOnly }, async (request, reply) => {
+    const campaignId = await activeCampaign(request, reply);
+    if (!campaignId) return;
+    const config = await prisma.campaignWhatsAppConfig.findUnique({ where: { campaignId } });
+    if (!config) return reply.status(400).send({ message: 'Configure o WhatsApp primeiro' });
+    try {
+      return reply.send({ templates: await approvedTemplates(config) });
+    } catch (error) {
+      const safe = error instanceof WhatsAppApiError ? error : new WhatsAppApiError('Falha ao consultar templates');
+      logMetaFailure(request, safe, 'Falha ao consultar templates da WABA pela WhatsApp Cloud API');
+      return apiError(reply, safe, true);
+    }
+  });
+
+  fastify.post<{ Body: {
+    to?: unknown;
+    mode?: unknown;
+    templateName?: unknown;
+    language?: unknown;
+    bodyParameters?: unknown;
+  } }>(
     '/test-message',
     { preHandler: adminOnly },
     async (request, reply) => {
       const campaignId = await activeCampaign(request, reply);
       if (!campaignId) return;
-      if (request.body?.mode !== 'template') return reply.status(400).send({ message: 'Somente o template aprovado hello_world está disponível' });
+      if (request.body?.mode !== 'template') return reply.status(400).send({ message: 'Modo de envio inválido' });
+      const templateName = text(request.body?.templateName);
+      const language = text(request.body?.language);
+      if (!TEMPLATE_NAME_PATTERN.test(templateName) || !LANGUAGE_PATTERN.test(language)) {
+        return reply.status(400).send({ message: 'Template ou idioma inválido' });
+      }
+      const rawBodyParameters = request.body?.bodyParameters ?? [];
+      if (!Array.isArray(rawBodyParameters) || rawBodyParameters.some((value) => typeof value !== 'string')) {
+        return reply.status(400).send({ message: 'Parâmetros do template inválidos' });
+      }
+      const bodyParameters = rawBodyParameters.map((value) => text(value).replace(/\s+/g, ' '));
+      if (bodyParameters.some((value) => !value || value.length > 80)) {
+        return reply.status(400).send({ message: 'Cada parâmetro deve ter entre 1 e 80 caracteres' });
+      }
       let recipient: string;
       try { recipient = normalizeRecipient(request.body?.to); }
       catch (error) { return reply.status(400).send({ message: (error as Error).message }); }
@@ -225,8 +323,20 @@ export async function campaignWhatsAppRoutes(fastify: FastifyInstance) {
       }
       const sentAt = new Date();
       try {
+        const templates = await approvedTemplates(config);
+        const selected = templates.find((template) => template.name === templateName && template.language === language);
+        if (!selected) return reply.status(400).send({ message: 'O template selecionado não está aprovado ou ativo na WABA' });
+        const bodyVariableCount = selected.variables.find((variable) => variable.component === 'BODY')?.count || 0;
+        const unsupportedVariables = selected.variables.some((variable) => variable.component !== 'BODY');
+        if (unsupportedVariables || bodyParameters.length !== bodyVariableCount) {
+          return reply.status(400).send({
+            message: unsupportedVariables
+              ? 'Este template possui variáveis fora do corpo e não é compatível com o teste simples'
+              : `O template exige ${bodyVariableCount} parâmetro(s) no corpo`,
+          });
+        }
         const result = await new WhatsAppClient(decryptSecret(config.accessTokenEncrypted), config.apiVersion)
-          .sendTemplate(config.phoneNumberId, recipient);
+          .sendTemplate(config.phoneNumberId, recipient, { name: templateName, language, bodyParameters });
         const messageId = result.messages?.[0]?.id;
         if (!messageId) throw new WhatsAppApiError('A Meta não retornou o identificador da mensagem');
         await prisma.$transaction([
@@ -234,7 +344,7 @@ export async function campaignWhatsAppRoutes(fastify: FastifyInstance) {
             data: {
               campaignId, metaMessageId: messageId, recipient,
               direction: WhatsAppMessageDirection.OUTBOUND, type: 'template',
-              status: WhatsAppMessageStatus.SENT, templateName: 'hello_world',
+              status: WhatsAppMessageStatus.SENT, templateName,
               sentByUserId: request.user.sub,
             },
           }),
@@ -243,28 +353,12 @@ export async function campaignWhatsAppRoutes(fastify: FastifyInstance) {
         return reply.send({ success: true, messageId, recipient, sentAt });
       } catch (error) {
         const safe = error instanceof WhatsAppApiError ? error : new WhatsAppApiError('Falha no envio');
-        request.log.error(
-          {
-            metaHttpStatus: safe.metaHttpStatus,
-            metaError: safe.metaDetails
-              ? {
-                  message: safe.metaDetails.message,
-                  type: safe.metaDetails.type,
-                  code: safe.metaDetails.code,
-                  error_subcode: safe.metaDetails.subcode,
-                  error_user_title: safe.metaDetails.errorUserTitle,
-                  error_user_msg: safe.metaDetails.errorUserMessage,
-                  fbtrace_id: safe.metaDetails.fbtraceId,
-                }
-              : undefined,
-          },
-          'Falha no envio da mensagem de teste pela WhatsApp Cloud API',
-        );
+        logMetaFailure(request, safe, 'Falha no envio da mensagem de teste pela WhatsApp Cloud API');
         await prisma.whatsAppMessage.create({
           data: {
             campaignId, recipient, direction: WhatsAppMessageDirection.OUTBOUND,
             type: 'template', status: WhatsAppMessageStatus.FAILED,
-            templateName: 'hello_world', errorCode: safe.code, errorMessage: safe.message,
+            templateName, errorCode: safe.code, errorMessage: safe.message,
             sentByUserId: request.user.sub,
           },
         });

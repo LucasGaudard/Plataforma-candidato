@@ -35,6 +35,20 @@ type MetaError = {
   };
 };
 
+export interface MetaWhatsappTemplateComponent {
+  type?: string;
+  text?: string;
+  buttons?: Array<{ type?: string; text?: string; url?: string }>;
+}
+
+export interface MetaWhatsappTemplate {
+  name?: string;
+  language?: string;
+  status?: string;
+  category?: string;
+  components?: MetaWhatsappTemplateComponent[];
+}
+
 function sanitizedString(value: unknown, accessToken: string): string | undefined {
   if (typeof value !== 'string') return undefined;
   const withoutToken = accessToken ? value.split(accessToken).join('[REDACTED]') : value;
@@ -124,7 +138,33 @@ export class WhatsAppClient {
     return this.request<{ success: boolean }>(`${encodeURIComponent(businessAccountId)}/subscribed_apps`, { method: 'POST' });
   }
 
-  sendTemplate(phoneNumberId: string, to: string) {
+  async getMessageTemplates(businessAccountId: string): Promise<MetaWhatsappTemplate[]> {
+    const templates: MetaWhatsappTemplate[] = [];
+    let after: string | undefined;
+    for (let page = 0; page < 10; page += 1) {
+      const query = new URLSearchParams({
+        fields: 'name,language,status,category,components',
+        limit: '100',
+        ...(after ? { after } : {}),
+      });
+      const result = await this.request<{
+        data?: MetaWhatsappTemplate[];
+        paging?: { cursors?: { after?: string }; next?: string };
+      }>(`${encodeURIComponent(businessAccountId)}/message_templates?${query.toString()}`);
+      if (Array.isArray(result.data)) templates.push(...result.data);
+      const nextAfter = result.paging?.cursors?.after;
+      if (!result.paging?.next || !nextAfter || nextAfter === after) break;
+      after = nextAfter;
+    }
+    return templates;
+  }
+
+  sendTemplate(
+    phoneNumberId: string,
+    to: string,
+    template: { name: string; language: string; bodyParameters?: string[] },
+  ) {
+    const bodyParameters = template.bodyParameters || [];
     return this.request<{ messages?: Array<{ id: string }> }>(
       `${encodeURIComponent(phoneNumberId)}/messages`,
       {
@@ -133,7 +173,18 @@ export class WhatsAppClient {
           messaging_product: 'whatsapp',
           to,
           type: 'template',
-          template: { name: 'hello_world', language: { code: 'en_US' } },
+          template: {
+            name: template.name,
+            language: { code: template.language },
+            ...(bodyParameters.length > 0
+              ? {
+                  components: [{
+                    type: 'body',
+                    parameters: bodyParameters.map((text) => ({ type: 'text', text })),
+                  }],
+                }
+              : {}),
+          },
         }),
       },
     );

@@ -41,6 +41,7 @@ import type {
   TestConnectionResponse,
   TestMessageRequest,
   TestMessageResponse,
+  WhatsappTemplatesResponse,
   CampaignStatus,
   SuperAdminDashboard,
   SuperAdminCampaignListItem,
@@ -522,6 +523,10 @@ class ApiClient {
 
   subscribeWhatsappWebhook() {
     return this.request<{ success: boolean; message: string }>('/campaign/whatsapp/subscribe-webhook', { method: 'POST' });
+  }
+
+  getWhatsappTemplates() {
+    return this.request<WhatsappTemplatesResponse>('/campaign/whatsapp/templates');
   }
 }
 
