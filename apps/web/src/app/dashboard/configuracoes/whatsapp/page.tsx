@@ -176,6 +176,45 @@ function WhatsappConfigContent() {
           </Card>
         </form>
 
+        <Card>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold">Diagnóstico de templates</h2>
+              <p className="mt-1 text-sm text-slate-500">Dados técnicos não sensíveis atualmente salvos para esta campanha.</p>
+            </div>
+            <Button type="button" variant="outline" onClick={loadTemplates} disabled={templatesLoading}>
+              {templatesLoading ? 'Atualizando...' : 'Atualizar templates'}
+            </Button>
+          </div>
+
+          <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div><dt className="text-xs text-slate-500">Phone Number ID salvo</dt><dd className="break-all font-mono text-sm">{config?.phoneNumberId || 'Não configurado'}</dd></div>
+            <div><dt className="text-xs text-slate-500">WhatsApp Business Account ID salvo</dt><dd className="break-all font-mono text-sm">{config?.businessAccountId || 'Não configurado'}</dd></div>
+            <div><dt className="text-xs text-slate-500">Business ID salvo</dt><dd className="text-sm">Não armazenado separadamente</dd></div>
+            <div><dt className="text-xs text-slate-500">Versão da Graph API</dt><dd className="font-mono text-sm">{config?.apiVersion || 'Não configurada'}</dd></div>
+            <div><dt className="text-xs text-slate-500">Templates retornados</dt><dd className="text-sm font-semibold">{templatesLoading ? 'Carregando...' : templates.length}</dd></div>
+          </dl>
+
+          <div className="mt-4">
+            <p className="text-xs text-slate-500">Nomes dos templates retornados</p>
+            {templatesLoading ? (
+              <p className="mt-2 text-sm text-slate-500">Consultando a Meta...</p>
+            ) : templatesError ? (
+              <p role="alert" className="mt-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">{templatesError}</p>
+            ) : templates.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-500">Nenhum template retornado.</p>
+            ) : (
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {templates.map((template) => (
+                  <li key={`${template.name}|${template.language}`} className="rounded-full bg-slate-100 px-3 py-1 font-mono text-xs text-slate-700">
+                    {template.name}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Card>
+
         <div className="grid gap-6 lg:grid-cols-2">
           <form onSubmit={sendTest}>
             <Card>
