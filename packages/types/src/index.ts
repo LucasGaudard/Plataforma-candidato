@@ -201,7 +201,7 @@ export interface RegisterRequest {
   neighborhood?: string;
   zone?: CityZone;
   leaderSlug?: string;
-  lgpdConsent?: boolean;
+  lgpdConsent: boolean;
 }
 
 export interface PostPublic {
@@ -450,6 +450,7 @@ export interface SupporterListItem {
   zone?: CityZone | null;
   status: SupporterStatus;
   whatsappStatus: WhatsappStatus;
+  whatsappConfirmedAt?: string | null;
   createdAt: string;
   leaderName?: string;
   coordinatorName?: string;

@@ -340,12 +340,17 @@ function SupportersContent() {
                               s.whatsappStatus === WhatsappStatus.SENT ? 'info' : 'warning'
                             }
                           >
-                            {s.whatsappStatus === WhatsappStatus.PENDING ? 'Pendente' :
-                             s.whatsappStatus === WhatsappStatus.SENT ? 'Enviado' :
-                             s.whatsappStatus === WhatsappStatus.CONFIRMED ? 'Confirmado' :
-                             s.whatsappStatus === WhatsappStatus.FAILED ? 'Falhou' :
-                             s.whatsappStatus === WhatsappStatus.OPT_OUT ? 'Opt-out' : s.whatsappStatus}
+                            {s.whatsappStatus === WhatsappStatus.PENDING ? 'Pendente de confirmação' :
+                             s.whatsappStatus === WhatsappStatus.SENT ? 'Mensagem enviada' :
+                             s.whatsappStatus === WhatsappStatus.CONFIRMED ? 'Confirmado pelo WhatsApp' :
+                             s.whatsappStatus === WhatsappStatus.FAILED ? 'Falha no envio' :
+                             s.whatsappStatus === WhatsappStatus.OPT_OUT ? 'Não deseja receber mensagens' : s.whatsappStatus}
                           </Badge>
+                        )}
+                        {s.whatsappConfirmedAt && (
+                          <div className="mt-1 text-xs text-slate-400">
+                            {new Date(s.whatsappConfirmedAt).toLocaleString('pt-BR')}
+                          </div>
                         )}
                       </td>
                       <td className="py-3 text-slate-400 text-xs px-4">

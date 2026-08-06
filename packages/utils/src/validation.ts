@@ -1,6 +1,6 @@
 import { isValidCpf, stripCpf } from './cpf.js';
 import { isValidEmail, normalizeEmail } from './email.js';
-import { isValidPhone, stripPhone } from './phone.js';
+import { isValidPhone, normalizeBrazilianPhone, stripPhone } from './phone.js';
 import { BRAZILIAN_STATES, BrazilianState, CityZoneValue, isValidCityZone } from './locations.js';
 
 export interface RegisterValidationInput {
@@ -15,6 +15,7 @@ export interface RegisterValidationInput {
   state: string;
   neighborhood?: string;
   zone?: CityZoneValue;
+  lgpdConsent?: boolean;
 }
 
 export interface ValidationResult {
@@ -78,13 +79,14 @@ export function normalizeRegisterInput(input: RegisterValidationInput): Register
     ...input,
     email: normalizeEmail(input.email),
     cpf: stripCpf(input.cpf),
-    phone: stripPhone(input.phone),
+    phone: normalizeBrazilianPhone(input.phone) ?? stripPhone(input.phone),
     firstName: input.firstName.trim(),
     lastName: input.lastName.trim(),
     address: input.address.trim(),
     city: input.city.trim(),
     state: input.state.trim().toUpperCase(),
     neighborhood: input.neighborhood?.trim().replace(/[<>]/g, ''),
+    lgpdConsent: input.lgpdConsent,
   };
 }
 
@@ -139,7 +141,7 @@ export function validateSupporterInput(input: SupporterValidationInput): Validat
 export function normalizeSupporterInput(input: SupporterValidationInput): SupporterValidationInput {
   return {
     ...input,
-    phone: stripPhone(input.phone),
+    phone: normalizeBrazilianPhone(input.phone) ?? stripPhone(input.phone),
     firstName: input.firstName.trim(),
     lastName: input.lastName.trim(),
     city: input.city.trim(),

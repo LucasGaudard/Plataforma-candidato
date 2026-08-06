@@ -91,7 +91,12 @@ export class WhatsAppClient {
     private readonly timeoutMs = DEFAULT_TIMEOUT_MS,
   ) {}
 
-  async request<T>(path: string, init: RequestInit = {}, signal?: AbortSignal): Promise<T> {
+  async request<T>(
+    path: string,
+    init: RequestInit = {},
+    signal?: AbortSignal,
+    onResponseStatus?: (status: number) => void,
+  ): Promise<T> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     const abort = () => controller.abort();
@@ -106,6 +111,7 @@ export class WhatsAppClient {
           ...init.headers,
         },
       });
+      onResponseStatus?.(response.status);
       const text = await response.text();
       let data: unknown = null;
       try { data = text ? JSON.parse(text) : null; } catch { /* resposta não JSON é tratada abaixo */ }
@@ -163,6 +169,7 @@ export class WhatsAppClient {
     phoneNumberId: string,
     to: string,
     template: { name: string; language: string; bodyParameters?: string[] },
+    onResponseStatus?: (status: number) => void,
   ) {
     const bodyParameters = template.bodyParameters || [];
     return this.request<{ messages?: Array<{ id: string }> }>(
@@ -187,6 +194,8 @@ export class WhatsAppClient {
           },
         }),
       },
+      undefined,
+      onResponseStatus,
     );
   }
 }

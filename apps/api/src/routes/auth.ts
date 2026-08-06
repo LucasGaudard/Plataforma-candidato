@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import type { AuthResponse, LoginRequest, RegisterRequest } from '@platform/types';
-import { Role } from '@platform/types';
+import { LGPD_CONSENT_TEXT, LGPD_CONSENT_VERSION, Role } from '@platform/types';
 import { CampaignStatus } from '@prisma/client';
 import {
   isValidSlug,
@@ -97,9 +97,14 @@ export async function authRoutes(fastify: FastifyInstance) {
       phone: body.phone || '',
       password: body.password || '',
       leaderSlug: body.leaderSlug,
+      lgpdConsent: body.lgpdConsent === true,
     };
     const normalized = normalizeRegisterInput(sanitized);
     const validation = validateRegisterInput(normalized);
+    if (normalized.lgpdConsent !== true) {
+      validation.valid = false;
+      validation.errors.lgpdConsent = 'É necessário autorizar o tratamento dos dados para concluir o cadastro.';
+    }
 
     if (!validation.valid) {
       return reply.status(400).send({
@@ -165,13 +170,20 @@ export async function authRoutes(fastify: FastifyInstance) {
         leaderId,
         coordinatorId,
         campaignId: campaign.id,
+        lgpdConsent: true,
+        lgpdConsentAt: new Date(),
+        lgpdConsentText: LGPD_CONSENT_TEXT,
+        lgpdConsentVersion: LGPD_CONSENT_VERSION,
       },
       include: { campaign: true },
     });
 
     // Enviar mensagem de confirmação do WhatsApp (assíncrono)
-    whatsappService.sendConfirmationMessage(user).catch(err => {
-      fastify.log.error('Erro ao chamar whatsappService:', err);
+    whatsappService.sendConfirmationMessage(user).catch((error) => {
+      fastify.log.error(
+        { userId: user.id, error: error instanceof Error ? error.message : 'Falha desconhecida' },
+        'Falha no envio da confirmação do WhatsApp',
+      );
     });
 
     if (!user.campaign || user.campaign.status !== CampaignStatus.ACTIVE) {

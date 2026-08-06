@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Select, Alert } from '@platform/ui';
+import { LGPD_CONSENT_TEXT } from '@platform/types';
 import {
   BRAZILIAN_STATES,
   CITIES_BY_STATE,
@@ -37,6 +38,7 @@ export function RegisterForm({ campaignSlug, leaderSlug, leaderName }: RegisterF
     state: '',
     password: '',
     confirmPassword: '',
+    lgpdConsent: false,
   });
   const [customNeighborhood, setCustomNeighborhood] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -111,6 +113,7 @@ export function RegisterForm({ campaignSlug, leaderSlug, leaderName }: RegisterF
       city: form.city,
       state: form.state,
       password: form.password,
+      lgpdConsent: form.lgpdConsent,
     });
 
     const fieldErrors = { ...validation.errors };
@@ -121,6 +124,10 @@ export function RegisterForm({ campaignSlug, leaderSlug, leaderName }: RegisterF
 
     if (form.password !== form.confirmPassword) {
       fieldErrors.confirmPassword = 'As senhas não coincidem';
+    }
+
+    if (!form.lgpdConsent) {
+      fieldErrors.lgpdConsent = 'É necessário autorizar o tratamento dos dados para concluir o cadastro.';
     }
 
     if (Object.keys(fieldErrors).length > 0) {
@@ -143,6 +150,7 @@ export function RegisterForm({ campaignSlug, leaderSlug, leaderName }: RegisterF
         neighborhood: finalNeighborhood,
         password: form.password,
         leaderSlug,
+        lgpdConsent: form.lgpdConsent,
       });
       router.push('/dashboard');
     } catch (err) {
@@ -309,7 +317,32 @@ export function RegisterForm({ campaignSlug, leaderSlug, leaderName }: RegisterF
         />
       </div>
 
-      <Button type="submit" loading={loading} className="w-full" size="lg">
+      <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <input
+          type="checkbox"
+          id="lgpdConsent"
+          name="lgpdConsent"
+          checked={form.lgpdConsent}
+          onChange={(event) => {
+            setForm((previous) => ({ ...previous, lgpdConsent: event.target.checked }));
+            setErrors((previous) => {
+              const next = { ...previous };
+              delete next.lgpdConsent;
+              return next;
+            });
+          }}
+          disabled={loading}
+          className="mt-1 h-4 w-4 cursor-pointer rounded border-slate-300 text-brand-600 focus:ring-brand-600"
+        />
+        <div className="flex-1">
+          <label htmlFor="lgpdConsent" className="cursor-pointer select-none text-sm text-slate-700">
+            {LGPD_CONSENT_TEXT} <span className="text-red-500">*</span>
+          </label>
+          {errors.lgpdConsent && <p className="mt-1 text-sm font-medium text-red-600">{errors.lgpdConsent}</p>}
+        </div>
+      </div>
+
+      <Button type="submit" loading={loading} disabled={!form.lgpdConsent || loading} className="w-full" size="lg">
         Criar conta
       </Button>
     </form>

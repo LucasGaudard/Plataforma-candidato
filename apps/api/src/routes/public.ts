@@ -265,7 +265,10 @@ export async function publicRoutes(fastify: FastifyInstance) {
     if (!supporter) return;
 
     whatsappService.sendConfirmationMessage(supporter).catch((error) => {
-      fastify.log.error(error, 'Erro ao chamar whatsappService');
+      fastify.log.error({
+        userId: supporter.id,
+        error: error instanceof Error ? error.message : 'Falha desconhecida',
+      }, 'Falha no envio da confirmação do WhatsApp');
     });
 
     return reply.status(201).send({ success: true, id: supporter.id });
@@ -312,7 +315,10 @@ export async function publicRoutes(fastify: FastifyInstance) {
     );
     if (!supporter) return;
     whatsappService.sendConfirmationMessage(supporter).catch((error) => {
-      fastify.log.error(error, 'Erro ao chamar whatsappService');
+      fastify.log.error({
+        userId: supporter.id,
+        error: error instanceof Error ? error.message : 'Falha desconhecida',
+      }, 'Falha no envio da confirmação do WhatsApp');
     });
     return reply.status(201).send({ success: true, id: supporter.id });
   });
