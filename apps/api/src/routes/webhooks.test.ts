@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { normalizeBrazilianPhone, normalizeBrazilianPhoneForSending } from '@platform/utils';
 import { parseWhatsAppReply, validSignature } from './webhooks';
-import { blocksConfirmationRetry } from '../services/whatsapp.service';
-import { WhatsAppMessageStatus } from '@prisma/client';
+import { acquireConfirmationAdvisoryLock, blocksConfirmationRetry } from '../services/whatsapp.service';
+import { Prisma, WhatsAppMessageStatus } from '@prisma/client';
 
 test('normaliza telefone brasileiro para comparação e envio', () => {
   assert.equal(normalizeBrazilianPhone('(11) 99999-1234'), '11999991234');
@@ -33,6 +33,23 @@ test('bloqueia duplicidade pendente ou enviada, mas permite retry após falha', 
   assert.equal(blocksConfirmationRetry(WhatsAppMessageStatus.DELIVERED), true);
   assert.equal(blocksConfirmationRetry(WhatsAppMessageStatus.READ), true);
   assert.equal(blocksConfirmationRetry(WhatsAppMessageStatus.FAILED), false);
+});
+
+test('advisory lock executa sem desserializar o retorno void', async () => {
+  let executedQuery: Prisma.Sql | undefined;
+  let executionCount = 0;
+  const tx = {
+    $executeRaw: async (query: Prisma.Sql) => {
+      executionCount += 1;
+      executedQuery = query;
+      return 1;
+    },
+  } as Pick<Prisma.TransactionClient, '$executeRaw'>;
+
+  await acquireConfirmationAdvisoryLock(tx, 'campaign:recipient:template');
+
+  assert.equal(executionCount, 1);
+  assert.match(executedQuery?.strings.join('') || '', /pg_advisory_xact_lock/);
 });
 
 test('valida assinatura e rejeita assinatura inválida', () => {

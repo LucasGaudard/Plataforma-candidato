@@ -45,10 +45,17 @@ export function blocksConfirmationRetry(status: WhatsAppMessageStatus): boolean 
   return BLOCKING_CONFIRMATION_STATUSES.includes(status);
 }
 
+export async function acquireConfirmationAdvisoryLock(
+  tx: Pick<Prisma.TransactionClient, '$executeRaw'>,
+  deduplicationKey: string,
+): Promise<void> {
+  await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${deduplicationKey}))`);
+}
+
 async function reserveConfirmation(campaignId: string, recipient: string) {
   const deduplicationKey = `${campaignId}:${recipient}:${CONFIRMATION_TEMPLATE}`;
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${deduplicationKey}))`);
+    await acquireConfirmationAdvisoryLock(tx, deduplicationKey);
     const previousSend = await tx.whatsAppMessage.findFirst({
       where: {
         campaignId,
