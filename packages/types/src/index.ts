@@ -456,6 +456,12 @@ export interface SupporterListItem {
   coordinatorName?: string;
 }
 
+export interface DeleteSupporterResponse {
+  success: true;
+  message: string;
+  removed: { notifications: number };
+}
+
 export interface AdminCoordinatorItem {
   id: string;
   firstName: string;

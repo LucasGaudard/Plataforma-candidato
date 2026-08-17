@@ -24,6 +24,12 @@ import { prisma } from '../lib/prisma';
 import { toEventPublic, toLivePublic, toPostPublic } from '../lib/mappers';
 import { whatsappLogStore } from '../lib/whatsapp-log';
 import { generateUniqueCoordinatorSlug } from '../lib/coordinator-slug';
+import {
+  deleteSupporterWithinScope,
+  supporterIdPattern,
+  supporterScope,
+  supporterSearchWhere,
+} from '../lib/supporter-management';
 
 const authorSelect = { firstName: true, lastName: true };
 
@@ -285,6 +291,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const leaderId = request.query.leaderId;
       const coordinatorId = request.query.coordinatorId;
       const zone = request.query.zone?.trim();
+      const supporterSearch = supporterSearchWhere(search);
       if (zone && !isValidCityZone(zone)) return reply.status(400).send({ message: 'Zona inválida.' });
 
       const where = {
@@ -306,15 +313,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         ...(state ? { state } : {}),
         ...(request.query.neighborhood ? { neighborhood: { contains: request.query.neighborhood.trim(), mode: 'insensitive' as const } } : {}),
         ...(zone ? { zone: zone as PrismaCityZone } : {}),
-        ...(search
-          ? {
-              OR: [
-                { firstName: { contains: search, mode: 'insensitive' as const } },
-                { lastName: { contains: search, mode: 'insensitive' as const } },
-                { phone: { contains: search.replace(/\D/g, '') } },
-              ],
-            }
-          : {}),
+        ...(supporterSearch || {}),
       };
 
       const [users, total] = await Promise.all([
@@ -654,6 +653,27 @@ export async function adminRoutes(fastify: FastifyInstance) {
     '/coordinators/:id',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
     async (request, reply) => deleteManagedUser(fastify, request, reply, Role.COORDINATOR),
+  );
+
+  fastify.delete<{ Params: { id: string } }>(
+    '/supporters/:id',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => {
+      if (!supporterIdPattern.test(request.params.id)) {
+        return reply.status(400).send({ message: 'ID de apoiador inválido.' });
+      }
+      const scope = supporterScope(Role.ADMIN as import('@prisma/client').Role, request.user.sub, request.user.campaignId);
+      if (!scope) return reply.status(403).send({ message: 'Acesso negado.' });
+      const result = await deleteSupporterWithinScope({ id: request.params.id, ...scope });
+      if (result.kind === 'not_found') return reply.status(404).send({ message: 'Apoiador não encontrado.' });
+      if (result.kind === 'blocked') {
+        return reply.status(409).send({
+          message: 'Não foi possível excluir o apoiador porque existem registros vinculados.',
+          dependencies: result.blockers,
+        });
+      }
+      return reply.send({ success: true, message: 'Apoiador excluído permanentemente.', removed: result.removed });
+    },
   );
 
   // LEADERS CRUD (ADMIN)

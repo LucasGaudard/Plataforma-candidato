@@ -20,6 +20,11 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
+import {
+  changeSupporterFilterState,
+  clearSupporterFilters,
+  normalizeSupporterFilters,
+} from '@/lib/supporter-filter-state';
 
 const ALLOWED_ROLES: Role[] = [Role.ADMIN, Role.COORDINATOR, Role.LEADER];
 
@@ -90,30 +95,39 @@ function SupportersContent() {
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    setSearch(pendingSearch);
-    setCity(pendingCity);
-    setState(pendingState);
-    setNeighborhood(pendingNeighborhood);
-    setZone(pendingZone);
+    const filters = normalizeSupporterFilters({
+      search: pendingSearch,
+      city: pendingCity,
+      state: pendingState,
+      neighborhood: pendingNeighborhood,
+      zone: pendingZone,
+    });
+    setSearch(filters.search);
+    setCity(filters.city);
+    setState(filters.state);
+    setNeighborhood(filters.neighborhood);
+    setZone(filters.zone);
     setPage(1);
   }
 
   function handleClear() {
-    setPendingSearch('');
-    setPendingCity('');
-    setPendingState('');
-    setPendingNeighborhood('');
-    setPendingZone('');
-    setSearch('');
-    setCity('');
-    setState('');
-    setNeighborhood('');
-    setZone('');
+    const filters = clearSupporterFilters();
+    setPendingSearch(filters.search);
+    setPendingCity(filters.city);
+    setPendingState(filters.state);
+    setPendingNeighborhood(filters.neighborhood);
+    setPendingZone(filters.zone);
+    setSearch(filters.search);
+    setCity(filters.city);
+    setState(filters.state);
+    setNeighborhood(filters.neighborhood);
+    setZone(filters.zone);
     setPage(1);
   }
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [statusChangeData, setStatusChangeData] = useState<{ id: string; newStatus: SupporterStatus; oldStatus: SupporterStatus } | null>(null);
+  const [supporterToDelete, setSupporterToDelete] = useState<SupporterListItem | null>(null);
 
   function requestStatusChange(id: string, newStatus: SupporterStatus, oldStatus: SupporterStatus) {
     if (newStatus === oldStatus) return;
@@ -151,6 +165,28 @@ function SupportersContent() {
     setStatusChangeData(null);
   }
 
+  async function handleDeleteSupporter() {
+    if (!supporterToDelete) return;
+    setLoading(true);
+    try {
+      if (isAdmin) await api.deleteAdminSupporter(supporterToDelete.id);
+      else if (isCoordinator) await api.deleteCoordinatorSupporter(supporterToDelete.id);
+      else await api.deleteLeaderSupporter(supporterToDelete.id);
+
+      const remainingTotal = Math.max(0, total - 1);
+      setSupporters((current) => current.filter((supporter) => supporter.id !== supporterToDelete.id));
+      setTotal(remainingTotal);
+      setTotalPages(Math.max(1, Math.ceil(remainingTotal / LIMIT)));
+      setSupporterToDelete(null);
+      toast('Apoiador excluído com sucesso!', 'success');
+      if (supporters.length === 1 && page > 1) setPage((current) => current - 1);
+    } catch (err) {
+      toast((err as Error).message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const subtitle =
     isAdmin
       ? 'Todos os apoiadores da campanha'
@@ -161,7 +197,7 @@ function SupportersContent() {
   // Colunas dinâmicas conforme role
   const showLeaderCol = isAdmin || isCoordinator;
   const showCoordinatorCol = isAdmin;
-  const colCount = 5 + (showLeaderCol ? 1 : 0) + (showCoordinatorCol ? 1 : 0);
+  const colCount = 7 + (showLeaderCol ? 1 : 0) + (showCoordinatorCol ? 1 : 0);
 
   const cityFilterOptions = (() => {
     if (!pendingState || !CITIES_BY_STATE[pendingState]) return [];
@@ -197,8 +233,16 @@ function SupportersContent() {
             options={[{ value: '', label: 'Todos os estados' }, ...BRAZILIAN_STATES.map((s) => ({ value: s, label: s }))]}
             value={pendingState}
             onChange={(e) => {
-              setPendingState(e.target.value);
-              setPendingCity('');
+              const filters = changeSupporterFilterState({
+                search: pendingSearch,
+                city: pendingCity,
+                state: pendingState,
+                neighborhood: pendingNeighborhood,
+                zone: pendingZone,
+              }, e.target.value);
+              setPendingState(filters.state);
+              setPendingCity(filters.city);
+              setPendingNeighborhood(filters.neighborhood);
             }}
           />
           <Select
@@ -260,6 +304,7 @@ function SupportersContent() {
                 <th className="pb-3 font-semibold text-slate-600 px-4">Status</th>
                 <th className="pb-3 font-semibold text-slate-600 px-4">Status WhatsApp</th>
                 <th className="pb-3 font-semibold text-slate-600 px-4">Cadastro</th>
+                <th className="pb-3 font-semibold text-slate-600 px-4">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -356,6 +401,11 @@ function SupportersContent() {
                       <td className="py-3 text-slate-400 text-xs px-4">
                         {new Date(s.createdAt).toLocaleDateString('pt-BR')}
                       </td>
+                      <td className="py-3 px-4">
+                        <Button type="button" variant="danger" size="sm" onClick={() => setSupporterToDelete(s)}>
+                          Excluir
+                        </Button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -382,6 +432,19 @@ function SupportersContent() {
         confirmVariant="primary"
         onConfirm={handleConfirmStatusChange}
         onCancel={handleCancelStatusChange}
+        isLoading={loading}
+      />
+
+      <ConfirmModal
+        isOpen={supporterToDelete !== null}
+        title="Excluir apoiador"
+        message={supporterToDelete
+          ? `Excluir permanentemente ${supporterToDelete.firstName} ${supporterToDelete.lastName}? Essa ação não pode ser desfeita.`
+          : ''}
+        confirmLabel="Excluir apoiador"
+        confirmVariant="danger"
+        onConfirm={handleDeleteSupporter}
+        onCancel={() => setSupporterToDelete(null)}
         isLoading={loading}
       />
     </DashboardLayout>

@@ -12,6 +12,12 @@ import {
   isValidCityZone,
 } from '@platform/utils';
 import { prisma } from '../lib/prisma';
+import {
+  deleteSupporterWithinScope,
+  supporterIdPattern,
+  supporterScope,
+  supporterSearchWhere,
+} from '../lib/supporter-management';
 
 // Campos retornados nas listagens de líderes
 const leaderSelect = (campaignId: string) => ({
@@ -398,6 +404,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
       const origin = request.query.origin?.trim().toUpperCase();
       const leaderId = request.query.leaderId?.trim();
       const order = request.query.order?.trim().toLowerCase() || 'desc';
+      const supporterSearch = supporterSearchWhere(search);
 
       if (origin && origin !== 'COORDINATOR' && origin !== 'LEADER') {
         return reply.status(400).send({ message: 'Filtro de origem inválido.' });
@@ -428,14 +435,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
         AND: [
           structureScope,
           ...(leaderId ? [{ leaderId, leader: { coordinatorId, campaignId, role: Role.LEADER } }] : []),
-          ...(search ? [{
-              OR: [
-                { firstName: { contains: search, mode: 'insensitive' as const } },
-                { lastName: { contains: search, mode: 'insensitive' as const } },
-                { phone: { contains: search.replace(/\D/g, '') } },
-                { email: { contains: search, mode: 'insensitive' as const } },
-              ],
-            }] : []),
+          ...(supporterSearch ? [supporterSearch] : []),
         ],
       };
 
@@ -536,6 +536,31 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
       });
 
       return reply.send({ success: true, status });
+    },
+  );
+
+  fastify.delete<{ Params: { id: string } }>(
+    '/supporters/:id',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.COORDINATOR)] },
+    async (request, reply) => {
+      if (!supporterIdPattern.test(request.params.id)) {
+        return reply.status(400).send({ message: 'ID de apoiador inválido.' });
+      }
+      const scope = supporterScope(
+        Role.COORDINATOR as import('@prisma/client').Role,
+        request.user.sub,
+        request.user.campaignId,
+      );
+      if (!scope) return reply.status(403).send({ message: 'Acesso negado.' });
+      const result = await deleteSupporterWithinScope({ id: request.params.id, ...scope });
+      if (result.kind === 'not_found') return reply.status(404).send({ message: 'Apoiador não encontrado.' });
+      if (result.kind === 'blocked') {
+        return reply.status(409).send({
+          message: 'Não foi possível excluir o apoiador porque existem registros vinculados.',
+          dependencies: result.blockers,
+        });
+      }
+      return reply.send({ success: true, message: 'Apoiador excluído permanentemente.', removed: result.removed });
     },
   );
 

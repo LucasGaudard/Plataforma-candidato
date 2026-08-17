@@ -51,6 +51,7 @@ import type {
   SuperAdminCampaignAdminInput,
   CampaignContent,
   DeleteManagedUserResponse,
+  DeleteSupporterResponse,
 } from '@platform/types';
 
 
@@ -218,6 +219,10 @@ class ApiClient {
     });
   }
 
+  deleteAdminSupporter(id: string) {
+    return this.request<DeleteSupporterResponse>(`/admin/supporters/${id}`, { method: 'DELETE' });
+  }
+
   getAdminRecipientCount(filters: CommunicationFilters) {
     return this.request<RecipientCountResponse>(
       `/admin/communication/recipients/count${this.qs(filters as Record<string, string | number | undefined>)}`
@@ -302,6 +307,10 @@ class ApiClient {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
+  }
+
+  deleteLeaderSupporter(id: string) {
+    return this.request<DeleteSupporterResponse>(`/leader/supporters/${id}`, { method: 'DELETE' });
   }
 
   getLeaderRecipientCount(filters: CommunicationFilters) {
@@ -460,6 +469,10 @@ class ApiClient {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
+  }
+
+  deleteCoordinatorSupporter(id: string) {
+    return this.request<DeleteSupporterResponse>(`/coordinator/supporters/${id}`, { method: 'DELETE' });
   }
 
   getCoordinatorRecipientCount(filters: CommunicationFilters) {
