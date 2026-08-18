@@ -71,3 +71,24 @@ export function canProcessManualRecipient(
 ): supporter is { whatsappStatus: string } {
   return supporter !== null && supporter.whatsappStatus !== 'OPT_OUT';
 }
+
+export function normalizeManualSelection(selection: unknown) {
+  if (!selection || typeof selection !== 'object') return null;
+  const value = selection as { mode?: string; ids?: unknown; count?: unknown; excludedIds?: unknown };
+  if (value.mode === 'IDS') {
+    if (!Array.isArray(value.ids) || value.ids.length === 0 || value.ids.length > 5000) throw new Error('Seleção individual inválida.');
+    return { mode: 'IDS' as const, ids: [...new Set(value.ids.filter((id): id is string => typeof id === 'string' && id.length > 0))] };
+  }
+  if (value.mode === 'FIRST') {
+    if (!Number.isInteger(value.count) || Number(value.count) < 1 || Number(value.count) > 5000) throw new Error('Quantidade selecionada inválida.');
+    return { mode: 'FIRST' as const, count: Number(value.count) };
+  }
+  if (value.mode === 'ALL_FILTERED') {
+    const excludedIds = Array.isArray(value.excludedIds)
+      ? [...new Set(value.excludedIds.filter((id): id is string => typeof id === 'string' && id.length > 0))]
+      : [];
+    if (excludedIds.length > 5000) throw new Error('Lista de exclusão muito grande.');
+    return { mode: 'ALL_FILTERED' as const, excludedIds };
+  }
+  throw new Error('Modo de seleção inválido.');
+}

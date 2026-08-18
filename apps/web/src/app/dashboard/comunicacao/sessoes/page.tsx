@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Role, SupporterStatus, type ManualCommunicationFilters, type ManualCommunicationOptions, type ManualCommunicationPreview, type ManualCommunicationRecipientStatus, type ManualCommunicationSession, type ManualWhatsappConfig } from '@platform/types';
+import { Role, SupporterStatus, type ManualCommunicationEligibleItem, type ManualCommunicationFilters, type ManualCommunicationOptions, type ManualCommunicationPreview, type ManualCommunicationRecipientStatus, type ManualCommunicationSession, type ManualWhatsappConfig } from '@platform/types';
 import { CITY_ZONE_OPTIONS, formatPhone } from '@platform/utils';
-import { Button, Card, EmptyState, Input } from '@platform/ui';
+import { Button, Card, EmptyState, Input, Pagination } from '@platform/ui';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { useAuth } from '@/contexts/auth-context';
@@ -11,6 +11,7 @@ import { useToast } from '@/contexts/toast-context';
 import { api } from '@/lib/api';
 import { buildManualWhatsappLink } from '@/lib/manual-whatsapp';
 import { applyManualRecipientAction } from '@/lib/manual-communication-session';
+import { updateManualSelection } from '@/lib/manual-communication-selection';
 
 const ALLOWED_ROLES = [Role.ADMIN, Role.COORDINATOR, Role.LEADER];
 const EMPTY_OPTIONS: ManualCommunicationOptions = { leaders: [], coordinators: [], cities: [], neighborhoods: [] };
@@ -21,8 +22,13 @@ function ManualCommunications() {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [filters, setFilters] = useState<ManualCommunicationFilters>({});
-  const [quantityMode, setQuantityMode] = useState('ALL');
+  const [selectionMode, setSelectionMode] = useState<'IDS' | 'FIRST' | 'ALL_FILTERED'>('IDS');
   const [customQuantity, setCustomQuantity] = useState('');
+  const [firstCount, setFirstCount] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [eligibleItems, setEligibleItems] = useState<ManualCommunicationEligibleItem[]>([]);
+  const [eligiblePage, setEligiblePage] = useState(1);
+  const [eligibleTotalPages, setEligibleTotalPages] = useState(1);
   const [preview, setPreview] = useState<ManualCommunicationPreview | null>(null);
   const [options, setOptions] = useState(EMPTY_OPTIONS);
   const [config, setConfig] = useState<ManualWhatsappConfig | null>(null);
@@ -39,6 +45,16 @@ function ManualCommunications() {
     Promise.all([api.getManualCommunicationOptions(), api.getManualWhatsappConfig(), api.getManualCommunicationSessions()])
       .then(([availableOptions, whatsappConfig, history]) => {
         setOptions(availableOptions); setConfig(whatsappConfig); setSessions(history);
+        const savedDraft = sessionStorage.getItem('manualCommunicationDraft');
+        if (savedDraft) {
+          try {
+            const draft = JSON.parse(savedDraft) as { title?: string; message?: string };
+            if (draft.title) setTitle(draft.title);
+            if (draft.message) setMessage(draft.message);
+          } finally {
+            sessionStorage.removeItem('manualCommunicationDraft');
+          }
+        }
       })
       .catch((error: Error) => toast(error.message, 'error'));
   }, [toast]);
@@ -46,22 +62,62 @@ function ManualCommunications() {
   function updateFilter<K extends keyof ManualCommunicationFilters>(key: K, value: ManualCommunicationFilters[K] | '') {
     setFilters((current) => ({ ...current, [key]: value || undefined }));
     setPreview(null);
+    setEligibleItems([]); setSelectedIds(new Set()); setSelectionMode('IDS'); setFirstCount(0);
   }
 
   async function calculatePreview() {
     setBusy(true);
-    try { setPreview(await api.previewManualCommunication(filters)); }
+    try {
+      const [previewData, eligibleData] = await Promise.all([
+        api.previewManualCommunication(filters),
+        api.getManualCommunicationEligible(filters, 1, 20),
+      ]);
+      setPreview(previewData); setEligibleItems(eligibleData.data);
+      setEligiblePage(1); setEligibleTotalPages(eligibleData.meta.totalPages);
+      setSelectedIds(new Set()); setSelectionMode('IDS'); setFirstCount(0);
+    }
     catch (error) { toast((error as Error).message, 'error'); }
     finally { setBusy(false); }
   }
 
-  async function createSession() {
-    if (!preview) return toast('Calcule a prévia antes de criar a sessão.', 'error');
-    const quantity = quantityMode === 'CUSTOM' ? Number(customQuantity) : quantityMode === 'ALL' ? 'ALL' : Number(quantityMode);
+  async function changeEligiblePage(page: number) {
     setBusy(true);
     try {
-      const created = await api.createManualCommunication({ title, message, filters, quantity });
+      const result = await api.getManualCommunicationEligible(filters, page, 20);
+      setEligibleItems(result.data); setEligiblePage(page); setEligibleTotalPages(result.meta.totalPages);
+    } catch (error) { toast((error as Error).message, 'error'); }
+    finally { setBusy(false); }
+  }
+
+  function selectFirst(count: number) {
+    if (!Number.isInteger(count) || count < 1 || count > 5000) {
+      toast('Informe uma quantidade entre 1 e 5000.', 'error');
+      return;
+    }
+    setSelectionMode('FIRST'); setFirstCount(Math.min(count, preview?.eligible || 0)); setSelectedIds(new Set());
+  }
+
+  function clearSelection() {
+    setSelectionMode('IDS'); setFirstCount(0); setSelectedIds(new Set());
+  }
+
+  const selectedCount = selectionMode === 'ALL_FILTERED'
+    ? preview?.eligible || 0
+    : selectionMode === 'FIRST' ? firstCount : selectedIds.size;
+
+  async function createSession() {
+    if (!preview) return toast('Calcule a prévia antes de criar a sessão.', 'error');
+    if (selectedCount === 0) return toast('Selecione ao menos um apoiador.', 'error');
+    const selection = selectionMode === 'IDS'
+      ? { mode: 'IDS' as const, ids: [...selectedIds] }
+      : selectionMode === 'FIRST'
+        ? { mode: 'FIRST' as const, count: firstCount }
+        : { mode: 'ALL_FILTERED' as const };
+    setBusy(true);
+    try {
+      const created = await api.createManualCommunication({ title, message, filters, quantity: 'ALL', selection });
       setActive(created); setOpenedId(null); setTitle(''); setMessage(''); setPreview(null);
+      setEligibleItems([]); clearSelection();
       await reloadHistory();
       toast('Sessão de comunicação criada.', 'success');
     } catch (error) { toast((error as Error).message, 'error'); }
@@ -140,8 +196,21 @@ function ManualCommunications() {
             </div>
             <Button type="button" variant="outline" disabled={busy} onClick={calculatePreview}>Calcular prévia</Button>
             {preview && <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-4"><span><strong>{preview.totalFound}</strong><br />encontrados</span><span className="text-emerald-700"><strong>{preview.eligible}</strong><br />elegíveis</span><span className="text-amber-700"><strong>{preview.excludedOptOut}</strong><br />OPT_OUT</span><span className="text-red-700"><strong>{preview.invalidPhone}</strong><br />sem telefone válido</span></div>}
-            <div className="flex gap-2"><select className="flex-1 rounded-lg border p-2" value={quantityMode} onChange={(event) => setQuantityMode(event.target.value)}><option value="ALL">Todos os elegíveis</option><option value="25">Primeiros 25</option><option value="50">Primeiros 50</option><option value="100">Primeiros 100</option><option value="CUSTOM">Quantidade personalizada</option></select>{quantityMode === 'CUSTOM' && <input type="number" min="1" max="5000" className="w-32 rounded-lg border p-2" value={customQuantity} onChange={(event) => setCustomQuantity(event.target.value)} />}</div>
-            <Button type="button" disabled={busy || !preview || !title.trim() || !message.trim() || preview.eligible === 0} onClick={createSession}>Criar sessão</Button>
+            {preview && <div className="space-y-3 rounded-xl border p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2"><strong>Selecionar apoiadores</strong><span className="text-sm text-brand-700">Selecionados: {selectedCount}</span></div>
+              <div className="flex flex-wrap gap-2">
+                {[25, 50, 100].map((count) => <Button key={count} type="button" size="sm" variant="outline" onClick={() => selectFirst(count)}>Primeiros {count}</Button>)}
+                <Button type="button" size="sm" variant="outline" onClick={() => { setSelectionMode('ALL_FILTERED'); setSelectedIds(new Set()); setFirstCount(0); }}>Todos os {preview.eligible} filtrados</Button>
+                <div className="flex gap-1"><input aria-label="Quantidade personalizada" type="number" min="1" max="5000" className="w-24 rounded-lg border p-2 text-sm" value={customQuantity} onChange={(event) => setCustomQuantity(event.target.value)} /><Button type="button" size="sm" variant="outline" onClick={() => selectFirst(Number(customQuantity))}>Selecionar</Button></div>
+                <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>Limpar seleção</Button>
+              </div>
+              <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-2"><input aria-label="Selecionar todos desta página" type="checkbox" checked={eligibleItems.length > 0 && eligibleItems.every((item) => selectedIds.has(item.id)) && selectionMode === 'IDS'} onChange={(event) => {
+                setSelectionMode('IDS'); setFirstCount(0);
+                setSelectedIds((current) => updateManualSelection(current, eligibleItems.map((item) => item.id), event.target.checked));
+              }} /></th><th className="p-2">Nome</th><th className="p-2">Telefone</th><th className="p-2">Cidade / bairro</th><th className="p-2">Coordenador / líder</th><th className="p-2">Cadastro</th></tr></thead><tbody>{eligibleItems.map((item) => <tr key={item.id} className="border-b"><td className="p-2"><input aria-label={`Selecionar ${item.name}`} type="checkbox" checked={selectionMode === 'IDS' && selectedIds.has(item.id)} onChange={(event) => { setSelectionMode('IDS'); setFirstCount(0); setSelectedIds((current) => updateManualSelection(current, [item.id], event.target.checked)); }} /></td><td className="p-2 font-medium">{item.name}</td><td className="p-2">{formatPhone(item.phone)}</td><td className="p-2">{item.city}{item.neighborhood ? ` · ${item.neighborhood}` : ''}</td><td className="p-2">{item.coordinatorName || '—'} / {item.leaderName || '—'}</td><td className="p-2">{new Date(item.createdAt).toLocaleDateString('pt-BR')}</td></tr>)}</tbody></table></div>
+              {eligibleTotalPages > 1 && <Pagination page={eligiblePage} totalPages={eligibleTotalPages} onPageChange={changeEligiblePage} />}
+            </div>}
+            <Button type="button" disabled={busy || !preview || !title.trim() || !message.trim() || selectedCount === 0} onClick={createSession}>Criar sessão com {selectedCount} selecionado{selectedCount === 1 ? '' : 's'}</Button>
           </div>
         </Card>
 

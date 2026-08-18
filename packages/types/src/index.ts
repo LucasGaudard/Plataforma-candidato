@@ -432,6 +432,22 @@ export interface ManualCommunicationPreview {
   invalidPhone: number;
 }
 
+export interface ManualCommunicationEligibleItem {
+  id: string;
+  name: string;
+  phone: string;
+  city: string;
+  neighborhood: string | null;
+  coordinatorName: string | null;
+  leaderName: string | null;
+  createdAt: string;
+}
+
+export interface ManualCommunicationEligibleResponse {
+  data: ManualCommunicationEligibleItem[];
+  meta: { page: number; limit: number; total: number; totalPages: number };
+}
+
 export type ManualCommunicationSessionStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED';
 export type ManualCommunicationRecipientStatus = 'PENDING' | 'SENT' | 'SKIPPED' | 'OPT_OUT';
 
@@ -466,6 +482,10 @@ export interface CreateManualCommunicationSessionRequest {
   message: string;
   filters: ManualCommunicationFilters;
   quantity: number | 'ALL';
+  selection?:
+    | { mode: 'IDS'; ids: string[] }
+    | { mode: 'FIRST'; count: number }
+    | { mode: 'ALL_FILTERED'; excludedIds?: string[] };
 }
 
 export interface ManualCommunicationOptions {

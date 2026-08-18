@@ -55,6 +55,7 @@ import type {
   ManualWhatsappQueueResponse,
   CreateManualCommunicationSessionRequest,
   ManualCommunicationFilters,
+  ManualCommunicationEligibleResponse,
   ManualCommunicationOptions,
   ManualCommunicationPreview,
   ManualCommunicationSession,
@@ -260,6 +261,13 @@ class ApiClient {
     return this.request<ManualCommunicationPreview>('/campaign/manual-communications/preview', {
       method: 'POST', body: JSON.stringify({ filters }),
     });
+  }
+
+  getManualCommunicationEligible(filters: ManualCommunicationFilters, page = 1, limit = 20) {
+    return this.request<ManualCommunicationEligibleResponse>(
+      `/campaign/manual-communications/eligible${this.qs({ page, limit })}`,
+      { method: 'POST', body: JSON.stringify({ filters }) },
+    );
   }
 
   createManualCommunication(body: CreateManualCommunicationSessionRequest) {

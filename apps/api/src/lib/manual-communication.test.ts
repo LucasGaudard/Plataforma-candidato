@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Role } from '@prisma/client';
 import { supporterScope } from './supporter-management';
-import { canProcessManualRecipient, classifyManualCommunicationAudience, manualCommunicationAudienceWhere, manualCommunicationSessionOwnerWhere, resolveManualCommunicationLimit, selectUniqueManualRecipients } from './manual-communication';
+import { canProcessManualRecipient, classifyManualCommunicationAudience, manualCommunicationAudienceWhere, manualCommunicationSessionOwnerWhere, normalizeManualSelection, resolveManualCommunicationLimit, selectUniqueManualRecipients } from './manual-communication';
 
 test('filtros permanecem combinados ao escopo da campanha e hierarquia', () => {
   const scope = supporterScope(Role.COORDINATOR, 'coord-1', 'campaign-1')!;
@@ -53,4 +53,10 @@ test('opt-out ocorrido depois da prévia é revalidado na criação', () => {
   assert.equal(before.eligible.length, 1);
   assert.equal(after.eligible.length, 0);
   assert.equal(after.excludedOptOut, 1);
+});
+
+test('seleção individual remove duplicados e rejeita payload inválido', () => {
+  assert.deepEqual(normalizeManualSelection({ mode: 'IDS', ids: ['a', 'a', 'b'] }), { mode: 'IDS', ids: ['a', 'b'] });
+  assert.throws(() => normalizeManualSelection({ mode: 'IDS', ids: [] }));
+  assert.throws(() => normalizeManualSelection({ mode: 'FIRST', count: 0 }));
 });

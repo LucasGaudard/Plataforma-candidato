@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { ManualCommunicationRecipientStatus, ManualCommunicationSessionStatus, Prisma, Role as PrismaRole, SupporterStatus } from '@prisma/client';
-import { Role, type CreateManualCommunicationSessionRequest, type ManualCommunicationFilters } from '@platform/types';
+import { Role, type CreateManualCommunicationSessionRequest, type ManualCommunicationEligibleResponse, type ManualCommunicationFilters } from '@platform/types';
 import { isValidCityZone, normalizeBrazilianPhone } from '@platform/utils';
 import { prisma } from '../lib/prisma';
-import { canProcessManualRecipient, classifyManualCommunicationAudience, manualCommunicationAudienceWhere, manualCommunicationSessionOwnerWhere, resolveManualCommunicationLimit } from '../lib/manual-communication';
+import { canProcessManualRecipient, classifyManualCommunicationAudience, manualCommunicationAudienceWhere, manualCommunicationSessionOwnerWhere, normalizeManualSelection, resolveManualCommunicationLimit } from '../lib/manual-communication';
 import { supporterScope } from '../lib/supporter-management';
 
 const teamRoles = [Role.ADMIN, Role.COORDINATOR, Role.LEADER];
@@ -103,6 +103,56 @@ export async function manualCommunicationRoutes(fastify: FastifyInstance) {
     return reply.send(totals);
   });
 
+  fastify.post<{
+    Querystring: { page?: string; limit?: string };
+    Body: { filters?: ManualCommunicationFilters };
+  }>('/eligible', { preHandler: team }, async (request, reply) => {
+    const scope = scopeFor(request);
+    if (!scope) return reply.status(403).send({ message: 'Acesso negado' });
+    let filters;
+    try { filters = validateFilters(request.body?.filters || {}); }
+    catch (error) { return reply.status(400).send({ message: (error as Error).message }); }
+    const page = Math.max(1, Number.parseInt(request.query.page || '1', 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(request.query.limit || '20', 10) || 20));
+    const start = (page - 1) * limit;
+    const data: ManualCommunicationEligibleResponse['data'] = [];
+    let eligibleIndex = 0;
+    let cursor: string | undefined;
+    while (true) {
+      const candidates = await prisma.user.findMany({
+        where: manualCommunicationAudienceWhere(scope, filters),
+        select: {
+          id: true, firstName: true, lastName: true, phone: true, city: true,
+          neighborhood: true, createdAt: true, whatsappStatus: true,
+          leader: { select: { firstName: true, lastName: true } },
+          coordinator: { select: { firstName: true, lastName: true } },
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: PREVIEW_BATCH_SIZE,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      for (const candidate of classifyManualCommunicationAudience(candidates).eligible) {
+        if (eligibleIndex >= start && data.length < limit) {
+          data.push({
+            id: candidate.id, name: `${candidate.firstName} ${candidate.lastName}`,
+            phone: normalizeBrazilianPhone(candidate.phone)!, city: candidate.city,
+            neighborhood: candidate.neighborhood,
+            coordinatorName: candidate.coordinator ? `${candidate.coordinator.firstName} ${candidate.coordinator.lastName}` : null,
+            leaderName: candidate.leader ? `${candidate.leader.firstName} ${candidate.leader.lastName}` : null,
+            createdAt: candidate.createdAt.toISOString(),
+          });
+        }
+        eligibleIndex += 1;
+      }
+      if (candidates.length < PREVIEW_BATCH_SIZE) break;
+      cursor = candidates[candidates.length - 1].id;
+    }
+    const response: ManualCommunicationEligibleResponse = {
+      data,
+      meta: { page, limit, total: eligibleIndex, totalPages: Math.max(1, Math.ceil(eligibleIndex / limit)) },
+    };
+    return reply.send(response);
+  });
+
   fastify.post<{ Body: CreateManualCommunicationSessionRequest }>('/', { preHandler: team }, async (request, reply) => {
     const scope = scopeFor(request);
     if (!scope) return reply.status(403).send({ message: 'Acesso negado' });
@@ -113,9 +163,14 @@ export async function manualCommunicationRoutes(fastify: FastifyInstance) {
     let filters: ManualCommunicationFilters;
     try { filters = validateFilters(request.body.filters || {}); }
     catch (error) { return reply.status(400).send({ message: (error as Error).message }); }
+    let selection;
+    try { selection = normalizeManualSelection(request.body.selection); }
+    catch (error) { return reply.status(400).send({ message: (error as Error).message }); }
     let maximumRecipients = Number.POSITIVE_INFINITY;
     try {
-      if (request.body.quantity !== 'ALL') maximumRecipients = resolveManualCommunicationLimit(request.body.quantity, 5000);
+      if (selection?.mode === 'IDS') maximumRecipients = selection.ids.length;
+      else if (selection?.mode === 'FIRST') maximumRecipients = selection.count;
+      else if (!selection && request.body.quantity !== 'ALL') maximumRecipients = resolveManualCommunicationLimit(request.body.quantity, 5000);
     } catch (error) { return reply.status(400).send({ message: (error as Error).message }); }
     try {
       const created = await prisma.$transaction(async (tx) => {
@@ -132,9 +187,15 @@ export async function manualCommunicationRoutes(fastify: FastifyInstance) {
         });
         let cursor: string | undefined;
         let selected = 0;
+        const audienceWhere = manualCommunicationAudienceWhere(scope, filters);
+        const selectedAudienceWhere = selection?.mode === 'IDS'
+          ? { AND: [audienceWhere, { id: { in: selection.ids } }] }
+          : selection?.mode === 'ALL_FILTERED' && selection.excludedIds.length
+            ? { AND: [audienceWhere, { id: { notIn: selection.excludedIds } }] }
+            : audienceWhere;
         while (selected < maximumRecipients) {
           const candidates = await tx.user.findMany({
-            where: manualCommunicationAudienceWhere(scope, filters),
+            where: selectedAudienceWhere,
             select: { id: true, firstName: true, lastName: true, phone: true, whatsappStatus: true },
             orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: CREATION_BATCH_SIZE,
             ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),

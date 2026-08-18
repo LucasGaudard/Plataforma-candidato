@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type {
   CreateEventRequest,
   CreateLiveRequest,
@@ -18,7 +19,7 @@ import { useToast } from '@/contexts/toast-context';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Role } from '@platform/types';
-import { WhatsappModal } from '@/components/communication/whatsapp-modal';
+import { buildContentCommunicationDraft } from '@/lib/content-communication-draft';
 
 type ContentType = 'posts' | 'events' | 'lives';
 
@@ -60,6 +61,7 @@ const emptyLive: CreateLiveRequest = {
 
 function ContentManagerInner({ type, title }: ContentManagerProps) {
   const { toast } = useToast();
+  const router = useRouter();
   const [items, setItems] = useState<(PostPublic | EventPublic | LivePublic)[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -68,12 +70,6 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
   const [postForm, setPostForm] = useState<CreatePostRequest>(emptyPost);
   const [eventForm, setEventForm] = useState<CreateEventRequest>(emptyEvent);
   const [liveForm, setLiveForm] = useState<CreateLiveRequest>(emptyLive);
-
-  const [whatsappContent, setWhatsappContent] = useState<{
-    type: 'POST' | 'EVENTO' | 'LIVE';
-    title: string;
-    description: string;
-  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -205,13 +201,9 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
     }
   }
 
-  function openWhatsappModal(item: PostPublic | EventPublic | LivePublic) {
-    const contentType = type === 'posts' ? 'POST' : type === 'events' ? 'EVENTO' : 'LIVE';
-    setWhatsappContent({
-      type: contentType,
-      title: item.title,
-      description: item.description,
-    });
+  function createCommunication(item: PostPublic | EventPublic | LivePublic) {
+    sessionStorage.setItem('manualCommunicationDraft', JSON.stringify(buildContentCommunicationDraft(type, item)));
+    router.push('/dashboard/comunicacao/sessoes');
   }
 
   return (
@@ -296,7 +288,7 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
                 <div className="flex shrink-0 flex-wrap gap-2 justify-end">
                   <Button size="sm" variant="outline" onClick={() => startEdit(item)}>Editar</Button>
                   <Button size="sm" variant="danger" onClick={() => requestDelete(item.id)}>Excluir</Button>
-                  <Button size="sm" onClick={() => openWhatsappModal(item)}>Enviar WhatsApp</Button>
+                  <Button size="sm" onClick={() => createCommunication(item)}>Criar comunicação</Button>
                 </div>
               </Card>
             ))}
@@ -315,11 +307,6 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
         isLoading={loading}
       />
 
-      <WhatsappModal
-        isOpen={!!whatsappContent}
-        onClose={() => setWhatsappContent(null)}
-        content={whatsappContent}
-      />
     </DashboardLayout>
   );
 }
