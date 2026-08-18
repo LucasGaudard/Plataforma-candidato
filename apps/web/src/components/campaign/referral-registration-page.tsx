@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Card } from '@platform/ui';
 import { SupporterForm } from '@/components/forms/supporter-form';
 import { api } from '@/lib/api';
+import { redirectAfterPublicReferralRegistration } from '@/lib/public-referral-redirect';
 import { PublicCampaignTheme } from './public-campaign-theme';
 import { CampaignIdentity } from './campaign-identity';
 import { CampaignRegistrationCopy } from './campaign-registration-copy';
@@ -75,7 +76,10 @@ export function ReferralRegistrationPage({
                     referrerSlug={referrerSlug}
                     referrerName={referrerName}
                     referrerType={referrerType}
-                    onSuccess={() => setSuccess(true)}
+                    onSuccess={() => {
+                      setSuccess(true);
+                      redirectAfterPublicReferralRegistration();
+                    }}
                   />
                 </div>
               </>
