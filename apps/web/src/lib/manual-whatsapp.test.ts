@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildManualWhatsappLink, canUseManualWhatsapp, removeSentItemFromManualQueue } from './manual-whatsapp';
+import { readFileSync } from 'node:fs';
+import { buildManualWhatsappLink, canUseManualWhatsapp, createManualWhatsappOpener, MANUAL_WHATSAPP_WINDOW_NAME, removeSentItemFromManualQueue } from './manual-whatsapp';
 
 test('monta link oficial com DDI e mensagem codificada', () => {
   assert.equal(
@@ -36,4 +37,57 @@ test('marcar enviada remove imediatamente o apoiador e atualiza os totais', () =
   assert.deepEqual(removeSentItemFromManualQueue(queue, 'supporter-1'), {
     ...queue, items: [], totalPending: 0, totalSent: 4,
   });
+});
+
+test('desktop cria janela nomeada, reutiliza e atualiza URL do próximo contato', () => {
+  const calls: Array<{ url: string; target: string }> = [];
+  let focused = 0;
+  const handle = { closed: false, location: { href: '' }, focus: () => { focused += 1; }, opener: {} as unknown };
+  const open = createManualWhatsappOpener({
+    getWindow: () => ({ navigator: { userAgent: 'Desktop' }, open: (url, target) => { calls.push({ url, target }); handle.location.href = url; return handle; } }),
+    now: () => 1000,
+  });
+  assert.equal(open('11999990000', 'Primeira'), 'OPENED');
+  assert.equal(open('11999990001', 'Segunda'), 'REUSED');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].target, MANUAL_WHATSAPP_WINDOW_NAME);
+  assert.match(handle.location.href, /5511999990001/);
+  assert.equal(focused, 2);
+});
+
+test('janela fechada é recriada no próximo contato', () => {
+  const handles = [
+    { closed: true, location: { href: '' }, focus: () => undefined },
+    { closed: false, location: { href: '' }, focus: () => undefined },
+  ];
+  let calls = 0;
+  const open = createManualWhatsappOpener({
+    getWindow: () => ({ navigator: { userAgent: 'Desktop' }, open: () => handles[calls++] }),
+    now: () => 1000,
+  });
+  assert.equal(open('11999990000', 'Primeira'), 'OPENED');
+  assert.equal(open('11999990001', 'Segunda'), 'OPENED');
+  assert.equal(calls, 2);
+});
+
+test('mobile preserva abertura externa e clique duplo não abre duas vezes', () => {
+  const targets: string[] = [];
+  const open = createManualWhatsappOpener({
+    getWindow: () => ({ navigator: { userAgent: 'Mozilla/5.0 (iPhone)' }, open: (_url, target) => { targets.push(target); return { focus: () => undefined }; } }),
+    now: () => 1000,
+  });
+  assert.equal(open('11999990000', 'Mensagem'), 'MOBILE');
+  assert.equal(open('11999990000', 'Mensagem'), 'DUPLICATE');
+  assert.deepEqual(targets, ['_blank']);
+});
+
+test('os dois fluxos de fila usam o helper compartilhado e não chamam window.open', () => {
+  for (const relativePath of [
+    '../app/dashboard/comunicacao/novos-apoiadores/page.tsx',
+    '../app/dashboard/comunicacao/sessoes/page.tsx',
+  ]) {
+    const source = readFileSync(new URL(relativePath, import.meta.url), 'utf8');
+    assert.match(source, /openManualWhatsappConversation/);
+    assert.doesNotMatch(source, /window\.open/);
+  }
 });

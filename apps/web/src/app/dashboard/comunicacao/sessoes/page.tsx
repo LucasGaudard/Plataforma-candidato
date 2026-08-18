@@ -9,7 +9,7 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
 import { api } from '@/lib/api';
-import { buildManualWhatsappLink } from '@/lib/manual-whatsapp';
+import { openManualWhatsappConversation } from '@/lib/manual-whatsapp';
 import { applyManualRecipientAction } from '@/lib/manual-communication-session';
 import { manualSelectionCount, updateManualSelection } from '@/lib/manual-communication-selection';
 
@@ -148,9 +148,11 @@ function ManualCommunications() {
   function openWhatsapp() {
     if (!active || !current) return;
     if (!config?.officialNumber) return toast('Configure primeiro o número oficial do WhatsApp Business.', 'error');
-    const link = buildManualWhatsappLink(current.phone, active.message);
-    if (!link) return toast('Telefone inválido.', 'error');
-    window.open(link, '_blank', 'noopener,noreferrer'); setOpenedId(current.id);
+    const result = openManualWhatsappConversation(current.phone, active.message);
+    if (result === 'INVALID') return toast('Telefone inválido.', 'error');
+    if (result === 'BLOCKED') return toast('O navegador bloqueou a abertura do WhatsApp. Permita pop-ups e tente novamente.', 'error');
+    if (result === 'DUPLICATE') return;
+    setOpenedId(current.id);
   }
 
   async function actOnRecipient(action: Exclude<ManualCommunicationRecipientStatus, 'PENDING'>) {

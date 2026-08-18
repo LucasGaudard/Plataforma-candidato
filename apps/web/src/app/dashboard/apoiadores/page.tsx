@@ -25,7 +25,7 @@ import {
   clearSupporterFilters,
   normalizeSupporterFilters,
 } from '@/lib/supporter-filter-state';
-import { buildManualWhatsappLink, canUseManualWhatsapp } from '@/lib/manual-whatsapp';
+import { canUseManualWhatsapp, openManualWhatsappConversation } from '@/lib/manual-whatsapp';
 
 const ALLOWED_ROLES: Role[] = [Role.ADMIN, Role.COORDINATOR, Role.LEADER];
 
@@ -109,12 +109,16 @@ function SupportersContent() {
       toast('Configure primeiro o número oficial do WhatsApp Business.', 'error');
       return;
     }
-    const link = buildManualWhatsappLink(supporter.phone, manualWhatsapp.initialMessage);
-    if (!link) {
+    const result = openManualWhatsappConversation(supporter.phone, manualWhatsapp.initialMessage);
+    if (result === 'INVALID') {
       toast('O apoiador não possui um telefone válido.', 'error');
       return;
     }
-    window.open(link, '_blank', 'noopener,noreferrer');
+    if (result === 'BLOCKED') {
+      toast('O navegador bloqueou a abertura do WhatsApp. Permita pop-ups e tente novamente.', 'error');
+      return;
+    }
+    if (result === 'DUPLICATE') return;
     setOpenedWhatsappIds((current) => new Set(current).add(supporter.id));
   }
 

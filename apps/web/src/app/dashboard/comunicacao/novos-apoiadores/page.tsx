@@ -9,7 +9,7 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
 import { api } from '@/lib/api';
-import { buildManualWhatsappLink, removeSentItemFromManualQueue } from '@/lib/manual-whatsapp';
+import { openManualWhatsappConversation, removeSentItemFromManualQueue } from '@/lib/manual-whatsapp';
 
 const ALLOWED_ROLES = [Role.ADMIN, Role.COORDINATOR, Role.LEADER];
 const EMPTY_QUEUE: ManualWhatsappQueueResponse = {
@@ -66,12 +66,16 @@ function NewSupportersQueue() {
       toast('Configure primeiro o número oficial do WhatsApp Business.', 'error');
       return;
     }
-    const link = buildManualWhatsappLink(supporter.phone, config.initialMessage);
-    if (!link) {
+    const result = openManualWhatsappConversation(supporter.phone, config.initialMessage);
+    if (result === 'INVALID') {
       toast('O apoiador não possui telefone válido.', 'error');
       return;
     }
-    window.open(link, '_blank', 'noopener,noreferrer');
+    if (result === 'BLOCKED') {
+      toast('O navegador bloqueou a abertura do WhatsApp. Permita pop-ups e tente novamente.', 'error');
+      return;
+    }
+    if (result === 'DUPLICATE') return;
     setOpenedId(supporter.id);
   }
 
