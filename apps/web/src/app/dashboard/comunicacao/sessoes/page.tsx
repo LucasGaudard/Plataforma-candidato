@@ -11,7 +11,7 @@ import { useToast } from '@/contexts/toast-context';
 import { api } from '@/lib/api';
 import { buildManualWhatsappLink } from '@/lib/manual-whatsapp';
 import { applyManualRecipientAction } from '@/lib/manual-communication-session';
-import { updateManualSelection } from '@/lib/manual-communication-selection';
+import { manualSelectionCount, updateManualSelection } from '@/lib/manual-communication-selection';
 
 const ALLOWED_ROLES = [Role.ADMIN, Role.COORDINATOR, Role.LEADER];
 const EMPTY_OPTIONS: ManualCommunicationOptions = { leaders: [], coordinators: [], cities: [], neighborhoods: [] };
@@ -101,9 +101,7 @@ function ManualCommunications() {
     setSelectionMode('IDS'); setFirstCount(0); setSelectedIds(new Set());
   }
 
-  const selectedCount = selectionMode === 'ALL_FILTERED'
-    ? preview?.eligible || 0
-    : selectionMode === 'FIRST' ? firstCount : selectedIds.size;
+  const selectedCount = manualSelectionCount(selectionMode, preview?.eligible || 0, selectedIds, firstCount);
 
   async function createSession() {
     if (!preview) return toast('Calcule a prévia antes de criar a sessão.', 'error');
@@ -207,7 +205,7 @@ function ManualCommunications() {
               <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-2"><input aria-label="Selecionar todos desta página" type="checkbox" checked={eligibleItems.length > 0 && eligibleItems.every((item) => selectedIds.has(item.id)) && selectionMode === 'IDS'} onChange={(event) => {
                 setSelectionMode('IDS'); setFirstCount(0);
                 setSelectedIds((current) => updateManualSelection(current, eligibleItems.map((item) => item.id), event.target.checked));
-              }} /></th><th className="p-2">Nome</th><th className="p-2">Telefone</th><th className="p-2">Cidade / bairro</th><th className="p-2">Coordenador / líder</th><th className="p-2">Cadastro</th></tr></thead><tbody>{eligibleItems.map((item) => <tr key={item.id} className="border-b"><td className="p-2"><input aria-label={`Selecionar ${item.name}`} type="checkbox" checked={selectionMode === 'IDS' && selectedIds.has(item.id)} onChange={(event) => { setSelectionMode('IDS'); setFirstCount(0); setSelectedIds((current) => updateManualSelection(current, [item.id], event.target.checked)); }} /></td><td className="p-2 font-medium">{item.name}</td><td className="p-2">{formatPhone(item.phone)}</td><td className="p-2">{item.city}{item.neighborhood ? ` · ${item.neighborhood}` : ''}</td><td className="p-2">{item.coordinatorName || '—'} / {item.leaderName || '—'}</td><td className="p-2">{new Date(item.createdAt).toLocaleDateString('pt-BR')}</td></tr>)}</tbody></table></div>
+              }} /></th><th className="p-2">Nome</th><th className="p-2">Telefone</th><th className="p-2">Cidade / bairro / zona</th><th className="p-2">Coordenador / líder</th><th className="p-2">Cadastro</th></tr></thead><tbody>{eligibleItems.map((item) => <tr key={item.id} className="border-b"><td className="p-2"><input aria-label={`Selecionar ${item.name}`} type="checkbox" checked={selectionMode === 'IDS' && selectedIds.has(item.id)} onChange={(event) => { setSelectionMode('IDS'); setFirstCount(0); setSelectedIds((current) => updateManualSelection(current, [item.id], event.target.checked)); }} /></td><td className="p-2 font-medium">{item.name}</td><td className="p-2">{formatPhone(item.phone)}</td><td className="p-2">{item.city}{item.neighborhood ? ` · ${item.neighborhood}` : ''}{item.zone ? ` · ${item.zone}` : ''}</td><td className="p-2">{item.coordinatorName || '—'} / {item.leaderName || '—'}</td><td className="p-2">{new Date(item.createdAt).toLocaleDateString('pt-BR')}</td></tr>)}</tbody></table></div>
               {eligibleTotalPages > 1 && <Pagination page={eligiblePage} totalPages={eligibleTotalPages} onPageChange={changeEligiblePage} />}
             </div>}
             <Button type="button" disabled={busy || !preview || !title.trim() || !message.trim() || selectedCount === 0} onClick={createSession}>Criar sessão com {selectedCount} selecionado{selectedCount === 1 ? '' : 's'}</Button>

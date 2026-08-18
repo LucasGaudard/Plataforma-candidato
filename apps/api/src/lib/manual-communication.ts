@@ -92,3 +92,9 @@ export function normalizeManualSelection(selection: unknown) {
   }
   throw new Error('Modo de seleção inválido.');
 }
+
+export function normalizeEligiblePagination(pageValue?: string, limitValue?: string) {
+  const page = Math.max(1, Number.parseInt(pageValue || '1', 10) || 1);
+  const limit = Math.min(100, Math.max(1, Number.parseInt(limitValue || '20', 10) || 20));
+  return { page, limit };
+}

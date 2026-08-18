@@ -438,6 +438,7 @@ export interface ManualCommunicationEligibleItem {
   phone: string;
   city: string;
   neighborhood: string | null;
+  zone: CityZone | null;
   coordinatorName: string | null;
   leaderName: string | null;
   createdAt: string;

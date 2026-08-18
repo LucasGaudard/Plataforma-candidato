@@ -3,7 +3,7 @@ import { ManualCommunicationRecipientStatus, ManualCommunicationSessionStatus, P
 import { Role, type CreateManualCommunicationSessionRequest, type ManualCommunicationEligibleResponse, type ManualCommunicationFilters } from '@platform/types';
 import { isValidCityZone, normalizeBrazilianPhone } from '@platform/utils';
 import { prisma } from '../lib/prisma';
-import { canProcessManualRecipient, classifyManualCommunicationAudience, manualCommunicationAudienceWhere, manualCommunicationSessionOwnerWhere, normalizeManualSelection, resolveManualCommunicationLimit } from '../lib/manual-communication';
+import { canProcessManualRecipient, classifyManualCommunicationAudience, manualCommunicationAudienceWhere, manualCommunicationSessionOwnerWhere, normalizeEligiblePagination, normalizeManualSelection, resolveManualCommunicationLimit } from '../lib/manual-communication';
 import { supporterScope } from '../lib/supporter-management';
 
 const teamRoles = [Role.ADMIN, Role.COORDINATOR, Role.LEADER];
@@ -112,8 +112,7 @@ export async function manualCommunicationRoutes(fastify: FastifyInstance) {
     let filters;
     try { filters = validateFilters(request.body?.filters || {}); }
     catch (error) { return reply.status(400).send({ message: (error as Error).message }); }
-    const page = Math.max(1, Number.parseInt(request.query.page || '1', 10) || 1);
-    const limit = Math.min(100, Math.max(1, Number.parseInt(request.query.limit || '20', 10) || 20));
+    const { page, limit } = normalizeEligiblePagination(request.query.page, request.query.limit);
     const start = (page - 1) * limit;
     const data: ManualCommunicationEligibleResponse['data'] = [];
     let eligibleIndex = 0;
@@ -123,7 +122,7 @@ export async function manualCommunicationRoutes(fastify: FastifyInstance) {
         where: manualCommunicationAudienceWhere(scope, filters),
         select: {
           id: true, firstName: true, lastName: true, phone: true, city: true,
-          neighborhood: true, createdAt: true, whatsappStatus: true,
+          neighborhood: true, zone: true, createdAt: true, whatsappStatus: true,
           leader: { select: { firstName: true, lastName: true } },
           coordinator: { select: { firstName: true, lastName: true } },
         },
@@ -135,7 +134,7 @@ export async function manualCommunicationRoutes(fastify: FastifyInstance) {
           data.push({
             id: candidate.id, name: `${candidate.firstName} ${candidate.lastName}`,
             phone: normalizeBrazilianPhone(candidate.phone)!, city: candidate.city,
-            neighborhood: candidate.neighborhood,
+            neighborhood: candidate.neighborhood, zone: candidate.zone,
             coordinatorName: candidate.coordinator ? `${candidate.coordinator.firstName} ${candidate.coordinator.lastName}` : null,
             leaderName: candidate.leader ? `${candidate.leader.firstName} ${candidate.leader.lastName}` : null,
             createdAt: candidate.createdAt.toISOString(),

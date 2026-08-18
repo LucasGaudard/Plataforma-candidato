@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Role } from '@prisma/client';
 import { supporterScope } from './supporter-management';
-import { canProcessManualRecipient, classifyManualCommunicationAudience, manualCommunicationAudienceWhere, manualCommunicationSessionOwnerWhere, normalizeManualSelection, resolveManualCommunicationLimit, selectUniqueManualRecipients } from './manual-communication';
+import { canProcessManualRecipient, classifyManualCommunicationAudience, manualCommunicationAudienceWhere, manualCommunicationSessionOwnerWhere, normalizeEligiblePagination, normalizeManualSelection, resolveManualCommunicationLimit, selectUniqueManualRecipients } from './manual-communication';
 
 test('filtros permanecem combinados ao escopo da campanha e hierarquia', () => {
   const scope = supporterScope(Role.COORDINATOR, 'coord-1', 'campaign-1')!;
@@ -59,4 +59,14 @@ test('seleção individual remove duplicados e rejeita payload inválido', () =>
   assert.deepEqual(normalizeManualSelection({ mode: 'IDS', ids: ['a', 'a', 'b'] }), { mode: 'IDS', ids: ['a', 'b'] });
   assert.throws(() => normalizeManualSelection({ mode: 'IDS', ids: [] }));
   assert.throws(() => normalizeManualSelection({ mode: 'FIRST', count: 0 }));
+});
+
+test('modos FIRST e ALL_FILTERED preservam sua semântica', () => {
+  assert.deepEqual(normalizeManualSelection({ mode: 'FIRST', count: 25 }), { mode: 'FIRST', count: 25 });
+  assert.deepEqual(normalizeManualSelection({ mode: 'ALL_FILTERED', excludedIds: ['a', 'a'] }), { mode: 'ALL_FILTERED', excludedIds: ['a'] });
+});
+
+test('paginação impõe página mínima e limite máximo seguro', () => {
+  assert.deepEqual(normalizeEligiblePagination('-2', '1000'), { page: 1, limit: 100 });
+  assert.deepEqual(normalizeEligiblePagination('3', '20'), { page: 3, limit: 20 });
 });
