@@ -50,6 +50,15 @@ import type {
   UpdateSuperAdminCampaignRequest,
   SuperAdminCampaignAdminInput,
   CampaignContent,
+  ManualWhatsappConfig,
+  ManualWhatsappQueueFilters,
+  ManualWhatsappQueueResponse,
+  CreateManualCommunicationSessionRequest,
+  ManualCommunicationFilters,
+  ManualCommunicationOptions,
+  ManualCommunicationPreview,
+  ManualCommunicationSession,
+  UpdateManualWhatsappConfigRequest,
   DeleteManagedUserResponse,
   DeleteSupporterResponse,
 } from '@platform/types';
@@ -216,6 +225,66 @@ class ApiClient {
     return this.request<{ success: boolean; status: SupporterStatus }>(`/admin/supporters/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
+    });
+  }
+
+  getManualWhatsappConfig() {
+    return this.request<ManualWhatsappConfig>('/campaign/manual-whatsapp');
+  }
+
+  getManualWhatsappQueue(filters: ManualWhatsappQueueFilters = {}) {
+    return this.request<ManualWhatsappQueueResponse>(
+      `/campaign/manual-whatsapp/queue${this.qs(filters as Record<string, string | number | undefined>)}`,
+    );
+  }
+
+  updateManualWhatsappConfig(body: UpdateManualWhatsappConfigRequest) {
+    return this.request<ManualWhatsappConfig>('/campaign/manual-whatsapp', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+  }
+
+  markManualWhatsappInitialMessageSent(id: string) {
+    return this.request<{ sentAt: string }>(
+      `/campaign/supporters/${encodeURIComponent(id)}/manual-whatsapp-sent`,
+      { method: 'PATCH', body: JSON.stringify({}) },
+    );
+  }
+
+  getManualCommunicationOptions() {
+    return this.request<ManualCommunicationOptions>('/campaign/manual-communications/options');
+  }
+
+  previewManualCommunication(filters: ManualCommunicationFilters) {
+    return this.request<ManualCommunicationPreview>('/campaign/manual-communications/preview', {
+      method: 'POST', body: JSON.stringify({ filters }),
+    });
+  }
+
+  createManualCommunication(body: CreateManualCommunicationSessionRequest) {
+    return this.request<ManualCommunicationSession>('/campaign/manual-communications', {
+      method: 'POST', body: JSON.stringify(body),
+    });
+  }
+
+  getManualCommunicationSessions() {
+    return this.request<ManualCommunicationSession[]>('/campaign/manual-communications');
+  }
+
+  getManualCommunicationSession(id: string) {
+    return this.request<ManualCommunicationSession>(`/campaign/manual-communications/${encodeURIComponent(id)}`);
+  }
+
+  updateManualCommunicationStatus(id: string, status: 'ACTIVE' | 'PAUSED') {
+    return this.request<{ status: 'ACTIVE' | 'PAUSED' }>(`/campaign/manual-communications/${encodeURIComponent(id)}/status`, {
+      method: 'PATCH', body: JSON.stringify({ status }),
+    });
+  }
+
+  updateManualCommunicationRecipient(sessionId: string, recipientId: string, action: 'SENT' | 'SKIPPED' | 'OPT_OUT') {
+    return this.request<{ status: string }>(`/campaign/manual-communications/${encodeURIComponent(sessionId)}/recipients/${encodeURIComponent(recipientId)}`, {
+      method: 'PATCH', body: JSON.stringify({ action }),
     });
   }
 

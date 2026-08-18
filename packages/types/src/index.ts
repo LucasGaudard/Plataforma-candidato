@@ -371,6 +371,110 @@ export interface CoordinatorDashboard {
   referralLink: string;
 }
 
+export const DEFAULT_WHATSAPP_INITIAL_MESSAGE =
+  'Olá! Obrigado por se cadastrar e fazer parte da nossa rede de apoiadores. Em breve você receberá novidades e informações da campanha por aqui.';
+
+export interface ManualWhatsappConfig {
+  officialNumber: string | null;
+  initialMessage: string;
+}
+
+export interface UpdateManualWhatsappConfigRequest {
+  officialNumber: string | null;
+  initialMessage: string;
+}
+
+export type ManualWhatsappQueueOrigin = 'DIRECT' | 'LEADER' | 'COORDINATOR';
+
+export interface ManualWhatsappQueueItem {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  origin: ManualWhatsappQueueOrigin;
+  originName: string | null;
+  createdAt: string;
+}
+
+export interface ManualWhatsappQueueFilters {
+  leaderId?: string;
+  coordinatorId?: string;
+  zone?: CityZone;
+  neighborhood?: string;
+}
+
+export interface ManualWhatsappQueueResponse {
+  items: ManualWhatsappQueueItem[];
+  totalPending: number;
+  totalSent: number;
+  filters: {
+    leaders: Array<{ id: string; name: string }>;
+    coordinators: Array<{ id: string; name: string }>;
+    neighborhoods: string[];
+  };
+}
+
+export interface ManualCommunicationFilters {
+  status?: SupporterStatus;
+  zone?: CityZone;
+  neighborhood?: string;
+  city?: string;
+  coordinatorId?: string;
+  leaderId?: string;
+  registeredFrom?: string;
+  registeredTo?: string;
+}
+
+export interface ManualCommunicationPreview {
+  totalFound: number;
+  eligible: number;
+  excludedOptOut: number;
+  invalidPhone: number;
+}
+
+export type ManualCommunicationSessionStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED';
+export type ManualCommunicationRecipientStatus = 'PENDING' | 'SENT' | 'SKIPPED' | 'OPT_OUT';
+
+export interface ManualCommunicationRecipient {
+  id: string;
+  supporterId: string;
+  supporterName: string;
+  phone: string;
+  status: ManualCommunicationRecipientStatus;
+  sentAt: string | null;
+  skippedAt: string | null;
+  optOutAt: string | null;
+}
+
+export interface ManualCommunicationSession {
+  id: string;
+  title: string;
+  message: string;
+  filters: ManualCommunicationFilters;
+  requestedQuantity: number;
+  status: ManualCommunicationSessionStatus;
+  createdByUserId: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+  counts: Record<ManualCommunicationRecipientStatus, number>;
+  recipients?: ManualCommunicationRecipient[];
+}
+
+export interface CreateManualCommunicationSessionRequest {
+  title: string;
+  message: string;
+  filters: ManualCommunicationFilters;
+  quantity: number | 'ALL';
+}
+
+export interface ManualCommunicationOptions {
+  leaders: Array<{ id: string; name: string }>;
+  coordinators: Array<{ id: string; name: string }>;
+  cities: string[];
+  neighborhoods: string[];
+}
+
 export interface CreateLeaderRequest {
   firstName: string;
   lastName: string;
@@ -451,6 +555,7 @@ export interface SupporterListItem {
   status: SupporterStatus;
   whatsappStatus: WhatsappStatus;
   whatsappConfirmedAt?: string | null;
+  whatsappInitialMessageSentAt?: string | null;
   createdAt: string;
   leaderName?: string;
   coordinatorName?: string;

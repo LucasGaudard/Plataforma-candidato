@@ -80,56 +80,71 @@ enum WhatsAppMessageStatus {
   RECEIVED
 }
 
+enum ManualCommunicationSessionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum ManualCommunicationRecipientStatus {
+  PENDING
+  SENT
+  SKIPPED
+  OPT_OUT
+}
+
 model Campaign {
-  id                String                  @id @default(cuid())
-  name              String
-  slug              String                  @unique
-  candidateName     String
-  party             String?
-  logoUrl           String?
-  faviconUrl        String?
-  primaryColor      String?
-  secondaryColor    String?
-  accentColor       String?
-  backgroundColor   String?
-  textColor         String?
-  publicTitle       String?
-  publicDescription String?
-  contactEmail      String?
-  contactPhone      String?
-  instagramUrl      String?
-  facebookUrl       String?
-  youtubeUrl        String?
-  heroTitle         String?
-  heroSubtitle      String?
-  heroDescription   String?
-  ctaTitle          String?
-  ctaDescription    String?
-  ctaButtonText     String?
-  aboutTitle        String?
-  aboutText         String?
-  proposalTitle     String?
-  proposalItems     Json?
-  areasTitle        String?
-  areaItems         Json?
-  bannerImageUrl    String?
-  footerText        String?
-  showHero          Boolean                 @default(true)
-  showAbout         Boolean                 @default(true)
-  showProposals     Boolean                 @default(true)
-  showAreas         Boolean                 @default(true)
-  showContact       Boolean                 @default(true)
-  whatsappNumber    String?
-  status            CampaignStatus          @default(ACTIVE)
-  users             User[]
-  posts             Post[]
-  events            Event[]
-  lives             Live[]
-  notifications     Notification[]
-  whatsappConfig    CampaignWhatsAppConfig?
-  whatsappMessages  WhatsAppMessage[]
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
+  id                          String                       @id @default(cuid())
+  name                        String
+  slug                        String                       @unique
+  candidateName               String
+  party                       String?
+  logoUrl                     String?
+  faviconUrl                  String?
+  primaryColor                String?
+  secondaryColor              String?
+  accentColor                 String?
+  backgroundColor             String?
+  textColor                   String?
+  publicTitle                 String?
+  publicDescription           String?
+  contactEmail                String?
+  contactPhone                String?
+  instagramUrl                String?
+  facebookUrl                 String?
+  youtubeUrl                  String?
+  heroTitle                   String?
+  heroSubtitle                String?
+  heroDescription             String?
+  ctaTitle                    String?
+  ctaDescription              String?
+  ctaButtonText               String?
+  aboutTitle                  String?
+  aboutText                   String?
+  proposalTitle               String?
+  proposalItems               Json?
+  areasTitle                  String?
+  areaItems                   Json?
+  bannerImageUrl              String?
+  footerText                  String?
+  showHero                    Boolean                      @default(true)
+  showAbout                   Boolean                      @default(true)
+  showProposals               Boolean                      @default(true)
+  showAreas                   Boolean                      @default(true)
+  showContact                 Boolean                      @default(true)
+  whatsappNumber              String?
+  whatsappInitialMessage      String?
+  status                      CampaignStatus               @default(ACTIVE)
+  users                       User[]
+  posts                       Post[]
+  events                      Event[]
+  lives                       Live[]
+  notifications               Notification[]
+  whatsappConfig              CampaignWhatsAppConfig?
+  whatsappMessages            WhatsAppMessage[]
+  manualCommunicationSessions ManualCommunicationSession[]
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
 
   @@index([status])
   @@index([createdAt])
@@ -175,45 +190,46 @@ model WhatsAppMessage {
 }
 
 model User {
-  id                   String          @id @default(cuid())
-  email                String          @unique
-  password             String
-  firstName            String
-  lastName             String
-  cpf                  String          @unique
-  phone                String
-  address              String
-  city                 String
-  state                String
-  neighborhood         String?
-  zone                 CityZone?
-  role                 Role            @default(USER)
-  status               SupporterStatus @default(PENDING)
-  whatsappStatus       WhatsappStatus  @default(PENDING)
-  whatsappLastSent     DateTime?
-  whatsappConfirmedAt  DateTime?
-  whatsappLastResponse String?
-  whatsappError        String?
-  lgpdConsent          Boolean         @default(false)
-  lgpdConsentAt        DateTime?
-  lgpdConsentText      String?
-  lgpdConsentVersion   String?
-  leaderSlug           String?         @unique
-  coordinatorSlug      String?         @unique
-  leaderId             String?
-  leader               User?           @relation("LeaderSupporters", fields: [leaderId], references: [id], onDelete: SetNull)
-  supporters           User[]          @relation("LeaderSupporters")
-  coordinatorId        String?
-  coordinator          User?           @relation("CoordinatorLeaders", fields: [coordinatorId], references: [id], onDelete: SetNull)
-  leaders              User[]          @relation("CoordinatorLeaders")
-  campaignId           String?
-  campaign             Campaign?       @relation(fields: [campaignId], references: [id], onDelete: Restrict)
-  posts                Post[]
-  events               Event[]
-  lives                Live[]
-  notifications        Notification[]
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
+  id                           String          @id @default(cuid())
+  email                        String          @unique
+  password                     String
+  firstName                    String
+  lastName                     String
+  cpf                          String          @unique
+  phone                        String
+  address                      String
+  city                         String
+  state                        String
+  neighborhood                 String?
+  zone                         CityZone?
+  role                         Role            @default(USER)
+  status                       SupporterStatus @default(PENDING)
+  whatsappStatus               WhatsappStatus  @default(PENDING)
+  whatsappLastSent             DateTime?
+  whatsappConfirmedAt          DateTime?
+  whatsappLastResponse         String?
+  whatsappError                String?
+  whatsappInitialMessageSentAt DateTime?
+  lgpdConsent                  Boolean         @default(false)
+  lgpdConsentAt                DateTime?
+  lgpdConsentText              String?
+  lgpdConsentVersion           String?
+  leaderSlug                   String?         @unique
+  coordinatorSlug              String?         @unique
+  leaderId                     String?
+  leader                       User?           @relation("LeaderSupporters", fields: [leaderId], references: [id], onDelete: SetNull)
+  supporters                   User[]          @relation("LeaderSupporters")
+  coordinatorId                String?
+  coordinator                  User?           @relation("CoordinatorLeaders", fields: [coordinatorId], references: [id], onDelete: SetNull)
+  leaders                      User[]          @relation("CoordinatorLeaders")
+  campaignId                   String?
+  campaign                     Campaign?       @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  posts                        Post[]
+  events                       Event[]
+  lives                        Live[]
+  notifications                Notification[]
+  createdAt                    DateTime        @default(now())
+  updatedAt                    DateTime        @updatedAt
 
   @@index([leaderId])
   @@index([coordinatorId])
@@ -303,4 +319,42 @@ model Notification {
   @@index([userId, read])
   @@index([userId, createdAt])
   @@index([campaignId])
+}
+
+model ManualCommunicationSession {
+  id                String                           @id @default(cuid())
+  campaignId        String
+  campaign          Campaign                         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  createdByUserId   String
+  createdByName     String
+  title             String
+  message           String
+  filters           Json
+  requestedQuantity Int
+  status            ManualCommunicationSessionStatus @default(ACTIVE)
+  recipients        ManualCommunicationRecipient[]
+  createdAt         DateTime                         @default(now())
+  updatedAt         DateTime                         @updatedAt
+
+  @@index([campaignId, createdAt])
+  @@index([createdByUserId, createdAt])
+}
+
+model ManualCommunicationRecipient {
+  id              String                             @id @default(cuid())
+  sessionId       String
+  session         ManualCommunicationSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  supporterId     String
+  supporterName   String
+  phone           String
+  status          ManualCommunicationRecipientStatus @default(PENDING)
+  sentAt          DateTime?
+  skippedAt       DateTime?
+  optOutAt        DateTime?
+  updatedByUserId String?
+  createdAt       DateTime                           @default(now())
+  updatedAt       DateTime                           @updatedAt
+
+  @@unique([sessionId, supporterId])
+  @@index([sessionId, status])
 }

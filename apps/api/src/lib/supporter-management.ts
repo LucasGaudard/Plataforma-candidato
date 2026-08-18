@@ -1,4 +1,4 @@
-import { Prisma, Role } from '@prisma/client';
+import { CityZone, Prisma, Role } from '@prisma/client';
 import { normalizeBrazilianPhone } from '@platform/utils';
 import { prisma } from './prisma';
 
@@ -46,6 +46,35 @@ export function supporterScope(
     };
   }
   return null;
+}
+
+export function manualWhatsappQueueWhere(
+  scope: Prisma.UserWhereInput,
+  filters: { leaderId?: string; coordinatorId?: string; zone?: string; neighborhood?: string },
+): Prisma.UserWhereInput {
+  return {
+    AND: [
+      scope,
+      { whatsappStatus: { not: 'OPT_OUT' } },
+      ...(filters.leaderId ? [{ leaderId: filters.leaderId }] : []),
+      ...(filters.coordinatorId ? [{ coordinatorId: filters.coordinatorId }] : []),
+      ...(filters.zone ? [{ zone: filters.zone as CityZone }] : []),
+      ...(filters.neighborhood
+        ? [{ neighborhood: { equals: filters.neighborhood, mode: 'insensitive' as const } }]
+        : []),
+    ],
+  };
+}
+
+export function partitionManualWhatsappQueue<T extends {
+  phone: string;
+  whatsappInitialMessageSentAt: Date | null;
+}>(candidates: T[]) {
+  const valid = candidates.filter((candidate) => normalizeBrazilianPhone(candidate.phone));
+  return {
+    pending: valid.filter((candidate) => !candidate.whatsappInitialMessageSentAt),
+    sent: valid.filter((candidate) => candidate.whatsappInitialMessageSentAt !== null),
+  };
 }
 
 type SupporterDependencyCounts = {

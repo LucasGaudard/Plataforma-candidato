@@ -19,6 +19,8 @@ const navItems: NavItem[] = [
   { href: '/dashboard/coordenadores', label: 'Coordenadores', icon: '👔', roles: [Role.ADMIN] },
   { href: '/dashboard/lideres', label: 'Líderes', icon: '👥', roles: [Role.ADMIN, Role.COORDINATOR] },
   { href: '/dashboard/apoiadores', label: 'Apoiadores', icon: '🤝', roles: [Role.ADMIN, Role.COORDINATOR, Role.LEADER] },
+  { href: '/dashboard/comunicacao/novos-apoiadores', label: 'Novos apoiadores', icon: '💬', roles: [Role.ADMIN, Role.COORDINATOR, Role.LEADER] },
+  { href: '/dashboard/comunicacao/sessoes', label: 'Comunicação manual', icon: '📨', roles: [Role.ADMIN, Role.COORDINATOR, Role.LEADER] },
   { href: '/dashboard/eventos', label: 'Eventos', icon: '📅', roles: [Role.ADMIN, Role.LEADER, Role.USER] },
   { href: '/dashboard/lives', label: 'Lives', icon: '📺', roles: [Role.ADMIN, Role.LEADER, Role.USER] },
   { href: '/dashboard/posts', label: 'Posts', icon: '📢', roles: [Role.ADMIN] },

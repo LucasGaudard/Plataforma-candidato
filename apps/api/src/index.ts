@@ -18,6 +18,7 @@ import { superAdminRoutes } from './routes/super-admin';
 import { campaignRoutes } from './routes/campaign';
 import webhookRoutes from './routes/webhooks';
 import { campaignWhatsAppRoutes } from './routes/campaign-whatsapp';
+import { manualCommunicationRoutes } from './routes/manual-communications';
 import { prisma } from './lib/prisma';
 import { assertWhatsAppEncryptionConfigured } from './services/whatsapp/crypto';
 
@@ -82,6 +83,7 @@ async function bootstrap() {
   await fastify.register(superAdminRoutes, { prefix: '/super-admin' });
   await fastify.register(campaignRoutes, { prefix: '/campaign' });
   await fastify.register(campaignWhatsAppRoutes, { prefix: '/campaign/whatsapp' });
+  await fastify.register(manualCommunicationRoutes, { prefix: '/campaign/manual-communications' });
   await fastify.register(webhookRoutes, { prefix: '/webhooks' });
 
   try {

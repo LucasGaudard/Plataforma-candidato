@@ -5,8 +5,33 @@ import {
   deleteSupporterWithinScope,
   supporterDeletionBlockers,
   supporterScope,
+  manualWhatsappQueueWhere,
+  partitionManualWhatsappQueue,
   supporterSearchWhere,
 } from './supporter-management';
+
+test('fila manual combina status e filtros sem substituir o escopo', () => {
+  const scope = supporterScope(Role.LEADER, 'leader-1', 'campaign-1')!;
+  assert.deepEqual(manualWhatsappQueueWhere(scope, { zone: 'NORTH', neighborhood: 'Centro' }), {
+    AND: [
+      scope,
+      { whatsappStatus: { not: 'OPT_OUT' } },
+      { zone: 'NORTH' },
+      { neighborhood: { equals: 'Centro', mode: 'insensitive' } },
+    ],
+  });
+});
+
+test('fila manual exibe pendente válido e exclui enviado ou telefone inválido apó reload', () => {
+  const sentAt = new Date('2026-08-18T12:00:00.000Z');
+  const result = partitionManualWhatsappQueue([
+    { id: 'pending', phone: '11999990000', whatsappInitialMessageSentAt: null },
+    { id: 'sent', phone: '11999990001', whatsappInitialMessageSentAt: sentAt },
+    { id: 'invalid', phone: '123', whatsappInitialMessageSentAt: null },
+  ]);
+  assert.deepEqual(result.pending.map((item) => item.id), ['pending']);
+  assert.deepEqual(result.sent.map((item) => item.id), ['sent']);
+});
 
 test('busca nome completo por termos em nome e sobrenome', () => {
   const where = supporterSearchWhere('  Maria   da Silva  ');

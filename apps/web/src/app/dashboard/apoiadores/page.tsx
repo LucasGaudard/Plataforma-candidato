@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Role, SupporterStatus, WhatsappStatus } from '@platform/types';
-import type { SupporterListItem, SupportersQuery } from '@platform/types';
+import type { ManualWhatsappConfig, SupporterListItem, SupportersQuery } from '@platform/types';
 import { BRAZILIAN_STATES, CITIES_BY_STATE, CITY_ZONE_OPTIONS, NEIGHBORHOODS_BY_CITY, formatPhone, getCityZoneLabel } from '@platform/utils';
 import {
   Badge,
@@ -25,6 +25,7 @@ import {
   clearSupporterFilters,
   normalizeSupporterFilters,
 } from '@/lib/supporter-filter-state';
+import { buildManualWhatsappLink, canUseManualWhatsapp } from '@/lib/manual-whatsapp';
 
 const ALLOWED_ROLES: Role[] = [Role.ADMIN, Role.COORDINATOR, Role.LEADER];
 
@@ -39,6 +40,9 @@ function SupportersContent() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [manualWhatsapp, setManualWhatsapp] = useState<ManualWhatsappConfig | null>(null);
+  const [markingSentId, setMarkingSentId] = useState<string | null>(null);
+  const [openedWhatsappIds, setOpenedWhatsappIds] = useState<Set<string>>(() => new Set());
 
   const [search, setSearch] = useState('');
   const [city, setCity] = useState('');
@@ -92,6 +96,42 @@ function SupportersContent() {
   useEffect(() => {
     loadSupporters();
   }, [loadSupporters]);
+
+  useEffect(() => {
+    if (!user) return;
+    api.getManualWhatsappConfig()
+      .then(setManualWhatsapp)
+      .catch((err: Error) => toast(err.message, 'error'));
+  }, [user, toast]);
+
+  function handleOpenWhatsapp(supporter: SupporterListItem) {
+    if (!manualWhatsapp?.officialNumber) {
+      toast('Configure primeiro o número oficial do WhatsApp Business.', 'error');
+      return;
+    }
+    const link = buildManualWhatsappLink(supporter.phone, manualWhatsapp.initialMessage);
+    if (!link) {
+      toast('O apoiador não possui um telefone válido.', 'error');
+      return;
+    }
+    window.open(link, '_blank', 'noopener,noreferrer');
+    setOpenedWhatsappIds((current) => new Set(current).add(supporter.id));
+  }
+
+  async function handleMarkWhatsappSent(supporter: SupporterListItem) {
+    setMarkingSentId(supporter.id);
+    try {
+      const result = await api.markManualWhatsappInitialMessageSent(supporter.id);
+      setSupporters((current) => current.map((item) => item.id === supporter.id
+        ? { ...item, whatsappInitialMessageSentAt: result.sentAt }
+        : item));
+      toast('Mensagem inicial marcada como enviada.', 'success');
+    } catch (err) {
+      toast((err as Error).message, 'error');
+    } finally {
+      setMarkingSentId(null);
+    }
+  }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -328,6 +368,7 @@ function SupportersContent() {
               {!loading &&
                 supporters.map((s) => {
                   const selectValue = statusChangeData?.id === s.id ? statusChangeData.newStatus : s.status;
+                  const canContact = canUseManualWhatsapp(s.phone, s.whatsappStatus);
                   return (
                     <tr
                       key={s.id}
@@ -402,9 +443,17 @@ function SupportersContent() {
                         {new Date(s.createdAt).toLocaleDateString('pt-BR')}
                       </td>
                       <td className="py-3 px-4">
-                        <Button type="button" variant="danger" size="sm" onClick={() => setSupporterToDelete(s)}>
-                          Excluir
-                        </Button>
+                        <div className="flex min-w-44 flex-col items-start gap-2">
+                          {canContact && <>
+                            <Button type="button" size="sm" onClick={() => handleOpenWhatsapp(s)}>Abrir no WhatsApp</Button>
+                            {s.whatsappInitialMessageSentAt
+                              ? <span className="text-xs text-emerald-700">Marcada como enviada em {new Date(s.whatsappInitialMessageSentAt).toLocaleString('pt-BR')}</span>
+                              : openedWhatsappIds.has(s.id) && <Button type="button" variant="outline" size="sm" disabled={markingSentId === s.id} onClick={() => handleMarkWhatsappSent(s)}>
+                                  {markingSentId === s.id ? 'Marcando...' : 'Marcar como enviada'}
+                                </Button>}
+                          </>}
+                          <Button type="button" variant="danger" size="sm" onClick={() => setSupporterToDelete(s)}>Excluir</Button>
+                        </div>
                       </td>
                     </tr>
                   );

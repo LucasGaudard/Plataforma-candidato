@@ -342,6 +342,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         status: u.status as SupporterStatus,
         whatsappStatus: u.whatsappStatus as WhatsappStatus,
         whatsappConfirmedAt: u.whatsappConfirmedAt?.toISOString() ?? null,
+        whatsappInitialMessageSentAt: u.whatsappInitialMessageSentAt?.toISOString() ?? null,
         createdAt: u.createdAt.toISOString(),
         leaderName:
           u.leader?.campaignId === request.user.campaignId

@@ -455,6 +455,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
             status: true,
             whatsappStatus: true,
             whatsappConfirmedAt: true,
+            whatsappInitialMessageSentAt: true,
             leaderId: true,
             createdAt: true,
             leader: {
@@ -483,6 +484,7 @@ export async function coordinatorRoutes(fastify: FastifyInstance) {
         status: u.status as SupporterStatus,
         whatsappStatus: u.whatsappStatus as WhatsappStatus,
         whatsappConfirmedAt: u.whatsappConfirmedAt?.toISOString() ?? null,
+        whatsappInitialMessageSentAt: u.whatsappInitialMessageSentAt?.toISOString() ?? null,
         createdAt: u.createdAt.toISOString(),
         origin: u.leaderId ? 'LEADER' : 'COORDINATOR',
         leaderName: u.leader ? `${u.leader.firstName} ${u.leader.lastName}` : undefined,

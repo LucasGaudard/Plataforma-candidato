@@ -156,6 +156,7 @@ export async function leaderRoutes(fastify: FastifyInstance) {
         status: s.status as SupporterStatus,
         whatsappStatus: s.whatsappStatus as WhatsappStatus,
         whatsappConfirmedAt: s.whatsappConfirmedAt?.toISOString() ?? null,
+        whatsappInitialMessageSentAt: s.whatsappInitialMessageSentAt?.toISOString() ?? null,
         createdAt: s.createdAt.toISOString(),
       }));
 
