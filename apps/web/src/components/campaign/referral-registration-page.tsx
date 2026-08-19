@@ -86,11 +86,8 @@ export function ReferralRegistrationPage({
             />
           </div>
 
-          <section aria-labelledby="paula-presentation-title" className="mx-auto max-w-3xl py-10 text-center sm:py-14">
-            <h1 id="paula-presentation-title" className="text-3xl font-bold leading-tight text-brand-900 sm:text-4xl">
-              Trabalho que transforma. Experiência para fazer ainda mais.
-            </h1>
-            <div className="mx-auto mt-6 max-w-2xl space-y-4 text-left text-base leading-7 text-slate-700 sm:text-lg sm:leading-8">
+          <section aria-label="Apresentação de Paula Quintanilha" className="mx-auto max-w-3xl py-10 text-center sm:py-14">
+            <div className="mx-auto max-w-2xl space-y-4 text-left text-base leading-7 text-slate-700 sm:text-lg sm:leading-8">
               <p>Paula Quintanilha é vereadora, mãe, esposa, empresária e engenheira química formada pela UFRRJ.</p>
               <p>Em 2025, foi reconhecida como a melhor vereadora de Seropédica, uma conquista que representa o reconhecimento de um mandato construído com presença, trabalho e compromisso com as pessoas.</p>
               <p>Agora quer levar essa experiência para um desafio ainda maior: a Assembleia Legislativa do Estado do Rio de Janeiro. E, conto com a sua ajuda!</p>

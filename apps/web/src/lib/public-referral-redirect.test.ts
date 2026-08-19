@@ -44,7 +44,7 @@ test('a página compartilhada contém identidade, banner, apresentação, convit
   assert.match(referralPage, /alt="Conecta Eleitor"/);
   assert.match(referralPage, /\/Images\/Paula_quintanilha\.png\.jpeg/);
   assert.match(referralPage, /alt="Paula Quintanilha, candidata a deputada estadual, número 22252"/);
-  assert.match(referralPage, /Trabalho que transforma\. Experiência para fazer ainda mais\./);
+  assert.doesNotMatch(referralPage, /Trabalho que transforma\. Experiência para fazer ainda mais\./);
   assert.match(referralPage, /Paula Quintanilha é vereadora, mãe, esposa, empresária e engenheira química formada pela UFRRJ\./);
   assert.match(referralPage, /Você recebeu um convite de:/);
   assert.match(referralPage, /referrerType === 'leader'/);
