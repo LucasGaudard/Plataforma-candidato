@@ -305,8 +305,21 @@ export async function adminRoutes(fastify: FastifyInstance) {
           : {}),
         ...(coordinatorId
           ? {
-              coordinatorId,
-              coordinator: { campaignId: request.user.campaignId },
+              OR: [
+                {
+                  leaderId: null,
+                  coordinatorId,
+                  coordinator: { campaignId: request.user.campaignId },
+                },
+                {
+                  leaderId: { not: null },
+                  leader: {
+                    coordinatorId,
+                    campaignId: request.user.campaignId,
+                    role: Role.LEADER,
+                  },
+                },
+              ],
             }
           : {}),
         ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
@@ -320,7 +333,14 @@ export async function adminRoutes(fastify: FastifyInstance) {
         prisma.user.findMany({
           where,
           include: {
-            leader: { select: { firstName: true, lastName: true, campaignId: true } },
+            leader: {
+              select: {
+                firstName: true,
+                lastName: true,
+                campaignId: true,
+                coordinator: { select: { firstName: true, lastName: true, campaignId: true } },
+              },
+            },
             coordinator: { select: { firstName: true, lastName: true, campaignId: true } },
           },
           orderBy: { createdAt: 'desc' },
@@ -348,10 +368,13 @@ export async function adminRoutes(fastify: FastifyInstance) {
           u.leader?.campaignId === request.user.campaignId
             ? `${u.leader.firstName} ${u.leader.lastName}`
             : undefined,
-        coordinatorName:
-          u.coordinator?.campaignId === request.user.campaignId
-            ? `${u.coordinator.firstName} ${u.coordinator.lastName}`
-            : undefined,
+        coordinatorName: u.leaderId
+          ? u.leader?.coordinator?.campaignId === request.user.campaignId
+            ? `${u.leader.coordinator.firstName} ${u.leader.coordinator.lastName}`
+            : undefined
+          : u.coordinator?.campaignId === request.user.campaignId
+              ? `${u.coordinator.firstName} ${u.coordinator.lastName}`
+              : undefined,
       }));
 
       return reply.send({

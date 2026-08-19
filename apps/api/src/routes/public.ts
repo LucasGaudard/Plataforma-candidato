@@ -70,6 +70,19 @@ async function createAttributedSupporter(
   });
 }
 
+function logPublicSupporterCreated(
+  fastify: FastifyInstance,
+  input: {
+    campaignId: string;
+    supporterId: string;
+    sourceType: 'LEADER' | 'COORDINATOR';
+    leaderId?: string;
+    coordinatorId?: string;
+  },
+) {
+  fastify.log.info({ ...input, result: 'CREATED', statusHttp: 201 }, 'Apoiador público cadastrado');
+}
+
 export async function publicRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { campaignSlug: string } }>(
     '/campaigns/:campaignSlug',
@@ -264,6 +277,14 @@ export async function publicRoutes(fastify: FastifyInstance) {
     );
     if (!supporter) return;
 
+    logPublicSupporterCreated(fastify, {
+      campaignId: campaign.id,
+      supporterId: supporter.id,
+      sourceType: 'LEADER',
+      leaderId: leader.id,
+      coordinatorId: leader.coordinatorId ?? undefined,
+    });
+
     whatsappService.sendConfirmationMessage(supporter).catch((error) => {
       fastify.log.error({
         userId: supporter.id,
@@ -314,6 +335,12 @@ export async function publicRoutes(fastify: FastifyInstance) {
       reply,
     );
     if (!supporter) return;
+    logPublicSupporterCreated(fastify, {
+      campaignId: campaign.id,
+      supporterId: supporter.id,
+      sourceType: 'COORDINATOR',
+      coordinatorId: coordinator.id,
+    });
     whatsappService.sendConfirmationMessage(supporter).catch((error) => {
       fastify.log.error({
         userId: supporter.id,

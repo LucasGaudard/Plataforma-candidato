@@ -98,6 +98,19 @@ function SupportersContent() {
   }, [loadSupporters]);
 
   useEffect(() => {
+    const refreshOnFocus = () => loadSupporters();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') loadSupporters();
+    };
+    window.addEventListener('focus', refreshOnFocus);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.removeEventListener('focus', refreshOnFocus);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [loadSupporters]);
+
+  useEffect(() => {
     if (!user) return;
     api.getManualWhatsappConfig()
       .then(setManualWhatsapp)

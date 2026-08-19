@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import {
   changeSupporterFilterState,
   clearSupporterFilters,
@@ -37,4 +38,11 @@ test('limpar remove todos os filtros', () => {
   assert.deepEqual(clearSupporterFilters(), {
     search: '', city: '', state: '', neighborhood: '', zone: '',
   });
+});
+
+test('a lista atualiza ao voltar para a aba depois de cadastro externo', () => {
+  const page = readFileSync(new URL('../app/dashboard/apoiadores/page.tsx', import.meta.url), 'utf8');
+  assert.match(page, /window\.addEventListener\('focus', refreshOnFocus\)/);
+  assert.match(page, /document\.addEventListener\('visibilitychange', refreshWhenVisible\)/);
+  assert.match(page, /window\.removeEventListener\('focus', refreshOnFocus\)/);
 });

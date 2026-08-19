@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button, Input, Select, Alert } from '@platform/ui';
 import { CITIES_BY_STATE, NEIGHBORHOODS_BY_CITY, formatPhone } from '@platform/utils';
 import { api } from '@/lib/api';
+import { submitPublicReferralRegistration } from '@/lib/public-referral-submit';
 import { CityZoneSelect } from './city-zone-select';
 
 interface SupporterFormProps {
@@ -95,12 +96,12 @@ export function SupporterForm({ campaignSlug, referrerSlug, referrerName, referr
 
     try {
       const payload = { ...form, neighborhood: finalNeighborhood };
-      if (referrerType === 'leader') {
-        await api.createSupporter(campaignSlug, referrerSlug, payload);
-      } else {
-        await api.createCoordinatorSupporter(campaignSlug, referrerSlug, payload);
-      }
-      onSuccess();
+      await submitPublicReferralRegistration(api, {
+        campaignSlug,
+        referrerSlug,
+        referrerType,
+        payload,
+      }, onSuccess);
     } catch (err) {
       const error = err as Error & { errors?: Record<string, string> };
       if (error.errors) {
