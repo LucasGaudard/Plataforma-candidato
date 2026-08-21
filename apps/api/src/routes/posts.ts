@@ -5,6 +5,7 @@ import { sanitizeString, validatePostInput } from '@platform/utils';
 import { prisma } from '../lib/prisma';
 import { toPostPublic } from '../lib/mappers';
 import { notifyAllUsers } from '../lib/notifications';
+import { resolvePublishedAt } from '../lib/post-date';
 
 const authorSelect = { firstName: true, lastName: true };
 
@@ -36,6 +37,10 @@ export async function postRoutes(fastify: FastifyInstance) {
       if (!validation.valid) {
         return reply.status(400).send({ message: 'Dados inválidos', errors: validation.errors });
       }
+      const publishedAt = resolvePublishedAt(body.publishedAt, new Date());
+      if (!publishedAt) {
+        return reply.status(400).send({ message: 'Dados inválidos', errors: { publishedAt: 'Data de publicação inválida' } });
+      }
 
       const post = await prisma.post.create({
         data: {
@@ -44,7 +49,7 @@ export async function postRoutes(fastify: FastifyInstance) {
           imageUrl: body.imageUrl?.trim() || null,
           videoUrl: body.videoUrl?.trim() || null,
           category: (body.category as PostCategory) || PostCategory.GERAL,
-          publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
+          publishedAt,
           published: body.published ?? true,
           authorId: request.user.sub,
           campaignId: request.user.campaignId,
@@ -92,6 +97,10 @@ export async function postRoutes(fastify: FastifyInstance) {
       if (!validation.valid) {
         return reply.status(400).send({ message: 'Dados inválidos', errors: validation.errors });
       }
+      const publishedAt = resolvePublishedAt(body.publishedAt, existing.publishedAt);
+      if (!publishedAt) {
+        return reply.status(400).send({ message: 'Dados inválidos', errors: { publishedAt: 'Data de publicação inválida' } });
+      }
 
       const post = await prisma.post.update({
         where: { id: request.params.id },
@@ -101,7 +110,7 @@ export async function postRoutes(fastify: FastifyInstance) {
           ...(body.imageUrl !== undefined && { imageUrl: body.imageUrl?.trim() || null }),
           ...(body.videoUrl !== undefined && { videoUrl: body.videoUrl?.trim() || null }),
           ...(body.category !== undefined && { category: body.category as PostCategory }),
-          ...(body.publishedAt !== undefined && { publishedAt: new Date(body.publishedAt) }),
+          ...(body.publishedAt !== undefined && { publishedAt }),
           ...(body.published !== undefined && { published: body.published }),
         },
         include: { author: { select: authorSelect } },

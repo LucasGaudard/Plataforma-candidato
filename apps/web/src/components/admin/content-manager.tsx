@@ -20,6 +20,7 @@ import { ProtectedRoute } from '@/components/auth/protected-route';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Role } from '@platform/types';
 import { buildContentCommunicationDraft } from '@/lib/content-communication-draft';
+import { datetimeLocalValueToIso, isoToDatetimeLocalValue, postToForm } from '@/lib/post-form';
 
 type ContentType = 'posts' | 'events' | 'lives';
 
@@ -169,15 +170,7 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
     setEditingId(item.id);
     if (type === 'posts') {
       const p = item as PostPublic;
-      setPostForm({
-        title: p.title,
-        description: p.description,
-        imageUrl: p.imageUrl || '',
-        videoUrl: p.videoUrl || '',
-        category: p.category,
-        published: p.published,
-        publishedAt: p.publishedAt,
-      });
+      setPostForm(postToForm(p));
     } else if (type === 'events') {
       const ev = item as EventPublic;
       setEventForm({
@@ -222,13 +215,15 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
                   onChange={(e) => setPostForm({ ...postForm, description: e.target.value })} />
                 <Input label="URL da imagem" value={postForm.imageUrl} error={errors.imageUrl}
                   onChange={(e) => setPostForm({ ...postForm, imageUrl: e.target.value })} />
+                <p className="-mt-2 text-xs text-slate-500">Envie a imagem para um storage persistente e informe aqui a URL pública. Upload direto estará disponível quando o storage for configurado.</p>
                 <Input label="URL do vídeo" value={postForm.videoUrl} error={errors.videoUrl}
                   onChange={(e) => setPostForm({ ...postForm, videoUrl: e.target.value })} />
+                <p className="-mt-2 text-xs text-slate-500">Vídeos continuam sendo vinculados por URL; nenhum arquivo é armazenado no banco.</p>
                 <Select label="Categoria" options={categoryOptions} value={postForm.category}
                   onChange={(e) => setPostForm({ ...postForm, category: e.target.value as PostCategory })} />
                 <Input label="Data de publicação" type="datetime-local"
-                  value={postForm.publishedAt ? postForm.publishedAt.slice(0, 16) : ''}
-                  onChange={(e) => setPostForm({ ...postForm, publishedAt: new Date(e.target.value).toISOString() })} />
+                  value={isoToDatetimeLocalValue(postForm.publishedAt)} error={errors.publishedAt}
+                  onChange={(e) => setPostForm({ ...postForm, publishedAt: datetimeLocalValueToIso(e.target.value) })} />
               </>
             )}
             {type === 'events' && (
