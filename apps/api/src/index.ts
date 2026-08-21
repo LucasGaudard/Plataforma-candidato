@@ -10,6 +10,8 @@ import { adminRoutes } from './routes/admin';
 import { leaderRoutes } from './routes/leader';
 import { coordinatorRoutes } from './routes/coordinator';
 import { postRoutes } from './routes/posts';
+import multipart from '@fastify/multipart';
+import { postUploadRoutes } from './routes/post-uploads';
 import { eventRoutes } from './routes/events';
 import { liveRoutes } from './routes/lives';
 import { notificationRoutes } from './routes/notifications';
@@ -56,6 +58,9 @@ async function bootstrap() {
 
   await registerAuth(fastify);
   await registerErrorHandler(fastify);
+  await fastify.register(multipart, {
+    limits: { files: 1, parts: 1, fileSize: 100 * 1024 * 1024 + 1 },
+  });
 
   fastify.get('/', async () => ({
     success: true,
@@ -76,6 +81,7 @@ async function bootstrap() {
   await fastify.register(leaderRoutes, { prefix: '/leader' });
   await fastify.register(coordinatorRoutes, { prefix: '/coordinator' });
   await fastify.register(postRoutes, { prefix: '/posts' });
+  await fastify.register(postUploadRoutes, { prefix: '/posts/uploads' });
   await fastify.register(eventRoutes, { prefix: '/events' });
   await fastify.register(liveRoutes, { prefix: '/lives' });
   await fastify.register(notificationRoutes, { prefix: '/notifications' });

@@ -21,6 +21,7 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Role } from '@platform/types';
 import { buildContentCommunicationDraft } from '@/lib/content-communication-draft';
 import { datetimeLocalValueToIso, isoToDatetimeLocalValue, postToForm } from '@/lib/post-form';
+import { applyUploadedMediaUrl, type PostMediaKind, validatePostMediaFile } from '@/lib/post-media-upload';
 
 type ContentType = 'posts' | 'events' | 'lives';
 
@@ -71,6 +72,8 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
   const [postForm, setPostForm] = useState<CreatePostRequest>(emptyPost);
   const [eventForm, setEventForm] = useState<CreateEventRequest>(emptyEvent);
   const [liveForm, setLiveForm] = useState<CreateLiveRequest>(emptyLive);
+  const [uploading, setUploading] = useState<PostMediaKind | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<Record<PostMediaKind, string>>({ image: '', video: '' });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -99,6 +102,27 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
     setPostForm(emptyPost);
     setEventForm(emptyEvent);
     setLiveForm(emptyLive);
+    setUploadStatus({ image: '', video: '' });
+  }
+
+  async function handleMediaFile(kind: PostMediaKind, file: File | undefined) {
+    if (!file) return;
+    const validationError = validatePostMediaFile(kind, file);
+    if (validationError) {
+      setUploadStatus((current) => ({ ...current, [kind]: validationError }));
+      return;
+    }
+    setUploading(kind);
+    setUploadStatus((current) => ({ ...current, [kind]: `Enviando ${file.name}...` }));
+    try {
+      const result = await api.uploadPostMedia(kind, file);
+      setPostForm((current) => applyUploadedMediaUrl(current, kind, result.secureUrl));
+      setUploadStatus((current) => ({ ...current, [kind]: `Upload concluído: ${file.name}` }));
+    } catch (error) {
+      setUploadStatus((current) => ({ ...current, [kind]: (error as Error).message || 'Falha no upload.' }));
+    } finally {
+      setUploading(null);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -215,10 +239,23 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
                   onChange={(e) => setPostForm({ ...postForm, description: e.target.value })} />
                 <Input label="URL da imagem" value={postForm.imageUrl} error={errors.imageUrl}
                   onChange={(e) => setPostForm({ ...postForm, imageUrl: e.target.value })} />
-                <p className="-mt-2 text-xs text-slate-500">Envie a imagem para um storage persistente e informe aqui a URL pública. Upload direto estará disponível quando o storage for configurado.</p>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <label htmlFor="post-image-upload" className="block text-sm font-medium text-slate-700">Imagem</label>
+                  <input id="post-image-upload" className="mt-2 block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-100 file:px-3 file:py-2 file:font-medium file:text-brand-800" type="file" accept="image/*"
+                    disabled={uploading !== null} onChange={(e) => void handleMediaFile('image', e.target.files?.[0])} />
+                  <p className="mt-2 text-xs text-slate-500">JPG, PNG ou WebP, até 10 MB. O upload substitui a URL acima.</p>
+                  {uploadStatus.image && <p className="mt-1 text-xs font-medium text-slate-700">{uploadStatus.image}</p>}
+                  {postForm.imageUrl && <div role="img" aria-label="Prévia da imagem do post" className="mt-3 h-40 rounded-lg bg-contain bg-left bg-no-repeat" style={{ backgroundImage: `url(${JSON.stringify(postForm.imageUrl)})` }} />}
+                </div>
                 <Input label="URL do vídeo" value={postForm.videoUrl} error={errors.videoUrl}
                   onChange={(e) => setPostForm({ ...postForm, videoUrl: e.target.value })} />
-                <p className="-mt-2 text-xs text-slate-500">Vídeos continuam sendo vinculados por URL; nenhum arquivo é armazenado no banco.</p>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <label htmlFor="post-video-upload" className="block text-sm font-medium text-slate-700">Vídeo</label>
+                  <input id="post-video-upload" className="mt-2 block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-100 file:px-3 file:py-2 file:font-medium file:text-brand-800" type="file" accept="video/*"
+                    disabled={uploading !== null} onChange={(e) => void handleMediaFile('video', e.target.files?.[0])} />
+                  <p className="mt-2 text-xs text-slate-500">MP4 ou WebM, até 100 MB. O upload substitui a URL acima.</p>
+                  {uploadStatus.video && <p className="mt-1 text-xs font-medium text-slate-700">{uploadStatus.video}</p>}
+                </div>
                 <Select label="Categoria" options={categoryOptions} value={postForm.category}
                   onChange={(e) => setPostForm({ ...postForm, category: e.target.value as PostCategory })} />
                 <Input label="Data de publicação" type="datetime-local"
@@ -256,7 +293,7 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
               </>
             )}
             <div className="flex gap-3">
-              <Button type="submit" loading={saving}>{editingId ? 'Salvar' : 'Criar'}</Button>
+              <Button type="submit" loading={saving} disabled={uploading !== null}>{uploading ? 'Aguarde o upload' : editingId ? 'Salvar' : 'Criar'}</Button>
               {editingId && <Button type="button" variant="outline" onClick={resetForm}>Cancelar</Button>}
             </div>
           </form>

@@ -80,7 +80,7 @@ class ApiClient {
     };
 
     // Only set Content-Type if there is a body to send
-    if (options.body !== undefined && options.body !== null) {
+    if (options.body !== undefined && options.body !== null && !(options.body instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
     }
 
@@ -546,6 +546,15 @@ class ApiClient {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
+  }
+
+  uploadPostMedia(kind: 'image' | 'video', file: File) {
+    const body = new FormData();
+    body.append('file', file, file.name);
+    return this.request<{ secureUrl: string; publicId: string; resourceType: 'image' | 'video' }>(
+      `/posts/uploads/${kind}`,
+      { method: 'POST', body },
+    );
   }
 
   deleteCoordinatorSupporter(id: string) {
