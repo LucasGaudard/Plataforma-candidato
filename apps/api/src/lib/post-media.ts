@@ -3,6 +3,7 @@ import { pipeline } from 'node:stream/promises';
 
 export const POST_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 export const POST_VIDEO_MAX_BYTES = 100 * 1024 * 1024;
+export const POST_DIRECT_VIDEO_MAX_BYTES = 500 * 1024 * 1024;
 
 export type PostMediaKind = 'image' | 'video';
 
@@ -30,6 +31,14 @@ export function validatePostMediaMetadata(kind: PostMediaKind, filename: string,
       ? 'Imagem inválida. Use JPG, PNG ou WebP.'
       : 'Vídeo inválido. Use MP4 ou WebM.';
   }
+  return null;
+}
+
+export function validateDirectVideoUpload(filename: string, mimetype: string, size: number): string | null {
+  const metadataError = validatePostMediaMetadata('video', filename, mimetype);
+  if (metadataError) return metadataError;
+  if (!Number.isSafeInteger(size) || size <= 0) return 'Tamanho de vídeo inválido.';
+  if (size > POST_DIRECT_VIDEO_MAX_BYTES) return 'O vídeo deve ter no máximo 500 MB.';
   return null;
 }
 

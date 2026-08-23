@@ -21,7 +21,8 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Role } from '@platform/types';
 import { saveContentCommunicationDraft } from '@/lib/content-communication-draft';
 import { datetimeLocalValueToIso, isoToDatetimeLocalValue, postToForm } from '@/lib/post-form';
-import { applyUploadedMediaUrl, type PostMediaKind, validatePostMediaFile } from '@/lib/post-media-upload';
+import { applyUploadedMediaUrl, diagnosePostMediaUploadError, type PostMediaKind, validatePostMediaFile } from '@/lib/post-media-upload';
+import { uploadVideoDirectlyToCloudinary } from '@/lib/cloudinary-chunked-video-upload';
 
 type ContentType = 'posts' | 'events' | 'lives';
 
@@ -115,11 +116,21 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
     setUploading(kind);
     setUploadStatus((current) => ({ ...current, [kind]: `Enviando ${file.name}...` }));
     try {
-      const result = await api.uploadPostMedia(kind, file);
+      const result = kind === 'video'
+        ? await uploadVideoDirectlyToCloudinary(
+            file,
+            () => api.authorizeDirectPostVideoUpload(file),
+            (percent) => setUploadStatus((current) => ({ ...current, video: `Enviando ${file.name}... ${percent}%` })),
+          )
+        : await api.uploadPostMedia(kind, file);
       setPostForm((current) => applyUploadedMediaUrl(current, kind, result.secureUrl));
       setUploadStatus((current) => ({ ...current, [kind]: `Upload concluído: ${file.name}` }));
     } catch (error) {
-      setUploadStatus((current) => ({ ...current, [kind]: (error as Error).message || 'Falha no upload.' }));
+      const diagnostic = diagnosePostMediaUploadError(error, kind);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Falha diagnosticada no upload de Post', diagnostic);
+      }
+      setUploadStatus((current) => ({ ...current, [kind]: diagnostic.message }));
     } finally {
       setUploading(null);
     }
@@ -253,7 +264,7 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
                   <label htmlFor="post-video-upload" className="block text-sm font-medium text-slate-700">Vídeo</label>
                   <input id="post-video-upload" className="mt-2 block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-100 file:px-3 file:py-2 file:font-medium file:text-brand-800" type="file" accept="video/*"
                     disabled={uploading !== null} onChange={(e) => void handleMediaFile('video', e.target.files?.[0])} />
-                  <p className="mt-2 text-xs text-slate-500">MP4 ou WebM, até 100 MB. O upload substitui a URL acima.</p>
+                  <p className="mt-2 text-xs text-slate-500">MP4 ou WebM, até 500 MB. O upload direto em partes substitui a URL acima.</p>
                   {uploadStatus.video && <p className="mt-1 text-xs font-medium text-slate-700">{uploadStatus.video}</p>}
                 </div>
                 <Select label="Categoria" options={categoryOptions} value={postForm.category}

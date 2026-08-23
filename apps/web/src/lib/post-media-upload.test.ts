@@ -6,7 +6,9 @@ import {
   applyUploadedMediaUrl,
   POST_IMAGE_MAX_BYTES,
   POST_VIDEO_MAX_BYTES,
+  POST_DIRECT_VIDEO_MAX_BYTES,
   validatePostMediaFile,
+  diagnosePostMediaUploadError,
 } from './post-media-upload';
 
 test('aceita imagem e vídeo válidos dentro do limite', () => {
@@ -14,9 +16,26 @@ test('aceita imagem e vídeo válidos dentro do limite', () => {
   assert.equal(validatePostMediaFile('video', { name: 'video.mp4', type: 'video/mp4', size: POST_VIDEO_MAX_BYTES }), null);
 });
 
+test('diagnóstico diferencia autenticação, rota, configuração e rede sem expor segredo', () => {
+  assert.match(diagnosePostMediaUploadError({ status: 401, code: 'HTTP_401', endpoint: '/posts/uploads/image' }, 'image').message, /sessão/);
+  assert.match(diagnosePostMediaUploadError({ status: 404, code: 'HTTP_404' }, 'video').message, /versão da API/);
+  assert.match(diagnosePostMediaUploadError({ status: 503, code: 'CLOUDINARY_NOT_CONFIGURED' }, 'image').message, /não está configurado/);
+  const network = diagnosePostMediaUploadError(new TypeError('Failed to fetch'), 'video');
+  assert.equal(network.code, 'UPLOAD_NETWORK_ERROR');
+  assert.equal(JSON.stringify(network).includes('apiSecret'), false);
+});
+
+test('frontend usa a mesma API base autenticada nos endpoints exatos de imagem e assinatura', () => {
+  const apiSource = readFileSync(new URL('./api.ts', import.meta.url), 'utf8');
+  assert.match(apiSource, /const API_URL = process\.env\.NEXT_PUBLIC_API_URL/);
+  assert.match(apiSource, /headers\['Authorization'\] = `Bearer \$\{token\}`/);
+  assert.match(apiSource, /\/posts\/uploads\/\$\{kind\}/);
+  assert.match(apiSource, /\/posts\/uploads\/video\/authorize/);
+});
+
 test('rejeita MIME inválido e arquivo acima do limite', () => {
   assert.match(validatePostMediaFile('image', { name: 'x.svg', type: 'image/svg+xml', size: 10 }) || '', /JPG/);
-  assert.match(validatePostMediaFile('video', { name: 'x.mp4', type: 'video/mp4', size: POST_VIDEO_MAX_BYTES + 1 }) || '', /100 MB/);
+  assert.match(validatePostMediaFile('video', { name: 'x.mp4', type: 'video/mp4', size: POST_DIRECT_VIDEO_MAX_BYTES + 1 }) || '', /500 MB/);
 });
 
 test('upload concluído preenche somente a URL correspondente', () => {

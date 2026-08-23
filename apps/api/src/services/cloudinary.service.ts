@@ -1,11 +1,24 @@
 import type { Readable } from 'node:stream';
+import { randomUUID } from 'node:crypto';
 import { v2 as cloudinary, type UploadApiResponse } from 'cloudinary';
-import { pipePostMedia, type PostMediaKind } from '../lib/post-media';
+import { pipePostMedia, POST_DIRECT_VIDEO_MAX_BYTES, type PostMediaKind } from '../lib/post-media';
 
 export type PostMediaUploadResult = {
   secureUrl: string;
   publicId: string;
   resourceType: 'image' | 'video';
+};
+
+export type DirectVideoUploadAuthorization = {
+  cloudName: string;
+  uploadUrl: string;
+  apiKey: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
+  publicId: string;
+  maxBytes: number;
+  chunkSize: number;
 };
 
 export function readCloudinaryConfig(env: NodeJS.ProcessEnv = process.env) {
@@ -16,6 +29,33 @@ export function readCloudinaryConfig(env: NodeJS.ProcessEnv = process.env) {
     throw new Error('Cloudinary não configurado na API.');
   }
   return { cloudName, apiKey, apiSecret };
+}
+
+export function cloudinaryConfigurationStatus(env: NodeJS.ProcessEnv = process.env) {
+  return {
+    cloudNameConfigured: Boolean(env.CLOUDINARY_CLOUD_NAME?.trim()),
+    apiKeyConfigured: Boolean(env.CLOUDINARY_API_KEY?.trim()),
+    apiSecretConfigured: Boolean(env.CLOUDINARY_API_SECRET?.trim()),
+  };
+}
+
+export function createDirectVideoUploadAuthorization(campaignId: string): DirectVideoUploadAuthorization {
+  const config = readCloudinaryConfig();
+  const timestamp = Math.floor(Date.now() / 1000);
+  const folder = `conecta-eleitor/${campaignId}/posts/videos`;
+  const publicId = `post-video-${randomUUID()}`;
+  const signature = cloudinary.utils.api_sign_request({ folder, public_id: publicId, timestamp }, config.apiSecret);
+  return {
+    cloudName: config.cloudName,
+    uploadUrl: `https://api.cloudinary.com/v1_1/${encodeURIComponent(config.cloudName)}/video/upload`,
+    apiKey: config.apiKey,
+    timestamp,
+    signature,
+    folder,
+    publicId,
+    maxBytes: POST_DIRECT_VIDEO_MAX_BYTES,
+    chunkSize: 10 * 1024 * 1024,
+  };
 }
 
 export async function uploadPostMediaToCloudinary(

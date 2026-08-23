@@ -108,9 +108,13 @@ class ApiClient {
       ) as Error & {
         errors?: Record<string, string>;
         status?: number;
+        code?: string;
+        endpoint?: string;
       };
       error.errors = data.errors;
       error.status = response.status;
+      error.code = typeof data.code === 'string' ? data.code : `HTTP_${response.status}`;
+      error.endpoint = path;
       throw error;
     }
 
@@ -552,13 +556,36 @@ class ApiClient {
     });
   }
 
-  uploadPostMedia(kind: 'image' | 'video', file: File) {
+  async uploadPostMedia(kind: 'image', file: File) {
     const body = new FormData();
     body.append('file', file, file.name);
-    return this.request<{ secureUrl: string; publicId: string; resourceType: 'image' | 'video' }>(
-      `/posts/uploads/${kind}`,
-      { method: 'POST', body },
-    );
+    const endpoint = `/posts/uploads/${kind}`;
+    try {
+      return await this.request<{ secureUrl: string; publicId: string; resourceType: 'image' }>(
+        endpoint,
+        { method: 'POST', body },
+      );
+    } catch (error) {
+      const contextual = error as Error & { code?: string; endpoint?: string };
+      contextual.code ||= 'UPLOAD_NETWORK_ERROR';
+      contextual.endpoint ||= endpoint;
+      throw contextual;
+    }
+  }
+
+  async authorizeDirectPostVideoUpload(file: Pick<File, 'name' | 'type' | 'size'>) {
+    const endpoint = '/posts/uploads/video/authorize';
+    try {
+      return await this.request<import('./cloudinary-chunked-video-upload').DirectVideoUploadAuthorization>(
+        endpoint,
+        { method: 'POST', body: JSON.stringify({ filename: file.name, mimetype: file.type, size: file.size }) },
+      );
+    } catch (error) {
+      const contextual = error as Error & { code?: string; endpoint?: string };
+      contextual.code ||= 'UPLOAD_NETWORK_ERROR';
+      contextual.endpoint ||= endpoint;
+      throw contextual;
+    }
   }
 
   deleteCoordinatorSupporter(id: string) {
