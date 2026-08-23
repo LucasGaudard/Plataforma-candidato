@@ -539,6 +539,7 @@ export interface CreateSupporterRequest {
   turnstileToken?: string;
   website?: string;
   formStartedAt?: number;
+  deviceId?: string;
 }
 
 export interface SupportersQuery {

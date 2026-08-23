@@ -5,6 +5,7 @@ import { Button, Input, Select, Alert } from '@platform/ui';
 import { CITIES_BY_STATE, NEIGHBORHOODS_BY_CITY, formatPhone } from '@platform/utils';
 import { api } from '@/lib/api';
 import { submitPublicReferralRegistration } from '@/lib/public-referral-submit';
+import { getOrCreatePublicRegistrationDeviceId } from '@/lib/public-registration-device';
 import { CityZoneSelect } from './city-zone-select';
 import { TurnstileWidget } from './turnstile-widget';
 
@@ -101,7 +102,8 @@ export function SupporterForm({ campaignSlug, referrerSlug, referrerName, referr
     }
 
     try {
-      const payload = { ...form, neighborhood: finalNeighborhood, turnstileToken, formStartedAt };
+      const deviceId = getOrCreatePublicRegistrationDeviceId();
+      const payload = { ...form, neighborhood: finalNeighborhood, turnstileToken, formStartedAt, deviceId };
       await submitPublicReferralRegistration(api, {
         campaignSlug,
         referrerSlug,

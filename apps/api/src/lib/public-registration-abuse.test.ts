@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  hashRegistrationDevice,
   hashRegistrationIp,
+  isValidPublicRegistrationDeviceId,
   isHoneypotTriggered,
   PublicRegistrationRateLimiter,
   registrationRiskFlags,
@@ -11,6 +13,22 @@ test('honeypot vazio passa e preenchido é detectado', () => {
   assert.equal(isHoneypotTriggered(''), false);
   assert.equal(isHoneypotTriggered(undefined), false);
   assert.equal(isHoneypotTriggered('bot'), true);
+});
+
+test('deviceId aceita somente UUID válido e limitado', () => {
+  assert.equal(isValidPublicRegistrationDeviceId('550e8400-e29b-41d4-a716-446655440000'), true);
+  assert.equal(isValidPublicRegistrationDeviceId(undefined), false);
+  assert.equal(isValidPublicRegistrationDeviceId('device-manipulado'), false);
+  assert.equal(isValidPublicRegistrationDeviceId('a'.repeat(65)), false);
+});
+
+test('hash de dispositivo é HMAC estável, completo e separado do hash de IP', () => {
+  const deviceId = '550e8400-e29b-41d4-a716-446655440000';
+  const hash = hashRegistrationDevice(deviceId, 'test-secret');
+  assert.equal(hash.length, 64);
+  assert.equal(hash, hashRegistrationDevice(deviceId, 'test-secret'));
+  assert.notEqual(hash, hashRegistrationIp(deviceId, 'test-secret'));
+  assert.equal(hash.includes(deviceId), false);
 });
 
 test('limites independentes bloqueiam IP, link e telefone com cooldown', () => {

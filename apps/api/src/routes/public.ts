@@ -14,12 +14,19 @@ import { whatsappService } from '../services/whatsapp.service';
 import { verifyTurnstileToken } from '../services/turnstile.service';
 import {
   hashRegistrationIp,
+  hashRegistrationDevice,
+  isValidPublicRegistrationDeviceId,
   isHoneypotTriggered,
   publicRegistrationRateLimiter,
   registrationRiskFlags,
 } from '../lib/public-registration-abuse';
 
 const authorSelect = { firstName: true, lastName: true };
+
+function isDeviceReservationConflict(error: Prisma.PrismaClientKnownRequestError) {
+  const target = error.meta?.target;
+  return Array.isArray(target) && target.includes('campaignId') && target.includes('deviceHash');
+}
 
 async function resolveCampaignOr404(
   campaignSlug: string,
@@ -53,6 +60,11 @@ async function createAttributedSupporter(
     reply.status(400).send({ message: 'Não foi possível concluir o cadastro. Verifique os dados informados.' });
     return null;
   }
+  if (!isValidPublicRegistrationDeviceId(body?.deviceId)) {
+    logRejected(body?.deviceId ? 'INVALID_DEVICE_ID' : 'MISSING_DEVICE_ID', false);
+    reply.status(400).send({ message: 'Não foi possível concluir o cadastro. Atualize a página e tente novamente.' });
+    return null;
+  }
   const validation = validateSupporterInput(normalized);
   if (!validation.valid) {
     logRejected('INVALID_DATA', false);
@@ -84,6 +96,7 @@ async function createAttributedSupporter(
   const riskFlags = registrationRiskFlags({
     ipAttempts: ipRate.count, linkAttempts: linkRate.count, formStartedAt: body.formStartedAt,
   });
+  const deviceHash = hashRegistrationDevice(body.deviceId);
   const cuid = Date.now().toString(36) + Math.random().toString(36).substring(2);
   const data = {
       firstName: normalized.firstName,
@@ -112,7 +125,11 @@ async function createAttributedSupporter(
       const result = await prisma.$transaction(async (tx) => {
         const existing = await tx.user.findFirst({ where: { phone: normalized.phone, role: Role.USER, campaignId } });
         if (existing) return null;
-        return tx.user.create({ data });
+        const supporter = await tx.user.create({ data });
+        await tx.publicRegistrationDevice.create({
+          data: { campaignId, deviceHash, supporterId: supporter.id },
+        });
+        return supporter;
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
       if (!result) {
         logRejected('DUPLICATE', false);
@@ -122,6 +139,11 @@ async function createAttributedSupporter(
       return { supporter: result, security: { ipHash, riskFlags } };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034' && attempt === 0) continue;
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002' && isDeviceReservationConflict(error)) {
+        logRejected('DEVICE_REUSE');
+        reply.status(409).send({ message: 'Este dispositivo já realizou um cadastro nesta campanha. Compartilhe o link para que cada apoiador faça o próprio cadastro.' });
+        return null;
+      }
       throw error;
     }
   }

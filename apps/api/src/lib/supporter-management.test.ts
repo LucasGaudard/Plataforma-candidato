@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { Prisma, Role } from '@prisma/client';
 import {
   deleteSupporterWithinScope,
@@ -105,6 +106,12 @@ test('exclusão autorizada remove notificações e o User na mesma transação',
   );
   assert.deepEqual(result, { kind: 'deleted', removed: { notifications: 2 } });
   assert.deepEqual(calls, ['notification.deleteMany', 'user.delete']);
+});
+
+test('vínculo de dispositivo é removido por cascade quando o apoiador é excluído', () => {
+  const schema = readFileSync('prisma/schema.prisma', 'utf8');
+  assert.match(schema, /supporter\s+User\s+@relation\(fields: \[supporterId\], references: \[id\], onDelete: Cascade\)/);
+  assert.match(schema, /@@unique\(\[campaignId, deviceHash\]\)/);
 });
 
 test('apoiador inexistente não executa exclusão', async () => {

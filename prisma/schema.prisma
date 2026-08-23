@@ -143,11 +143,25 @@ model Campaign {
   whatsappConfig              CampaignWhatsAppConfig?
   whatsappMessages            WhatsAppMessage[]
   manualCommunicationSessions ManualCommunicationSession[]
+  publicRegistrationDevices   PublicRegistrationDevice[]
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
 
   @@index([status])
   @@index([createdAt])
+}
+
+model PublicRegistrationDevice {
+  id          String   @id @default(cuid())
+  campaignId  String
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  deviceHash  String
+  supporterId String   @unique
+  supporter   User     @relation(fields: [supporterId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([campaignId, deviceHash])
+  @@index([campaignId, createdAt])
 }
 
 model CampaignWhatsAppConfig {
@@ -190,46 +204,47 @@ model WhatsAppMessage {
 }
 
 model User {
-  id                           String          @id @default(cuid())
-  email                        String          @unique
+  id                           String                    @id @default(cuid())
+  email                        String                    @unique
   password                     String
   firstName                    String
   lastName                     String
-  cpf                          String          @unique
+  cpf                          String                    @unique
   phone                        String
   address                      String
   city                         String
   state                        String
   neighborhood                 String?
   zone                         CityZone?
-  role                         Role            @default(USER)
-  status                       SupporterStatus @default(PENDING)
-  whatsappStatus               WhatsappStatus  @default(PENDING)
+  role                         Role                      @default(USER)
+  status                       SupporterStatus           @default(PENDING)
+  whatsappStatus               WhatsappStatus            @default(PENDING)
   whatsappLastSent             DateTime?
   whatsappConfirmedAt          DateTime?
   whatsappLastResponse         String?
   whatsappError                String?
   whatsappInitialMessageSentAt DateTime?
-  lgpdConsent                  Boolean         @default(false)
+  lgpdConsent                  Boolean                   @default(false)
   lgpdConsentAt                DateTime?
   lgpdConsentText              String?
   lgpdConsentVersion           String?
-  leaderSlug                   String?         @unique
-  coordinatorSlug              String?         @unique
+  leaderSlug                   String?                   @unique
+  coordinatorSlug              String?                   @unique
   leaderId                     String?
-  leader                       User?           @relation("LeaderSupporters", fields: [leaderId], references: [id], onDelete: SetNull)
-  supporters                   User[]          @relation("LeaderSupporters")
+  leader                       User?                     @relation("LeaderSupporters", fields: [leaderId], references: [id], onDelete: SetNull)
+  supporters                   User[]                    @relation("LeaderSupporters")
   coordinatorId                String?
-  coordinator                  User?           @relation("CoordinatorLeaders", fields: [coordinatorId], references: [id], onDelete: SetNull)
-  leaders                      User[]          @relation("CoordinatorLeaders")
+  coordinator                  User?                     @relation("CoordinatorLeaders", fields: [coordinatorId], references: [id], onDelete: SetNull)
+  leaders                      User[]                    @relation("CoordinatorLeaders")
   campaignId                   String?
-  campaign                     Campaign?       @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  campaign                     Campaign?                 @relation(fields: [campaignId], references: [id], onDelete: Restrict)
   posts                        Post[]
   events                       Event[]
   lives                        Live[]
   notifications                Notification[]
-  createdAt                    DateTime        @default(now())
-  updatedAt                    DateTime        @updatedAt
+  publicRegistrationDevice     PublicRegistrationDevice?
+  createdAt                    DateTime                  @default(now())
+  updatedAt                    DateTime                  @updatedAt
 
   @@index([leaderId])
   @@index([coordinatorId])

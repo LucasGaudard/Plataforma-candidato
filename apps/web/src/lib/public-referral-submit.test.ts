@@ -10,6 +10,7 @@ const payload = {
   state: 'RJ',
   neighborhood: 'Centro',
   lgpdConsent: true,
+  deviceId: '550e8400-e29b-41d4-a716-446655440000',
 };
 
 test('sucesso real via lider executa a acao pos-cadastro', async () => {

@@ -35,6 +35,16 @@ export function hashRegistrationIp(ip: string, secret = process.env.ABUSE_LOG_HA
   return createHmac('sha256', secret).update(ip).digest('hex').slice(0, 16);
 }
 
+export const publicRegistrationDeviceIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isValidPublicRegistrationDeviceId(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 64 && publicRegistrationDeviceIdPattern.test(value);
+}
+
+export function hashRegistrationDevice(deviceId: string, secret = process.env.ABUSE_LOG_HASH_SECRET || process.env.JWT_SECRET || 'development-only') {
+  return createHmac('sha256', secret).update(`public-registration-device\0${deviceId}`).digest('hex');
+}
+
 export function registrationRiskFlags(input: { ipAttempts: number; linkAttempts: number; formStartedAt?: number; now?: number }) {
   const now = input.now ?? Date.now();
   return [
