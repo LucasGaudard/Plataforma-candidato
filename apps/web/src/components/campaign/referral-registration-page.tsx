@@ -76,7 +76,7 @@ export function ReferralRegistrationPage({
 
           <div className="mx-auto -mt-4 overflow-hidden rounded-xl shadow-sm sm:-mt-6 sm:rounded-2xl">
             <Image
-              src="/Images/Paula_quintanilha.png.jpeg"
+              src="/Images/paula-quintanilha.png"
               alt="Paula Quintanilha, candidata a deputada estadual, número 22252"
               width={1536}
               height={1024}
