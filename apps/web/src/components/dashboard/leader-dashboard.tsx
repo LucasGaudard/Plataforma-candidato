@@ -8,13 +8,15 @@ import { api } from '@/lib/api';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { PostsFeed } from '@/components/content/posts-feed';
 import { useToast } from '@/contexts/toast-context';
+import { useAuth } from '@/contexts/auth-context';
+import { ReferralLinkCard } from './referral-link-card';
 
 export function LeaderDashboardView() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [data, setData] = useState<LeaderDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [copied, setCopied] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -28,14 +30,6 @@ export function LeaderDashboardView() {
   useEffect(() => {
     loadDashboard().finally(() => setLoading(false));
   }, [loadDashboard]);
-
-  async function copyLink() {
-    if (!data?.referralLink) return;
-    await navigator.clipboard.writeText(data.referralLink);
-    setCopied(true);
-    toast('Link copiado!', 'success');
-    setTimeout(() => setCopied(false), 2000);
-  }
 
   if (loading) {
     return (
@@ -66,13 +60,10 @@ export function LeaderDashboardView() {
       </div>
 
       <div className="mt-8 grid gap-4">
-        <Card>
-          <h3 className="text-sm font-medium text-slate-500">Link personalizado</h3>
-          <p className="mt-2 break-all text-xs font-mono text-brand-700">{data?.referralLink}</p>
-          <Button onClick={copyLink} variant="outline" size="sm" className="mt-3">
-            {copied ? 'Copiado!' : 'Copiar link'}
-          </Button>
-        </Card>
+        <ReferralLinkCard
+          inviterName={[user?.firstName, user?.lastName].filter(Boolean).join(' ')}
+          referralLink={data?.referralLink}
+        />
       </div>
 
       <div className="mt-8 flex items-center justify-between rounded-xl bg-brand-50 p-6 shadow-sm border border-brand-100">

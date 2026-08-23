@@ -26,6 +26,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { useToast } from '@/contexts/toast-context';
 import { CityZoneSelect } from '@/components/forms/city-zone-select';
+import { ReferralLinkCard } from './referral-link-card';
 
 type FormMode = 'create' | 'edit' | null;
 type CoordinatorViewMode = 'dashboard' | 'leaders';
@@ -63,7 +64,6 @@ function CoordinatorView({ mode }: { mode: CoordinatorViewMode }) {
   const [createForm, setCreateForm] = useState<CreateLeaderRequest>(emptyCreate);
   const [editForm, setEditForm] = useState<UpdateLeaderRequest>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [copied, setCopied] = useState(false);
   const [structureSupporters, setStructureSupporters] = useState<CoordinatorSupporterItem[]>([]);
   const [structureLeaders, setStructureLeaders] = useState<CoordinatorLeaderItem[]>([]);
   const [supporterSummary, setSupporterSummary] = useState({ total: 0, direct: 0, fromLeaders: 0 });
@@ -175,14 +175,6 @@ function CoordinatorView({ mode }: { mode: CoordinatorViewMode }) {
     setFormMode(null);
     setEditingLeader(null);
     setFormErrors({});
-  }
-
-  async function copyReferralLink() {
-    if (!stats?.referralLink) return;
-    await navigator.clipboard.writeText(stats.referralLink);
-    setCopied(true);
-    toast('Link copiado!', 'success');
-    setTimeout(() => setCopied(false), 2000);
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -330,13 +322,10 @@ function CoordinatorView({ mode }: { mode: CoordinatorViewMode }) {
       </div>
 
       <div className="mt-8 grid gap-4">
-        <Card>
-          <h3 className="text-sm font-medium text-slate-500">Link personalizado</h3>
-          <p className="mt-2 break-all font-mono text-xs text-brand-700">{stats?.referralLink}</p>
-          <Button onClick={copyReferralLink} variant="outline" size="sm" className="mt-3">
-            {copied ? 'Copiado!' : 'Copiar link'}
-          </Button>
-        </Card>
+        <ReferralLinkCard
+          inviterName={[user?.firstName, user?.lastName].filter(Boolean).join(' ')}
+          referralLink={stats?.referralLink}
+        />
       </div>
 
       <section className="mt-8" aria-labelledby="structure-supporters-title">
