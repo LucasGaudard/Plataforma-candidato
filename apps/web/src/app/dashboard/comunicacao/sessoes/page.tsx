@@ -12,6 +12,7 @@ import { api } from '@/lib/api';
 import { openManualWhatsappConversation } from '@/lib/manual-whatsapp';
 import { applyManualRecipientAction } from '@/lib/manual-communication-session';
 import { manualSelectionCount, updateManualSelection } from '@/lib/manual-communication-selection';
+import { consumeContentCommunicationDraft } from '@/lib/content-communication-draft';
 
 const ALLOWED_ROLES = [Role.ADMIN, Role.COORDINATOR, Role.LEADER];
 const EMPTY_OPTIONS: ManualCommunicationOptions = { leaders: [], coordinators: [], cities: [], neighborhoods: [] };
@@ -45,16 +46,9 @@ function ManualCommunications() {
     Promise.all([api.getManualCommunicationOptions(), api.getManualWhatsappConfig(), api.getManualCommunicationSessions()])
       .then(([availableOptions, whatsappConfig, history]) => {
         setOptions(availableOptions); setConfig(whatsappConfig); setSessions(history);
-        const savedDraft = sessionStorage.getItem('manualCommunicationDraft');
-        if (savedDraft) {
-          try {
-            const draft = JSON.parse(savedDraft) as { title?: string; message?: string };
-            if (draft.title) setTitle(draft.title);
-            if (draft.message) setMessage(draft.message);
-          } finally {
-            sessionStorage.removeItem('manualCommunicationDraft');
-          }
-        }
+        const draft = consumeContentCommunicationDraft(sessionStorage);
+        if (draft?.title) setTitle(draft.title);
+        if (draft?.message) setMessage(draft.message);
       })
       .catch((error: Error) => toast(error.message, 'error'));
   }, [toast]);

@@ -5,6 +5,10 @@ export interface CommunicationDraft {
   message: string;
 }
 
+export const MANUAL_COMMUNICATION_DRAFT_STORAGE_KEY = 'manualCommunicationDraft';
+
+type DraftStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
 function compact(lines: Array<string | null | undefined>) {
   return lines.filter((line): line is string => Boolean(line?.trim())).join('\n\n');
 }
@@ -65,4 +69,30 @@ export function buildContentCommunicationDraft(
       'Acompanhe as novidades.',
     ]),
   };
+}
+
+export function saveContentCommunicationDraft(
+  storage: Pick<DraftStorage, 'setItem'>,
+  type: 'posts' | 'events' | 'lives',
+  item: PostPublic | EventPublic | LivePublic,
+) {
+  const draft = buildContentCommunicationDraft(type, item);
+  storage.setItem(MANUAL_COMMUNICATION_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  return draft;
+}
+
+export function consumeContentCommunicationDraft(
+  storage: Pick<DraftStorage, 'getItem' | 'removeItem'>,
+): CommunicationDraft | null {
+  const serialized = storage.getItem(MANUAL_COMMUNICATION_DRAFT_STORAGE_KEY);
+  if (!serialized) return null;
+  storage.removeItem(MANUAL_COMMUNICATION_DRAFT_STORAGE_KEY);
+  try {
+    const draft = JSON.parse(serialized) as Partial<CommunicationDraft>;
+    return typeof draft.title === 'string' && typeof draft.message === 'string'
+      ? { title: draft.title, message: draft.message }
+      : null;
+  } catch {
+    return null;
+  }
 }

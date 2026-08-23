@@ -19,7 +19,7 @@ import { useToast } from '@/contexts/toast-context';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Role } from '@platform/types';
-import { buildContentCommunicationDraft } from '@/lib/content-communication-draft';
+import { saveContentCommunicationDraft } from '@/lib/content-communication-draft';
 import { datetimeLocalValueToIso, isoToDatetimeLocalValue, postToForm } from '@/lib/post-form';
 import { applyUploadedMediaUrl, type PostMediaKind, validatePostMediaFile } from '@/lib/post-media-upload';
 
@@ -219,7 +219,7 @@ function ContentManagerInner({ type, title }: ContentManagerProps) {
   }
 
   function createCommunication(item: PostPublic | EventPublic | LivePublic) {
-    sessionStorage.setItem('manualCommunicationDraft', JSON.stringify(buildContentCommunicationDraft(type, item)));
+    saveContentCommunicationDraft(sessionStorage, type, item);
     router.push('/dashboard/comunicacao/sessoes');
   }
 
