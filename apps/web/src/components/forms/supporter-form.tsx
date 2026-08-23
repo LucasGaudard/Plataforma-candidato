@@ -6,6 +6,7 @@ import { CITIES_BY_STATE, NEIGHBORHOODS_BY_CITY, formatPhone } from '@platform/u
 import { api } from '@/lib/api';
 import { submitPublicReferralRegistration } from '@/lib/public-referral-submit';
 import { CityZoneSelect } from './city-zone-select';
+import { TurnstileWidget } from './turnstile-widget';
 
 interface SupporterFormProps {
   campaignSlug: string;
@@ -25,7 +26,12 @@ export function SupporterForm({ campaignSlug, referrerSlug, referrerName, referr
     zone: undefined as import('@platform/types').CityZone | undefined,
     state: 'RJ', // State is implicitly RJ for the public registration
     lgpdConsent: false,
+    website: '',
   });
+  const [formStartedAt] = useState(() => Date.now());
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileRequired, setTurnstileRequired] = useState(true);
+  const [turnstileKey, setTurnstileKey] = useState(0);
   const [customNeighborhood, setCustomNeighborhood] = useState('');
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -95,7 +101,7 @@ export function SupporterForm({ campaignSlug, referrerSlug, referrerName, referr
     }
 
     try {
-      const payload = { ...form, neighborhood: finalNeighborhood };
+      const payload = { ...form, neighborhood: finalNeighborhood, turnstileToken, formStartedAt };
       await submitPublicReferralRegistration(api, {
         campaignSlug,
         referrerSlug,
@@ -108,6 +114,8 @@ export function SupporterForm({ campaignSlug, referrerSlug, referrerName, referr
         setErrors(error.errors);
       }
       setSubmitError(error.message || 'Erro ao realizar o cadastro. Tente novamente.');
+      setTurnstileToken('');
+      setTurnstileKey((current) => current + 1);
     } finally {
       setLoading(false);
     }
@@ -115,6 +123,11 @@ export function SupporterForm({ campaignSlug, referrerSlug, referrerName, referr
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
+        <label htmlFor="supporter-website">Não preencha este campo</label>
+        <input id="supporter-website" name="website" value={form.website} tabIndex={-1} autoComplete="off"
+          onChange={(event) => setForm((current) => ({ ...current, website: event.target.value }))} />
+      </div>
       {referrerName && (
         <Alert variant="info">
           Você foi indicado por <strong>{referrerName}</strong>
@@ -235,11 +248,14 @@ export function SupporterForm({ campaignSlug, referrerSlug, referrerName, referr
         </div>
       </div>
 
+      <p className="text-sm text-slate-600">Declaro que este cadastro está sendo realizado por mim e que os dados informados são meus.</p>
+      <TurnstileWidget key={turnstileKey} onTokenChange={setTurnstileToken} onRequirementChange={setTurnstileRequired} />
+
       <div className="pt-2">
         <Button 
           type="submit" 
           loading={loading} 
-          disabled={!form.lgpdConsent || loading}
+          disabled={!form.lgpdConsent || loading || (turnstileRequired && !turnstileToken)}
           className={`w-full ${!form.lgpdConsent ? 'opacity-50 cursor-not-allowed' : ''}`} 
           size="lg"
         >

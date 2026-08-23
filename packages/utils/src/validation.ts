@@ -1,6 +1,6 @@
 import { isValidCpf, stripCpf } from './cpf.js';
 import { isValidEmail, normalizeEmail } from './email.js';
-import { isValidPhone, normalizeBrazilianPhone, stripPhone } from './phone.js';
+import { isValidBrazilianMobilePhone, isValidPhone, normalizeBrazilianPhone, stripPhone } from './phone.js';
 import { BRAZILIAN_STATES, BrazilianState, CityZoneValue, isValidCityZone } from './locations.js';
 
 export interface RegisterValidationInput {
@@ -112,8 +112,8 @@ export function validateSupporterInput(input: SupporterValidationInput): Validat
     errors.lastName = 'Sobrenome deve ter pelo menos 2 caracteres';
   }
 
-  if (!isValidPhone(input.phone)) {
-    errors.phone = 'Telefone inválido. Use DDD + número (10 ou 11 dígitos)';
+  if (!isValidBrazilianMobilePhone(input.phone)) {
+    errors.phone = 'WhatsApp inválido. Informe um celular brasileiro com DDD.';
   }
 
   if (!input.city?.trim() || input.city.trim().length < 2) {

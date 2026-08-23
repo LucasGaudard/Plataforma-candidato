@@ -34,7 +34,7 @@ test('sucesso real via coordenador usa o endpoint correto', async () => {
   assert.deepEqual(calls, ['api', 'redirect']);
 });
 
-for (const status of [400, 409, 500]) {
+for (const status of [400, 409, 429, 500]) {
   test(`erro HTTP ${status} nao executa redirect`, async () => {
     let redirected = false;
     const error = Object.assign(new Error('falha'), { status });

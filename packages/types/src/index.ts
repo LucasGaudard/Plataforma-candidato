@@ -536,6 +536,9 @@ export interface CreateSupporterRequest {
   neighborhood?: string;
   zone?: CityZone;
   lgpdConsent: boolean;
+  turnstileToken?: string;
+  website?: string;
+  formStartedAt?: number;
 }
 
 export interface SupportersQuery {

@@ -229,6 +229,10 @@ class ApiClient {
     });
   }
 
+  getPublicAntiAbuseConfig() {
+    return this.request<{ required: boolean; available: boolean; siteKey: string }>('/public/anti-abuse/config');
+  }
+
   getManualWhatsappConfig() {
     return this.request<ManualWhatsappConfig>('/campaign/manual-whatsapp');
   }

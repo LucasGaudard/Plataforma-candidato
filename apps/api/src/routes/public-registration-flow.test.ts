@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+
+const source = readFileSync('apps/api/src/routes/public.ts', 'utf8');
+
+test('líder e coordenador usam o mesmo cadastro protegido', () => {
+  assert.match(source, /leaders\/:leaderSlug\/supporters/);
+  assert.match(source, /coordinators\/:coordinatorSlug\/supporters/);
+  assert.equal(source.match(/createAttributedSupporter\(/g)?.length, 3);
+});
+
+test('duplicidade permanece isolada por campanha e role USER em transação serializável', () => {
+  assert.match(source, /phone: normalized\.phone, role: Role\.USER, campaignId/);
+  assert.match(source, /TransactionIsolationLevel\.Serializable/);
+  assert.match(source, /error\.code === 'P2034'/);
+});
+
+test('logs de segurança usam hash de IP e não registram payload ou token', () => {
+  assert.match(source, /ipHash/);
+  assert.doesNotMatch(source, /log\.(?:info|warn|error)\([^\n]*turnstileToken/);
+  assert.doesNotMatch(source, /log\.(?:info|warn|error)\([^\n]*request\.body/);
+});

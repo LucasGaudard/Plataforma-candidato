@@ -1,4 +1,5 @@
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { Prisma } from '@prisma/client';
 import type { CreateSupporterRequest } from '@platform/types';
 import { LGPD_CONSENT_TEXT, LGPD_CONSENT_VERSION, PostCategory, Role } from '@platform/types';
 import {
@@ -10,6 +11,13 @@ import { prisma } from '../lib/prisma';
 import { toEventPublic, toLivePublic, toPostPublic } from '../lib/mappers';
 import { resolveActivePublicCampaign } from '../lib/public-campaign';
 import { whatsappService } from '../services/whatsapp.service';
+import { verifyTurnstileToken } from '../services/turnstile.service';
+import {
+  hashRegistrationIp,
+  isHoneypotTriggered,
+  publicRegistrationRateLimiter,
+  registrationRiskFlags,
+} from '../lib/public-registration-abuse';
 
 const authorSelect = { firstName: true, lastName: true };
 
@@ -29,24 +37,55 @@ async function createAttributedSupporter(
   campaignId: string,
   body: CreateSupporterRequest,
   attribution: { leaderId?: string; coordinatorId?: string },
+  context: { request: FastifyRequest; fastify: FastifyInstance; sourceType: 'LEADER' | 'COORDINATOR'; linkId: string },
   reply: FastifyReply,
 ) {
   const normalized = normalizeSupporterInput(body || ({} as CreateSupporterRequest));
+  const ipHash = hashRegistrationIp(context.request.ip);
+  const logRejected = (reason: string, suspicious = true) => {
+    context.fastify.log.warn({
+      campaignId, sourceType: context.sourceType, leaderId: attribution.leaderId,
+      coordinatorId: attribution.coordinatorId, ipHash, result: 'REJECTED', reason, suspicious,
+    }, 'Cadastro público rejeitado');
+  };
+  if (isHoneypotTriggered(body?.website)) {
+    logRejected('HONEYPOT');
+    reply.status(400).send({ message: 'Não foi possível concluir o cadastro. Verifique os dados informados.' });
+    return null;
+  }
   const validation = validateSupporterInput(normalized);
   if (!validation.valid) {
+    logRejected('INVALID_DATA', false);
     reply.status(400).send({ message: 'Dados inválidos', errors: validation.errors });
     return null;
   }
-  const existing = await prisma.user.findFirst({
-    where: { phone: normalized.phone, role: Role.USER, campaignId },
-  });
-  if (existing) {
-    reply.status(409).send({ message: 'Este WhatsApp já está cadastrado como apoiador.' });
+
+  const ipRate = publicRegistrationRateLimiter.checkAndRecord('ip', ipHash);
+  if (!ipRate.allowed) {
+    logRejected('RATE_LIMIT');
+    reply.status(429).send({ message: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' });
     return null;
   }
+
+  if (!await verifyTurnstileToken(body.turnstileToken, context.request.ip)) {
+    logRejected('TURNSTILE');
+    reply.status(400).send({ message: 'Não foi possível concluir o cadastro. Verifique os dados informados.' });
+    return null;
+  }
+
+  const linkRate = publicRegistrationRateLimiter.checkAndRecord('link', `${campaignId}:${context.linkId}`);
+  const phoneRate = publicRegistrationRateLimiter.checkAndRecord('phone', `${campaignId}:${normalized.phone}`);
+  if (!linkRate.allowed || !phoneRate.allowed) {
+    logRejected('RATE_LIMIT');
+    reply.status(429).send({ message: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' });
+    return null;
+  }
+
+  const riskFlags = registrationRiskFlags({
+    ipAttempts: ipRate.count, linkAttempts: linkRate.count, formStartedAt: body.formStartedAt,
+  });
   const cuid = Date.now().toString(36) + Math.random().toString(36).substring(2);
-  return prisma.user.create({
-    data: {
+  const data = {
       firstName: normalized.firstName,
       lastName: normalized.lastName,
       phone: normalized.phone,
@@ -66,8 +105,27 @@ async function createAttributedSupporter(
       lgpdConsentAt: new Date(),
       lgpdConsentText: LGPD_CONSENT_TEXT,
       lgpdConsentVersion: LGPD_CONSENT_VERSION,
-    },
-  });
+  };
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const existing = await tx.user.findFirst({ where: { phone: normalized.phone, role: Role.USER, campaignId } });
+        if (existing) return null;
+        return tx.user.create({ data });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      if (!result) {
+        logRejected('DUPLICATE', false);
+        reply.status(409).send({ message: 'Este WhatsApp já está cadastrado como apoiador.' });
+        return null;
+      }
+      return { supporter: result, security: { ipHash, riskFlags } };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034' && attempt === 0) continue;
+      throw error;
+    }
+  }
+  return null;
 }
 
 function logPublicSupporterCreated(
@@ -78,12 +136,21 @@ function logPublicSupporterCreated(
     sourceType: 'LEADER' | 'COORDINATOR';
     leaderId?: string;
     coordinatorId?: string;
+    ipHash: string;
+    riskFlags: string[];
   },
 ) {
-  fastify.log.info({ ...input, result: 'CREATED', statusHttp: 201 }, 'Apoiador público cadastrado');
+  fastify.log.info({ ...input, result: 'CREATED', statusHttp: 201, suspicious: input.riskFlags.length > 0 }, 'Apoiador público cadastrado');
 }
 
 export async function publicRoutes(fastify: FastifyInstance) {
+  fastify.get('/anti-abuse/config', async (_request, reply) => {
+    const siteKey = process.env.TURNSTILE_SITE_KEY?.trim() || '';
+    const secretConfigured = Boolean(process.env.TURNSTILE_SECRET_KEY?.trim());
+    const configured = Boolean(siteKey) && secretConfigured;
+    const production = process.env.NODE_ENV === 'production';
+    return reply.send({ required: production || configured, available: configured, siteKey: configured ? siteKey : '' });
+  });
   fastify.get<{ Params: { campaignSlug: string } }>(
     '/campaigns/:campaignSlug',
     async (request, reply) => {
@@ -269,13 +336,15 @@ export async function publicRoutes(fastify: FastifyInstance) {
     });
     if (!leader) return reply.status(404).send({ message: 'Líder não encontrado' });
 
-    const supporter = await createAttributedSupporter(
+    const created = await createAttributedSupporter(
       campaign.id,
       request.body,
       { leaderId: leader.id, coordinatorId: leader.coordinatorId ?? undefined },
+      { request, fastify, sourceType: 'LEADER', linkId: leader.id },
       reply,
     );
-    if (!supporter) return;
+    if (!created) return;
+    const { supporter, security } = created;
 
     logPublicSupporterCreated(fastify, {
       campaignId: campaign.id,
@@ -283,6 +352,7 @@ export async function publicRoutes(fastify: FastifyInstance) {
       sourceType: 'LEADER',
       leaderId: leader.id,
       coordinatorId: leader.coordinatorId ?? undefined,
+      ...security,
     });
 
     whatsappService.sendConfirmationMessage(supporter).catch((error) => {
@@ -328,18 +398,21 @@ export async function publicRoutes(fastify: FastifyInstance) {
       select: { id: true },
     });
     if (!coordinator) return reply.status(404).send({ message: 'Coordenador não encontrado' });
-    const supporter = await createAttributedSupporter(
+    const created = await createAttributedSupporter(
       campaign.id,
       request.body,
       { coordinatorId: coordinator.id },
+      { request, fastify, sourceType: 'COORDINATOR', linkId: coordinator.id },
       reply,
     );
-    if (!supporter) return;
+    if (!created) return;
+    const { supporter, security } = created;
     logPublicSupporterCreated(fastify, {
       campaignId: campaign.id,
       supporterId: supporter.id,
       sourceType: 'COORDINATOR',
       coordinatorId: coordinator.id,
+      ...security,
     });
     whatsappService.sendConfirmationMessage(supporter).catch((error) => {
       fastify.log.error({
