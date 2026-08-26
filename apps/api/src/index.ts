@@ -40,6 +40,9 @@ async function bootstrap() {
 
   const fastify = Fastify({
     logger: true,
+    // Render terminates the public connection at its load balancer. Trust the
+    // forwarded chain so request.ip identifies the visitor, not the shared proxy.
+    trustProxy: true,
   });
 
   await registerRateLimit(fastify);

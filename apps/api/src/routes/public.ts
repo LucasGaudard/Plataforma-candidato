@@ -67,20 +67,20 @@ async function createAttributedSupporter(
   }
   const validation = validateSupporterInput(normalized);
   if (!validation.valid) {
-    logRejected('INVALID_DATA', false);
+    logRejected(validation.errors.phone ? 'INVALID_PHONE' : 'INVALID_DATA', false);
     reply.status(400).send({ message: 'Dados inválidos', errors: validation.errors });
     return null;
   }
 
   const ipRate = publicRegistrationRateLimiter.checkAndRecord('ip', ipHash);
   if (!ipRate.allowed) {
-    logRejected('RATE_LIMIT');
+    logRejected('RATE_LIMIT_IP');
     reply.status(429).send({ message: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' });
     return null;
   }
 
   if (!await verifyTurnstileToken(body.turnstileToken, context.request.ip)) {
-    logRejected('TURNSTILE');
+    logRejected('TURNSTILE_FAILED');
     reply.status(400).send({ message: 'Não foi possível concluir o cadastro. Verifique os dados informados.' });
     return null;
   }
@@ -88,7 +88,7 @@ async function createAttributedSupporter(
   const linkRate = publicRegistrationRateLimiter.checkAndRecord('link', `${campaignId}:${context.linkId}`);
   const phoneRate = publicRegistrationRateLimiter.checkAndRecord('phone', `${campaignId}:${normalized.phone}`);
   if (!linkRate.allowed || !phoneRate.allowed) {
-    logRejected('RATE_LIMIT');
+    logRejected(!linkRate.allowed ? 'RATE_LIMIT_LINK' : 'RATE_LIMIT_PHONE');
     reply.status(429).send({ message: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' });
     return null;
   }
@@ -132,8 +132,8 @@ async function createAttributedSupporter(
         return supporter;
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
       if (!result) {
-        logRejected('DUPLICATE', false);
-        reply.status(409).send({ message: 'Este WhatsApp já está cadastrado como apoiador.' });
+        logRejected('DUPLICATE_PHONE', false);
+        reply.status(409).send({ message: 'Este telefone já está cadastrado.' });
         return null;
       }
       return { supporter: result, security: { ipHash, riskFlags } };
@@ -144,6 +144,7 @@ async function createAttributedSupporter(
         reply.status(409).send({ message: 'Este dispositivo já realizou um cadastro nesta campanha. Compartilhe o link para que cada apoiador faça o próprio cadastro.' });
         return null;
       }
+      logRejected('DATABASE_ERROR', false);
       throw error;
     }
   }

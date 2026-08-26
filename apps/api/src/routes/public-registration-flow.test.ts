@@ -23,6 +23,15 @@ test('logs de segurança usam hash de IP e não registram payload ou token', () 
   assert.doesNotMatch(source, /log\.(?:info|warn|error)\([^\n]*deviceId/);
 });
 
+test('logs distinguem as causas operacionais do cadastro público', () => {
+  for (const reason of [
+    'TURNSTILE_FAILED', 'DEVICE_REUSE', 'DUPLICATE_PHONE', 'RATE_LIMIT_IP',
+    'RATE_LIMIT_LINK', 'RATE_LIMIT_PHONE', 'INVALID_PHONE', 'HONEYPOT', 'DATABASE_ERROR',
+  ]) {
+    assert.match(source, new RegExp(reason));
+  }
+});
+
 test('dispositivo é validado, hasheado e reservado na mesma transação do apoiador', () => {
   assert.match(source, /isValidPublicRegistrationDeviceId\(body\?\.deviceId\)/);
   assert.match(source, /hashRegistrationDevice\(body\.deviceId\)/);
