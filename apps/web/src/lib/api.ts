@@ -233,6 +233,17 @@ class ApiClient {
     });
   }
 
+  async exportAdminSupporters() {
+    const token = this.getToken();
+    const response = await fetch(`${API_URL}/admin/supporters/export`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      throw new Error('Não foi possível exportar os apoiadores. Tente novamente.');
+    }
+    return response.blob();
+  }
+
   getPublicAntiAbuseConfig() {
     return this.request<{ required: boolean; available: boolean; siteKey: string }>('/public/anti-abuse/config');
   }

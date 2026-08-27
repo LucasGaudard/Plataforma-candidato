@@ -30,6 +30,7 @@ import {
   supporterScope,
   supporterSearchWhere,
 } from '../lib/supporter-management';
+import { createSupportersWorkbook } from '../lib/supporter-export';
 
 const authorSelect = { firstName: true, lastName: true };
 
@@ -677,6 +678,31 @@ export async function adminRoutes(fastify: FastifyInstance) {
     '/coordinators/:id',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
     async (request, reply) => deleteManagedUser(fastify, request, reply, Role.COORDINATOR),
+  );
+
+  fastify.get(
+    '/supporters/export',
+    { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
+    async (request, reply) => {
+      const supporters = await prisma.user.findMany({
+        where: {
+          role: Role.USER,
+          campaignId: request.user.campaignId,
+        },
+        select: {
+          firstName: true,
+          lastName: true,
+          phone: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+      const workbook = await createSupportersWorkbook(supporters);
+
+      return reply
+        .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        .header('Content-Disposition', 'attachment; filename="apoiadores.xlsx"')
+        .send(workbook);
+    },
   );
 
   fastify.delete<{ Params: { id: string } }>(

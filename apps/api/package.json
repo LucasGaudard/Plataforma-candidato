@@ -19,6 +19,7 @@
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.10.1",
     "dotenv": "^16.4.5",
+    "exceljs": "4.4.0",
     "fastify": "^4.28.1"
   },
   "devDependencies": {

@@ -40,6 +40,7 @@ function SupportersContent() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [manualWhatsapp, setManualWhatsapp] = useState<ManualWhatsappConfig | null>(null);
   const [markingSentId, setMarkingSentId] = useState<string | null>(null);
   const [openedWhatsappIds, setOpenedWhatsappIds] = useState<Set<string>>(() => new Set());
@@ -133,6 +134,26 @@ function SupportersContent() {
     }
     if (result === 'DUPLICATE') return;
     setOpenedWhatsappIds((current) => new Set(current).add(supporter.id));
+  }
+
+  async function handleExportSupporters() {
+    if (!isAdmin || exporting) return;
+    setExporting(true);
+    try {
+      const blob = await api.exportAdminSupporters();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'apoiadores.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast('Não foi possível exportar os apoiadores. Tente novamente.', 'error');
+    } finally {
+      setExporting(false);
+    }
   }
 
   async function handleMarkWhatsappSent(supporter: SupporterListItem) {
@@ -277,6 +298,13 @@ function SupportersContent() {
   return (
     <DashboardLayout title="Apoiadores" subtitle={subtitle}>
       <Card>
+        {isAdmin && (
+          <div className="mb-4 flex justify-end">
+            <Button type="button" variant="outline" loading={exporting} disabled={exporting} onClick={handleExportSupporters}>
+              {exporting ? 'Exportando...' : 'Exportar apoiadores'}
+            </Button>
+          </div>
+        )}
         {/* Filtros */}
         <form onSubmit={handleSearch} className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Input
