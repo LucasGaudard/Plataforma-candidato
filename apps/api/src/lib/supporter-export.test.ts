@@ -7,19 +7,19 @@ async function readExport(rows: Parameters<typeof createSupportersWorkbook>[0]) 
   const buffer = await createSupportersWorkbook(rows);
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
-  const sheet = workbook.getWorksheet('Apoiadores');
+  const sheet = workbook.getWorksheet('Todos os apoiadores');
   assert.ok(sheet);
   return { buffer, sheet };
 }
 
-test('gera XLSX válido somente com Nome e Telefone', async () => {
+test('gera XLSX válido com contatos organizados por região e bairro', async () => {
   const { buffer, sheet } = await readExport([
-    { firstName: ' Maria ', lastName: ' da  Silva ', phone: '5521999999999' },
-    { firstName: 'João', lastName: 'Souza', phone: '21988888888' },
+    { firstName: ' Maria ', lastName: ' da  Silva ', phone: '5521999999999', zone: 'NORTH', neighborhood: 'Centro' },
+    { firstName: 'João', lastName: 'Souza', phone: '21988888888', zone: 'SOUTH', neighborhood: 'Jardins' },
   ]);
 
   assert.equal(buffer.subarray(0, 2).toString(), 'PK');
-  assert.equal(sheet.columnCount, 2);
+  assert.equal(sheet.columnCount, 8);
   assert.equal(sheet.rowCount, 3);
   assert.equal(sheet.getCell('A1').value, 'Nome');
   assert.equal(sheet.getCell('B1').value, 'Telefone');
@@ -27,10 +27,15 @@ test('gera XLSX válido somente com Nome e Telefone', async () => {
   assert.equal(sheet.getCell('B2').value, '(21) 99999-9999');
   assert.equal(sheet.getCell('B2').type, ExcelJS.ValueType.String);
   assert.equal(sheet.getColumn(2).numFmt, '@');
+  assert.equal(sheet.getCell('C2').value, 'Zona Norte');
+  assert.equal(sheet.getCell('D2').value, 'Centro');
+  assert.ok(sheet.workbook.getWorksheet('Resumo'));
+  assert.ok(sheet.workbook.getWorksheet('Região Zona Norte'));
+  assert.ok(sheet.workbook.getWorksheet('Região Zona Sul'));
 });
 
 test('lista vazia gera XLSX válido apenas com cabeçalho', async () => {
   const { sheet } = await readExport([]);
   assert.equal(sheet.rowCount, 1);
-  assert.equal(sheet.columnCount, 2);
+  assert.equal(sheet.columnCount, 8);
 });

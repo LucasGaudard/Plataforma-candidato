@@ -19,10 +19,12 @@ test('endpoint é exclusivo de ADMIN e usa campaignId da autenticação', () => 
   assert.doesNotMatch(routeSource, /supporters\/export[\s\S]{0,500}request\.(?:query|body).*campaignId/);
 });
 
-test('exportação seleciona apenas os campos necessários e não usa paginação ou filtros', () => {
+test('exportação inclui localização e vínculos sem paginação', () => {
   const exportBlock = routeSource.slice(routeSource.indexOf("'/supporters/export'"), routeSource.indexOf('fastify.delete', routeSource.indexOf("'/supporters/export'")));
   assert.match(exportBlock, /select:\s*\{[\s\S]*firstName: true,[\s\S]*lastName: true,[\s\S]*phone: true/);
-  for (const forbidden of ['skip', 'take', 'status:', 'whatsappStatus:', 'leaderId:', 'coordinatorId:']) {
+  assert.match(exportBlock, /neighborhood: true/);
+  assert.match(exportBlock, /zone: true/);
+  for (const forbidden of ['skip', 'take', 'status:', 'whatsappStatus:']) {
     assert.doesNotMatch(exportBlock, new RegExp(forbidden));
   }
 });
@@ -37,7 +39,7 @@ test('autorização e campanha são aplicadas pelo endpoint real', async () => {
   const queries: unknown[] = [];
   (prisma.user as unknown as { findMany: (args: unknown) => Promise<unknown[]> }).findMany = async (args) => {
     queries.push(args);
-    return [{ firstName: 'Ana', lastName: 'Campanha A', phone: '21999999999' }];
+    return [{ firstName: 'Ana', lastName: 'Campanha A', phone: '21999999999', city: 'Rio de Janeiro', state: 'RJ', neighborhood: 'Centro', zone: 'NORTH', coordinator: null, leader: null }];
   };
 
   try {
@@ -58,8 +60,12 @@ test('autorização e campanha são aplicadas pelo endpoint real', async () => {
     assert.equal(queries.length, 1);
     assert.deepEqual(queries[0], {
       where: { role: Role.USER, campaignId: 'campaign-a' },
-      select: { firstName: true, lastName: true, phone: true },
-      orderBy: { createdAt: 'asc' },
+      select: {
+        firstName: true, lastName: true, phone: true, city: true, state: true, neighborhood: true, zone: true,
+        coordinator: { select: { firstName: true, lastName: true } },
+        leader: { select: { firstName: true, lastName: true, coordinator: { select: { firstName: true, lastName: true } } } },
+      },
+      orderBy: [{ zone: 'asc' }, { neighborhood: 'asc' }, { firstName: 'asc' }],
     });
   } finally {
     (prisma.user as unknown as { findMany: typeof originalFindMany }).findMany = originalFindMany;
@@ -68,7 +74,7 @@ test('autorização e campanha são aplicadas pelo endpoint real', async () => {
 });
 
 test('frontend baixa blob autenticado somente para ADMIN e expõe estado de exportação', () => {
-  assert.match(webApiSource, /exportAdminSupporters\(\)/);
+  assert.match(webApiSource, /exportAdminSupporters\(filters:/);
   assert.match(webApiSource, /Authorization: `Bearer \$\{token\}`/);
   assert.match(webApiSource, /response\.blob\(\)/);
   assert.match(pageSource, /isAdmin &&/);

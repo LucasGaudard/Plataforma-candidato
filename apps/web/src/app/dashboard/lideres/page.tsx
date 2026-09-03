@@ -47,6 +47,7 @@ function LeadersContent() {
   const [loading, setLoading] = useState(true);
   const [tableLoading, setTableLoading] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [editingLeader, setEditingLeader] = useState<AdminLeaderItem | null>(null);
@@ -98,6 +99,16 @@ function LeadersContent() {
   useEffect(() => {
     loadCoordinatorsForSelect();
   }, [loadCoordinatorsForSelect]);
+
+  async function handleExport() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const blob = await api.exportAdminLeaders();
+      const url = URL.createObjectURL(blob); const link = document.createElement('a');
+      link.href = url; link.download = 'lideres.xlsx'; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    } catch (err) { toast((err as Error).message, 'error'); } finally { setExporting(false); }
+  }
 
   function openCreate() {
     setCreateForm({ ...emptyCreate, coordinatorId: filterCoordinatorId });
@@ -348,7 +359,7 @@ function LeadersContent() {
       <Card>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-brand-900">Lista de Líderes</h2>
-          {formMode === null && <Button size="sm" onClick={openCreate}>+ Novo Líder</Button>}
+          <div className="flex gap-2"><Button size="sm" variant="outline" loading={exporting} onClick={handleExport}>Exportar líderes</Button>{formMode === null && <Button size="sm" onClick={openCreate}>+ Novo Líder</Button>}</div>
         </div>
 
         <form onSubmit={handleSearch} className="mb-4 flex flex-col gap-3 sm:flex-row">

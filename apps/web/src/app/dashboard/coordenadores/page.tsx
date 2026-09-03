@@ -39,6 +39,7 @@ function CoordinatorsContent() {
   const [loading, setLoading] = useState(true);
   const [tableLoading, setTableLoading] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [editingCoordinator, setEditingCoordinator] = useState<AdminCoordinatorItem | null>(null);
@@ -70,6 +71,16 @@ function CoordinatorsContent() {
   useEffect(() => {
     loadCoordinators();
   }, [loadCoordinators]);
+
+  async function handleExport() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const blob = await api.exportAdminCoordinators();
+      const url = URL.createObjectURL(blob); const link = document.createElement('a');
+      link.href = url; link.download = 'coordenadores.xlsx'; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    } catch (err) { toast((err as Error).message, 'error'); } finally { setExporting(false); }
+  }
 
   function openCreate() {
     setCreateForm(emptyCreate);
@@ -312,7 +323,7 @@ function CoordinatorsContent() {
       <Card>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-brand-900">Lista de Coordenadores</h2>
-          {formMode === null && <Button size="sm" onClick={openCreate}>+ Novo Coordenador</Button>}
+          <div className="flex gap-2"><Button size="sm" variant="outline" loading={exporting} onClick={handleExport}>Exportar coordenadores</Button>{formMode === null && <Button size="sm" onClick={openCreate}>+ Novo Coordenador</Button>}</div>
         </div>
 
         <form onSubmit={handleSearch} className="mb-4 flex gap-3">

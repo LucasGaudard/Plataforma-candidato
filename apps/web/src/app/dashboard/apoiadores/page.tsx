@@ -140,7 +140,7 @@ function SupportersContent() {
     if (!isAdmin || exporting) return;
     setExporting(true);
     try {
-      const blob = await api.exportAdminSupporters();
+      const blob = await api.exportAdminSupporters({ city: city || undefined, state: state || undefined, neighborhood: neighborhood || undefined, zone: (zone || undefined) as SupportersQuery['zone'] });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -301,7 +301,7 @@ function SupportersContent() {
         {isAdmin && (
           <div className="mb-4 flex justify-end">
             <Button type="button" variant="outline" loading={exporting} disabled={exporting} onClick={handleExportSupporters}>
-              {exporting ? 'Exportando...' : 'Exportar apoiadores'}
+              {exporting ? 'Exportando...' : zone ? `Exportar região: ${getCityZoneLabel(zone as SupportersQuery['zone'])}` : 'Exportar apoiadores por região'}
             </Button>
           </div>
         )}

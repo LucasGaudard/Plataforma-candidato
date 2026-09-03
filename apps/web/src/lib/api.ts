@@ -233,9 +233,9 @@ class ApiClient {
     });
   }
 
-  async exportAdminSupporters() {
+  private async downloadAdminReport(path: string) {
     const token = this.getToken();
-    const response = await fetch(`${API_URL}/admin/supporters/export`, {
+    const response = await fetch(`${API_URL}${path}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!response.ok) {
@@ -243,6 +243,14 @@ class ApiClient {
     }
     return response.blob();
   }
+
+  exportAdminSupporters(filters: Pick<SupportersQuery, 'city' | 'state' | 'neighborhood' | 'zone'> = {}) {
+    return this.downloadAdminReport(`/admin/supporters/export${this.qs(filters as Record<string, string | undefined>)}`);
+  }
+
+  exportAdminLeaders() { return this.downloadAdminReport('/admin/leaders/export'); }
+
+  exportAdminCoordinators() { return this.downloadAdminReport('/admin/coordinators/export'); }
 
   getPublicAntiAbuseConfig() {
     return this.request<{ required: boolean; available: boolean; siteKey: string }>('/public/anti-abuse/config');

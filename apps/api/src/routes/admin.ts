@@ -30,7 +30,7 @@ import {
   supporterScope,
   supporterSearchWhere,
 } from '../lib/supporter-management';
-import { createSupportersWorkbook } from '../lib/supporter-export';
+import { createManagedUsersWorkbook, createSupportersWorkbook } from '../lib/supporter-export';
 
 const authorSelect = { firstName: true, lastName: true };
 
@@ -680,23 +680,41 @@ export async function adminRoutes(fastify: FastifyInstance) {
     async (request, reply) => deleteManagedUser(fastify, request, reply, Role.COORDINATOR),
   );
 
-  fastify.get(
+  fastify.get<{ Querystring: { zone?: string; neighborhood?: string; city?: string; state?: string } }>(
     '/supporters/export',
     { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] },
     async (request, reply) => {
+      const zone = request.query.zone?.trim();
+      if (zone && !isValidCityZone(zone)) return reply.status(400).send({ message: 'Região inválida.' });
       const supporters = await prisma.user.findMany({
         where: {
           role: Role.USER,
           campaignId: request.user.campaignId,
+          ...(zone ? { zone: zone as PrismaCityZone } : {}),
+          ...(request.query.neighborhood?.trim() ? { neighborhood: { contains: request.query.neighborhood.trim(), mode: 'insensitive' } } : {}),
+          ...(request.query.city?.trim() ? { city: { contains: request.query.city.trim(), mode: 'insensitive' } } : {}),
+          ...(request.query.state?.trim() ? { state: request.query.state.trim().toUpperCase() } : {}),
         },
         select: {
           firstName: true,
           lastName: true,
           phone: true,
+          city: true,
+          state: true,
+          neighborhood: true,
+          zone: true,
+          coordinator: { select: { firstName: true, lastName: true } },
+          leader: { select: { firstName: true, lastName: true, coordinator: { select: { firstName: true, lastName: true } } } },
         },
-        orderBy: { createdAt: 'asc' },
+        orderBy: [{ zone: 'asc' }, { neighborhood: 'asc' }, { firstName: 'asc' }],
       });
-      const workbook = await createSupportersWorkbook(supporters);
+      const workbook = await createSupportersWorkbook(supporters.map((item) => ({
+        ...item,
+        leaderName: item.leader ? `${item.leader.firstName} ${item.leader.lastName}` : null,
+        coordinatorName: item.leader?.coordinator
+          ? `${item.leader.coordinator.firstName} ${item.leader.coordinator.lastName}`
+          : item.coordinator ? `${item.coordinator.firstName} ${item.coordinator.lastName}` : null,
+      })));
 
       return reply
         .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -704,6 +722,21 @@ export async function adminRoutes(fastify: FastifyInstance) {
         .send(workbook);
     },
   );
+
+  fastify.get('/leaders/export', { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] }, async (request, reply) => {
+    const campaignId = request.user.campaignId;
+    const rows = await prisma.user.findMany({ where: { role: Role.LEADER, campaignId }, include: { coordinator: { select: { firstName: true, lastName: true } }, _count: { select: { supporters: { where: { campaignId } } } } }, orderBy: { firstName: 'asc' } });
+    const workbook = await createManagedUsersWorkbook('leaders', rows.map((row) => ({ ...row, active: !!row.leaderSlug, supportersCount: row._count.supporters, coordinatorName: row.coordinator ? `${row.coordinator.firstName} ${row.coordinator.lastName}` : null })));
+    return reply.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').header('Content-Disposition', 'attachment; filename="lideres.xlsx"').send(workbook);
+  });
+
+  fastify.get('/coordinators/export', { preHandler: [fastify.authenticate, fastify.authorize(Role.ADMIN)] }, async (request, reply) => {
+    const campaignId = request.user.campaignId;
+    const rows = await prisma.user.findMany({ where: { role: Role.COORDINATOR, campaignId }, include: { _count: { select: { leaders: { where: { campaignId } } } } }, orderBy: { firstName: 'asc' } });
+    const exported = await Promise.all(rows.map(async (row) => ({ ...row, active: row.status !== SupporterStatus.INVALID, leadersCount: row._count.leaders, supportersCount: await prisma.user.count({ where: { role: Role.USER, campaignId, OR: [{ coordinatorId: row.id }, { leader: { coordinatorId: row.id } }] } }) })));
+    const workbook = await createManagedUsersWorkbook('coordinators', exported);
+    return reply.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').header('Content-Disposition', 'attachment; filename="coordenadores.xlsx"').send(workbook);
+  });
 
   fastify.delete<{ Params: { id: string } }>(
     '/supporters/:id',
